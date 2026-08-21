@@ -8,6 +8,7 @@ import {
 } from './lib/workspace.js'
 import { renderPreview } from './lib/renderer.js'
 import { registerPreviewRoutes, rememberPreview } from './lib/preview-api.js'
+import { resumeQualityCheck } from './lib/quality.js'
 
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer']
@@ -104,24 +105,9 @@ export function apply(ctx) {
       const root = resolveJobhuntRoot(exec, args.rootDir)
       const resumePath = args.resumePath || 'resume.md'
       const { content } = await readJobhuntFile(root, resumePath)
-      const lines = content.replace(/\r\n/g, '\n').split('\n')
-      const bullets = lines.filter((line) => /^\s*[-*]\s+/.test(line))
-      const longBullets = bullets.filter((line) => line.replace(/^\s*[-*]\s+/, '').length > 110)
-      const sections = lines.filter((line) => /^##\s+/.test(line)).length
-      const warnings = []
-      if (!/^\s*#\s+\S+/m.test(content)) warnings.push('缺少姓名一级标题')
-      if (sections === 0) warnings.push('没有用二级标题划分简历模块')
-      if (longBullets.length) warnings.push(`${longBullets.length} 条项目要点偏长，可能影响一页排版`)
-      if (!/(邮箱|email|@)/i.test(content)) warnings.push('未发现邮箱信息')
-      if (!/(电话|手机|tel|1[3-9]\d{9})/i.test(content)) warnings.push('未发现联系电话')
       return {
+        ...resumeQualityCheck(content),
         resumePath,
-        target: '校园求职优先一页 A4',
-        sections,
-        bullets: bullets.length,
-        longBullets: longBullets.length,
-        warnings,
-        next: warnings.length ? '先补充证据或精简内容，再调用 jobhunt_render 查看实际页数。' : '结构检查通过，调用 jobhunt_render 进行视觉和页数检查。',
       }
     },
   }))

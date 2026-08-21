@@ -331,6 +331,12 @@ window.__ModuleLoader__.load({
 .cj-guide p { margin: 7px 0 16px; color: #7b8496; font-size: 12px; line-height: 19px; }
 .cj-guideRow { display: flex; gap: 10px; padding: 11px 0; border-top: 1px solid #edf0f4; color: #59667d; font-size: 12px; line-height: 18px; }
 .cj-guideNo { color: #9aabc9; font-weight: 800; }
+.cj-qualityStatus { display: inline-grid; place-items: center; width: 19px; height: 19px; flex: 0 0 auto; border-radius: 50%; background: #eef1f5; color: #7b8496; font-size: 11px; font-weight: 800; }
+.cj-quality-pass { background: #e4f5ed; color: #15803d; }
+.cj-quality-warn { background: #fff2d8; color: #a16207; }
+.cj-quality-error { background: #fde8e8; color: #b91c1c; }
+.cj-qualityStatus + span { display: flex; flex-direction: column; gap: 3px; }
+.cj-qualityStatus + span small { color: #8b95a7; font-size: 11px; }
 @media (max-width: 720px) {
   .cj-panel, .cj-panel[data-wide="true"] { left: 12px; bottom: 12px; width: calc(100vw - 24px); height: calc(100vh - 24px); }
   .cj-header, .cj-body { padding-left: 14px; padding-right: 14px; }
@@ -383,6 +389,33 @@ window.__ModuleLoader__.load({
       return { status, error, loading, reload }
     }
 
+    function useQuality(previewPath, refreshKey) {
+      const [quality, setQuality] = useState(null)
+      const [qualityLoading, setQualityLoading] = useState(false)
+      const reload = useCallback(async () => {
+        if (!previewPath) {
+          setQuality(null)
+          return
+        }
+        setQualityLoading(true)
+        try {
+          const res = await fetch(`/dsh-resume/api/check?preview=${encodeURIComponent(previewPath)}&t=${refreshKey}`, { cache: 'no-store' })
+          if (!res.ok) throw new Error(`check ${res.status}`)
+          setQuality(await res.json())
+        } catch {
+          setQuality(null)
+        } finally {
+          setQualityLoading(false)
+        }
+      }, [previewPath, refreshKey])
+
+      useEffect(() => {
+        void reload()
+      }, [reload])
+
+      return { quality, qualityLoading }
+    }
+
     function PreviewWorkbench({ compact }) {
       ensureCss()
       const [tick, setTick] = useState(0)
@@ -390,6 +423,7 @@ window.__ModuleLoader__.load({
       const [selected, setSelected] = useState('')
       const [fitState, setFitState] = useState({ text: '等待排版信息', state: 'pending' })
       const [view, setView] = useState('preview')
+      const { quality, qualityLoading } = useQuality(selected, tick)
 
       useEffect(() => {
         if (!selected && status?.previewRel) setSelected(status.previewRel)
@@ -450,7 +484,7 @@ window.__ModuleLoader__.load({
       const previewOptions = status?.previews?.length
         ? status.previews.map((p) => React.createElement('option', { key: p, value: p }, p))
         : [React.createElement('option', { key: 'empty', value: '' }, loading ? '加载中…' : '暂无 preview.html')]
-      const fitLabel = fitState.state === 'overflow' ? '需要调整' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '适合投递' : '检查中'
+      const fitLabel = fitState.state === 'overflow' ? '版式需调整' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '一页通过' : '检查中'
       const navItems = [
         ['preview', '▣', '预览'],
         ['files', '≡', '投递版本'],
@@ -507,13 +541,11 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'cj-guide' },
           React.createElement('h3', null, '一页简历检查清单'),
-          React.createElement('p', null, '内容不足时补充真实证据，内容过多时先删重复信息，不用用极小字号硬塞。'),
-          ...[
-            ['01', '真实性', '没有经历就留空或记录缺口，不让 Agent 猜测。'],
-            ['02', '匹配度', '根据目标 JD 调整项目顺序和关键词，但不改变事实。'],
-            ['03', '可读性', '优先保证标题、项目和量化结果在一眼扫描中清楚。'],
-            ['04', '页数', '校园求职优先控制为 1 页，超出时先压缩内容和间距。'],
-          ].map(([no, title, copy]) => React.createElement('div', { className: 'cj-guideRow', key: no }, React.createElement('span', { className: 'cj-guideNo' }, no), React.createElement('span', null, React.createElement('strong', null, title), '　', copy))),
+          React.createElement('p', null, qualityLoading ? '正在读取当前投递版并检查…' : quality ? `当前评分 ${quality.score}/100。${quality.next}` : '内容不足时补充真实证据，内容过多时先删重复信息，不用用极小字号硬塞。'),
+          ...(quality?.checks || [
+            { id: 'identity', status: 'info', message: '等待选择投递版后开始检查' },
+            { id: 'evidence', status: 'info', message: '检查会在本地完成，不上传简历内容' },
+          ]).map((item, index) => React.createElement('div', { className: 'cj-guideRow', key: item.id }, React.createElement('span', { className: `cj-qualityStatus cj-quality-${item.status}` }, item.status === 'pass' ? '✓' : item.status === 'error' ? '!' : item.status === 'warn' ? '!' : '·'), React.createElement('span', null, React.createElement('strong', null, String(index + 1).padStart(2, '0') + '　' + item.message), item.detail ? React.createElement('small', null, item.detail) : null))),
         ),
       )
 
@@ -526,7 +558,7 @@ window.__ModuleLoader__.load({
           { className: 'cj-workbenchBody' },
           React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, 'Agent 负责改稿与排版。\n你负责最终确认。')),
           React.createElement('main', { className: 'cj-main' }, view === 'preview' ? previewView : view === 'files' ? filesView : guideView),
-          React.createElement('aside', { className: 'cj-inspector' }, React.createElement('div', { className: 'cj-inspectorTitle' }, '当前状态'), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '版式结果'), React.createElement('div', { className: 'cj-fitLarge', 'data-state': fitState.state }, fitLabel), React.createElement('div', { className: 'cj-cardCopy' }, fitState.text)), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '工作区'), React.createElement('div', { className: 'cj-cardCopy' }, status?.root || '等待工作区初始化')), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '投递前确认'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '内容来自你的真实经历'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '已检查页面数量'))),
+          React.createElement('aside', { className: 'cj-inspector' }, React.createElement('div', { className: 'cj-inspectorTitle' }, '当前状态'), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '版式结果'), React.createElement('div', { className: 'cj-fitLarge', 'data-state': fitState.state }, fitLabel), React.createElement('div', { className: 'cj-cardCopy' }, fitState.text)), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '内容检查'), React.createElement('div', { className: 'cj-fitLarge', 'data-state': quality?.passed ? 'fit' : quality ? 'overflow' : 'pending' }, quality ? `${quality.score}/100` : '检查中'), React.createElement('div', { className: 'cj-cardCopy' }, quality ? `${quality.warnings.length} 项提醒` : '切换到排版检查查看结果')), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '工作区'), React.createElement('div', { className: 'cj-cardCopy' }, status?.root || '等待工作区初始化')), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '投递前确认'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '内容来自你的真实经历'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '已检查页面数量'))),
         ),
       )
     }
