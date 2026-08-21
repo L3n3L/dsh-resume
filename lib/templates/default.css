@@ -132,6 +132,7 @@ a { color: var(--accent); text-decoration: none; }
 
 .resume-fit-indicator[data-state="overflow"] { background: #b42318; }
 .resume-fit-indicator[data-state="fit"] { background: #067647; }
+.resume-fit-indicator[data-state="sparse"] { background: #a15c00; }
 
 @media (max-width: 820px) {
   .resume-document { padding: 0; }

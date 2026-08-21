@@ -328,6 +328,7 @@ window.__ModuleLoader__.load({
 .cj-fitLarge { margin-top: 8px; color: #15803d; font-size: 18px; font-weight: 800; }
 .cj-fitLarge[data-state="overflow"] { color: #b91c1c; }
 .cj-fitLarge[data-state="multi"] { color: #1d4ed8; }
+.cj-fitLarge[data-state="sparse"] { color: #a16207; }
 .cj-check { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: #66738a; font-size: 11px; }
 .cj-checkDot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #22a06b; }
 .cj-fileList { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
@@ -444,8 +445,14 @@ window.__ModuleLoader__.load({
           setLayout(metrics)
           if (metrics) {
             setFitState({
-              text: metrics.overflow ? `内容超出页面：${metrics.pageCount} 页` : `排版完成：${metrics.pageCount} 页`,
-              state: metrics.overflow ? 'overflow' : metrics.pageCount === 1 ? 'fit' : 'multi',
+              text: metrics.overflow
+                ? `内容超出页面：${metrics.pageCount} 页`
+                : metrics.sparse
+                  ? `一页但留白偏多：约 ${Math.round((metrics.pages?.[0]?.blankRatio || 0) * 100)}% 空白`
+                  : metrics.pageCount === 1
+                    ? '一页通过：版面密度合适'
+                    : `排版完成：${metrics.pageCount} 页`,
+              state: metrics.overflow ? 'overflow' : metrics.sparse ? 'sparse' : metrics.pageCount === 1 ? 'fit' : 'multi',
             })
           }
         }
@@ -538,8 +545,8 @@ window.__ModuleLoader__.load({
       const previewOptions = status?.previews?.length
         ? status.previews.map((p) => React.createElement('option', { key: p, value: p }, p))
         : [React.createElement('option', { key: 'empty', value: '' }, loading ? '加载中…' : '暂无 preview.html')]
-      const fitLabel = fitState.state === 'overflow' ? '版式需调整' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '一页通过' : '检查中'
-      const pageSummary = layout?.pageCount ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : ''}` : '正在测量'
+      const fitLabel = fitState.state === 'overflow' ? '版式需调整' : fitState.state === 'sparse' ? '一页但偏空' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '一页通过' : '检查中'
+      const pageSummary = layout?.pageCount ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : layout.sparse ? ` · 留白 ${Math.round((layout.pages?.[0]?.blankRatio || 0) * 100)}%` : ''}` : '正在测量'
       const navItems = [
         ['preview', '▣', '预览'],
         ['files', '≡', '投递版本'],
