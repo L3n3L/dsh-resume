@@ -481,6 +481,7 @@ window.__ModuleLoader__.load({
       const [fitState, setFitState] = useState({ text: '等待排版信息', state: 'pending' })
       const [view, setView] = useState('start')
       const [startupMessage, setStartupMessage] = useState('')
+      const [hasResolvedInitialView, setHasResolvedInitialView] = useState(false)
       const [layout, setLayout] = useState(null)
       const [layoutSettings, setLayoutSettings] = useState({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
       const [layoutHistory, setLayoutHistory] = useState([])
@@ -542,8 +543,10 @@ window.__ModuleLoader__.load({
       }, [status, selected])
 
       useEffect(() => {
-        if (view === 'start' && (status?.previewRel || status?.previews?.length)) setView('preview')
-      }, [status, view])
+        if (!status || hasResolvedInitialView) return
+        setView(status.previewRel || status.previews?.length ? 'preview' : 'start')
+        setHasResolvedInitialView(true)
+      }, [status, hasResolvedInitialView])
 
       const previewSrc = useMemo(() => {
         if (!selected) return null
