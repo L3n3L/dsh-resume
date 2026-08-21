@@ -34,7 +34,7 @@ html, body {
   padding: 24px 12px;
 }
 
-.resume-pages {
+.dsh-resume-pages {
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -42,7 +42,7 @@ html, body {
   width: 100%;
 }
 
-.resume-sheet {
+.dsh-resume-page {
   width: var(--page-width);
   height: var(--page-height);
   flex: 0 0 var(--page-height);
@@ -52,7 +52,7 @@ html, body {
   position: relative;
 }
 
-.resume-sheet-content {
+.dsh-resume-page-content {
   height: 100%;
   overflow: hidden;
   padding: var(--resume-page-margin) var(--resume-page-margin);
@@ -76,12 +76,12 @@ html, body {
   font-size: 14px;
 }
 
-.resume-module {
+.dsh-resume-section {
   margin: 0 0 var(--resume-section-gap);
   break-inside: avoid;
 }
 
-.resume-module > h2 {
+.dsh-resume-section > h2 {
   margin: 0 0 10px;
   font-size: 16px;
   color: var(--accent);
@@ -116,7 +116,7 @@ a { color: var(--accent); text-decoration: none; }
   padding-top: 10px;
 }
 
-.resume-fit-indicator {
+.dsh-resume-layout-status {
   position: fixed;
   right: 16px;
   bottom: 16px;
@@ -130,28 +130,28 @@ a { color: var(--accent); text-decoration: none; }
   box-shadow: 0 4px 14px rgba(15, 23, 42, .16);
 }
 
-.resume-fit-indicator[data-state="overflow"] { background: #b42318; }
-.resume-fit-indicator[data-state="fit"] { background: #067647; }
-.resume-fit-indicator[data-state="sparse"] { background: #a15c00; }
+.dsh-resume-layout-status[data-state="overflow"] { background: #b42318; }
+.dsh-resume-layout-status[data-state="fit"] { background: #067647; }
+.dsh-resume-layout-status[data-state="sparse"] { background: #a15c00; }
 
 @media (max-width: 820px) {
   .resume-document { padding: 0; }
-  .resume-pages { gap: 10px; }
-  .resume-sheet { transform-origin: top center; }
+  .dsh-resume-pages { gap: 10px; }
+  .dsh-resume-page { transform-origin: top center; }
 }
 
 @media print {
   @page { size: A4 portrait; margin: 0; }
   html, body { background: #fff !important; }
   .resume-document { padding: 0 !important; }
-  .resume-pages { display: block !important; }
-  .resume-sheet {
+  .dsh-resume-pages { display: block !important; }
+  .dsh-resume-page {
     margin: 0 !important;
     box-shadow: none !important;
     page-break-after: always;
     break-after: page;
   }
-  .resume-sheet:last-child { page-break-after: auto; break-after: auto; }
+  .dsh-resume-page:last-child { page-break-after: auto; break-after: auto; }
   .meta { display: none !important; }
-  .resume-fit-indicator { display: none !important; }
+  .dsh-resume-layout-status { display: none !important; }
 }

@@ -546,7 +546,7 @@ window.__ModuleLoader__.load({
         if (!previewSrc) return
         const res = await fetch(previewSrc, { cache: 'no-store' })
         const html = await res.text()
-        const exportStyle = `<style data-dsh-resume-export>body{line-height:${layoutSettings.lineHeight} !important}.resume-sheet-content{padding:${layoutSettings.pageMargin}px !important}.resume-module{margin-bottom:${layoutSettings.sectionGap}px !important}p,li{font-size:${layoutSettings.fontSize}px !important}</style>`
+        const exportStyle = `<style data-dsh-resume-export>body{line-height:${layoutSettings.lineHeight} !important}.dsh-resume-page-content{padding:${layoutSettings.pageMargin}px !important}.dsh-resume-section{margin-bottom:${layoutSettings.sectionGap}px !important}p,li{font-size:${layoutSettings.fontSize}px !important}</style>`
         const exportedHtml = html.replace('</head>', `${exportStyle}</head>`)
         const blob = new Blob([exportedHtml], { type: 'text/html;charset=utf-8' })
         const url = URL.createObjectURL(blob)
@@ -577,7 +577,7 @@ window.__ModuleLoader__.load({
       const onFrameLoad = (event) => {
         try {
           event.currentTarget.contentWindow?.scrollTo(0, 0)
-          const indicator = event.currentTarget.contentDocument?.querySelector('.resume-fit-indicator')
+          const indicator = event.currentTarget.contentDocument?.querySelector('.dsh-resume-layout-status')
           if (indicator) setFitState({ text: indicator.textContent || '已完成排版', state: indicator.dataset.state || 'multi' })
         } catch {
           setFitState({ text: '已加载预览', state: 'pending' })
