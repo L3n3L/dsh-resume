@@ -277,8 +277,10 @@ window.__ModuleLoader__.load({
 .cj-ghostAction:hover { background: #edf0f5; color: #14213d; }
 .cj-solidAction { background: #14213d; color: #fff; }
 .cj-solidAction:hover { background: #23375f; }
-.cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 218px; }
+.cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 218px; overflow: hidden; }
 .cj-nav {
+  min-height: 0;
+  overflow-y: auto;
   padding: 16px 10px;
   border-right: 1px solid rgba(15,23,42,.08);
   background: #f1f3f7;
@@ -302,12 +304,13 @@ window.__ModuleLoader__.load({
 .cj-navItem[data-active="true"] { background: #fff; color: #14213d; font-weight: 700; box-shadow: 0 2px 7px rgba(15,23,42,.07); }
 .cj-navIcon { width: 18px; text-align: center; font-size: 14px; }
 .cj-navFoot { margin-top: 18px; padding: 12px 10px 0; border-top: 1px solid rgba(15,23,42,.07); color: #99a2b3; font-size: 11px; line-height: 17px; }
-.cj-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 16px; gap: 11px; }
+.cj-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; padding: 16px; gap: 11px; }
 .cj-mainBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
 .cj-mainHeading { font-size: 13px; font-weight: 700; color: #26334d; }
 .cj-mainHint { margin-top: 2px; color: #8b95a7; font-size: 11px; }
 .cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
 .cj-templateGallery { display: flex; gap: 8px; min-height: 104px; overflow-x: auto; padding: 1px 1px 4px; }
+.cj-templateGallery[data-library="true"] { flex-wrap: wrap; align-content: flex-start; min-height: 0; overflow: visible; }
 .cj-templateCard { all: unset; box-sizing: border-box; flex: 0 0 116px; cursor: pointer; padding: 5px; border: 1px solid #e1e6ee; border-radius: 10px; background: #fff; }
 .cj-templateCard:hover { border-color: #9db5e8; box-shadow: 0 3px 12px rgba(45,80,150,.08); }
 .cj-templateCard[data-active="true"] { border-color: #3559a8; box-shadow: 0 0 0 2px rgba(53,89,168,.12); }
@@ -330,7 +333,7 @@ window.__ModuleLoader__.load({
 .cj-canvas { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .cj-canvas .cj-frame { min-height: 0 !important; flex: 1; border-radius: 12px; }
 .cj-frame iframe { background: #eef1f5; }
-.cj-inspector { min-width: 0; padding: 16px 13px; border-left: 1px solid rgba(15,23,42,.08); background: #fff; }
+.cj-inspector { min-width: 0; min-height: 0; overflow-y: auto; padding: 16px 13px; border-left: 1px solid rgba(15,23,42,.08); background: #fff; }
 .cj-inspectorTitle { color: #9aa3b3; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
 .cj-inspectorCard { margin-top: 10px; padding: 12px; border: 1px solid #e4e8ef; border-radius: 11px; background: #fafbfc; }
 .cj-inspectorCard + .cj-inspectorCard { margin-top: 9px; }
@@ -591,8 +594,27 @@ window.__ModuleLoader__.load({
       const navItems = [
         ['preview', '▣', '预览'],
         ['files', '≡', '投递版本'],
+        ['templates', '▤', '模板库'],
         ['guide', '✓', '排版检查'],
       ]
+      const templateGallery = React.createElement(
+        'div',
+        { className: 'cj-templateGallery', 'data-library': 'true', 'aria-label': '视觉模板' },
+        ...templateOptions.map((template) => React.createElement(
+          'button',
+          { key: template.id, type: 'button', className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', onClick: () => { onTemplateChange(template.id); setView('preview') }, 'aria-label': `使用模板：${template.name}` },
+          React.createElement(
+            'div',
+            { className: `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}` },
+            React.createElement('div', { className: 'cj-thumbTop' }),
+            React.createElement('div', { className: 'cj-thumbRule' }),
+            React.createElement('div', { className: 'cj-thumbSection' }),
+            React.createElement('div', { className: 'cj-thumbLines' }),
+          ),
+          React.createElement('div', { className: 'cj-templateName' }, template.name),
+          React.createElement('div', { className: 'cj-templateTags' }, (template.tags || []).slice(0, 2).join(' · ')),
+        )),
+      )
       const previewView = React.createElement(
         React.Fragment,
         null,
@@ -610,24 +632,6 @@ window.__ModuleLoader__.load({
             { className: 'cj-fileSelect', value: selected, onChange: (e) => setSelected(e.target.value) },
             ...previewOptions,
           ),
-        ),
-        React.createElement(
-          'div',
-          { className: 'cj-templateGallery', 'aria-label': '视觉模板' },
-          ...templateOptions.map((template) => React.createElement(
-            'button',
-            { key: template.id, type: 'button', className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', onClick: () => onTemplateChange(template.id), 'aria-label': `使用模板：${template.name}` },
-            React.createElement(
-              'div',
-              { className: `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}` },
-              React.createElement('div', { className: 'cj-thumbTop' }),
-              React.createElement('div', { className: 'cj-thumbRule' }),
-              React.createElement('div', { className: 'cj-thumbSection' }),
-              React.createElement('div', { className: 'cj-thumbLines' }),
-            ),
-            React.createElement('div', { className: 'cj-templateName' }, template.name),
-            React.createElement('div', { className: 'cj-templateTags' }, (template.tags || []).slice(0, 2).join(' · ')),
-          )),
         ),
         error ? React.createElement('div', { className: 'cj-error' }, error) : null,
         React.createElement(
@@ -653,6 +657,12 @@ window.__ModuleLoader__.load({
             ? status.previews.map((p) => React.createElement('button', { key: p, type: 'button', className: 'cj-fileItem', 'data-active': selected === p ? 'true' : 'false', onClick: () => { setSelected(p); setView('preview') } }, React.createElement('div', { className: 'cj-fileItemName' }, p), React.createElement('div', { className: 'cj-fileItemMeta' }, '可预览 · 点击打开')))
             : [React.createElement('div', { className: 'cj-empty', key: 'empty' }, '还没有投递版预览')]),
         ),
+      )
+      const templatesView = React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板库'), React.createElement('div', { className: 'cj-mainHint' }, '先选视觉基线，再回到预览区调节密度和页边距。'))),
+        React.createElement('div', { className: 'cj-guide' }, React.createElement('h3', null, '选择一个视觉方向'), React.createElement('p', null, '模板只改变字体、颜色、层级和间距，不会覆盖你的简历正文。点击卡片后会立即回到 A4 预览。'), templateGallery),
       )
       const guideView = React.createElement(
         React.Fragment,
@@ -736,7 +746,7 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'cj-workbenchBody' },
           React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, 'Agent 负责改稿与排版。\n你负责最终确认。')),
-          React.createElement('main', { className: 'cj-main' }, view === 'preview' ? previewView : view === 'files' ? filesView : guideView),
+          React.createElement('main', { className: 'cj-main' }, view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : guideView),
           inspectorView,
         ),
       )
