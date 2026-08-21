@@ -1,0 +1,97 @@
+/* dsh-resume default resume template — independent implementation */
+:root {
+  --text: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #2563eb;
+  --bg: #ffffff;
+  --page-width: 820px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #f3f4f6;
+  color: var(--text);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.55;
+}
+
+.resume-page {
+  width: var(--page-width);
+  max-width: 100%;
+  margin: 24px auto;
+  background: var(--bg);
+  padding: 40px 48px;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+}
+
+.header-block {
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 14px;
+  margin-bottom: 22px;
+}
+
+.header-block h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: 0.02em;
+}
+
+.header-block p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.resume-module {
+  margin: 0 0 20px;
+}
+
+.resume-module > h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+  text-transform: none;
+}
+
+h3 {
+  margin: 14px 0 6px;
+  font-size: 15px;
+}
+
+p, li {
+  font-size: 14px;
+}
+
+ul {
+  margin: 6px 0 8px 1.2em;
+  padding: 0;
+}
+
+strong { color: #111827; }
+
+a { color: var(--accent); text-decoration: none; }
+
+.meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 28px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+@media print {
+  html, body { background: #fff !important; }
+  .resume-page {
+    margin: 0 !important;
+    box-shadow: none !important;
+    width: auto !important;
+    padding: 0 !important;
+  }
+  .meta { display: none !important; }
+}
