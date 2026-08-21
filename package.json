@@ -19,7 +19,9 @@
     "README.zh.md",
     "DESIGN.zh.md",
     "LICENSE",
-    "package.json"
+    "package.json",
+    "AUTHORS.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "deepseek",
