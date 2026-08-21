@@ -60,7 +60,17 @@ DeepSeek 可以在 `jobhunt/` 里读写这些内容：
 预览太散了。请只改 templates/default.css，收紧间距、统一字号，保持单栏打印友好，然后 jobhunt_render。
 ```
 
-### 6. 生成预览供你验收
+### 6. 选择安全的视觉模板
+
+可以先让 DeepSeek 执行 `jobhunt_template_list`，从原创内置模板中选择视觉基线。模板只改变视觉 Token，不覆盖 `resume.md`；如果要生成新模板，应先用 `jobhunt_template_validate` 校验 JSON，再进入预览。
+
+当前内置：
+
+- `campus-standard`：校招标准
+- `tech-compact`：技术极简
+- `quiet-editorial`：安静编辑
+
+### 7. 生成预览供你验收
 执行 `jobhunt_render` 后，侧边栏「求职简历」能看到最新效果。  
 **最终导出 HTML / PDF 由你来做**，DeepSeek 不替你点导出。
 

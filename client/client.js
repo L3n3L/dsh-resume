@@ -307,6 +307,7 @@ window.__ModuleLoader__.load({
 .cj-mainHeading { font-size: 13px; font-weight: 700; color: #26334d; }
 .cj-mainHint { margin-top: 2px; color: #8b95a7; font-size: 11px; }
 .cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
+.cj-templateSelect { width: 100%; height: 30px; margin-top: 9px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 8px; font-size: 11px; }
 .cj-canvas { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .cj-canvas .cj-frame { min-height: 0 !important; flex: 1; border-radius: 12px; }
 .cj-frame iframe { background: #eef1f5; }
@@ -436,7 +437,20 @@ window.__ModuleLoader__.load({
       const [layout, setLayout] = useState(null)
       const [layoutSettings, setLayoutSettings] = useState({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
       const [layoutHistory, setLayoutHistory] = useState([])
+      const [templates, setTemplates] = useState([])
+      const [templateId, setTemplateId] = useState('campus-standard')
       const { quality, qualityLoading } = useQuality(selected, tick)
+
+      useEffect(() => {
+        let active = true
+        fetch('/dsh-resume/api/templates', { cache: 'no-store' })
+          .then((res) => res.ok ? res.json() : Promise.reject(new Error(`templates ${res.status}`)))
+          .then((data) => {
+            if (active && Array.isArray(data.templates)) setTemplates(data.templates)
+          })
+          .catch(() => {})
+        return () => { active = false }
+      }, [])
 
       useEffect(() => {
         const onLayoutMessage = (event) => {
@@ -467,16 +481,22 @@ window.__ModuleLoader__.load({
 
       const previewSrc = useMemo(() => {
         if (!selected) return null
-        const params = new URLSearchParams({ path: selected, t: String(tick) })
+        const params = new URLSearchParams({ path: selected, t: String(tick), template: templateId })
         for (const [key, value] of Object.entries(layoutSettings)) params.set(key, String(value))
         return `/dsh-resume/preview?${params.toString()}`
-      }, [selected, tick, layoutSettings])
+      }, [selected, tick, layoutSettings, templateId])
 
       const onRefresh = () => {
         setFitState({ text: '正在重新检查', state: 'pending' })
         setLayout(null)
         setTick((n) => n + 1)
         void reload()
+      }
+
+      const onTemplateChange = (value) => {
+        setTemplateId(value)
+        setFitState({ text: '正在应用模板', state: 'pending' })
+        setLayout(null)
       }
 
       const updateLayoutSetting = (key, value) => {
@@ -547,6 +567,7 @@ window.__ModuleLoader__.load({
         : [React.createElement('option', { key: 'empty', value: '' }, loading ? '加载中…' : '暂无 preview.html')]
       const fitLabel = fitState.state === 'overflow' ? '版式需调整' : fitState.state === 'sparse' ? '一页但偏空' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '一页通过' : '检查中'
       const pageSummary = layout?.pageCount ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : layout.sparse ? ` · 留白 ${Math.round((layout.pages?.[0]?.blankRatio || 0) * 100)}%` : ''}` : '正在测量'
+      const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
       const navItems = [
         ['preview', '▣', '预览'],
         ['files', '≡', '投递版本'],
@@ -620,6 +641,14 @@ window.__ModuleLoader__.load({
           React.createElement('div', { className: 'cj-cardTitle' }, '版式结果'),
           React.createElement('div', { className: 'cj-fitLarge', 'data-state': fitState.state }, fitLabel),
           React.createElement('div', { className: 'cj-cardCopy' }, `${fitState.text} · ${pageSummary}`),
+        ),
+        React.createElement(
+          'div',
+          { className: 'cj-controlCard' },
+          React.createElement('div', { className: 'cj-cardTitle' }, '视觉模板'),
+          React.createElement('div', { className: 'cj-cardCopy' }, '先选一个稳定基线，再用下方参数微调。'),
+          React.createElement('select', { className: 'cj-templateSelect', value: templateId, onChange: (event) => onTemplateChange(event.target.value) }, ...templateOptions.map((template) => React.createElement('option', { key: template.id, value: template.id }, template.name))),
+          React.createElement('div', { className: 'cj-cardCopy' }, templateOptions.find((template) => template.id === templateId)?.description || '原创视觉预设'),
         ),
         React.createElement(
           'div',

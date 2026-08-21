@@ -9,6 +9,7 @@ import {
 import { renderPreview } from './lib/renderer.js'
 import { registerPreviewRoutes, rememberPreview } from './lib/preview-api.js'
 import { resumeQualityCheck } from './lib/quality.js'
+import { getTemplatePreset, listTemplatePresets, validateTemplate } from './lib/template-presets.js'
 
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer']
@@ -33,9 +34,10 @@ Workflow:
 3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
-6) optionally adjust templates/default.css, using the preview's page-count/overflow indicator as feedback
-7) jobhunt_render to refresh preview.html, then re-render after any fit adjustment
-8) summarize changes, unresolved evidence gaps, JD match choices, and page status; ask the user to review in Settings → 求职简历 and export themselves`
+6) use jobhunt_template_list to choose a safe visual baseline; do not write arbitrary CSS when a preset can solve the problem
+7) optionally adjust templates/default.css, using the preview's page-count/overflow/blank-space indicator as feedback
+8) jobhunt_render to refresh preview.html, then re-render after any fit adjustment
+9) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
 function textResult() {
   return {
@@ -113,6 +115,35 @@ export function apply(ctx) {
   }))
 
   ctx.tools.register(defineTool({
+    name: 'jobhunt_template_list',
+    description: 'List safe built-in resume visual templates. Templates change layout styling only and do not overwrite resume content.',
+    parameters: {},
+    output: textResult(),
+    async execute() {
+      return { templates: listTemplatePresets() }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_template_validate',
+    description: 'Validate a generated resume template JSON against the safe visual template schema before applying it.',
+    parameters: {
+      templateJson: { type: 'string', required: true, description: 'JSON object containing schemaVersion, layout, typography, spacing, and visual fields.' },
+    },
+    output: textResult(),
+    async execute(args) {
+      let parsed
+      try {
+        parsed = JSON.parse(args.templateJson)
+      } catch {
+        return { valid: false, errors: ['templateJson must be valid JSON'] }
+      }
+      const result = validateTemplate(parsed)
+      return { valid: result.valid, errors: result.errors, template: result.value }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'jobhunt_write',
     description: 'Write a text file relative to jobhunt/. Allowed extensions: md, css, txt. Prefer company resume versions over master resume.',
     parameters: {
@@ -133,6 +164,7 @@ export function apply(ctx) {
     parameters: {
       resumePath: { type: 'string', description: 'Resume md relative to jobhunt/. Default: resume.md' },
       templateCssPath: { type: 'string', description: 'Template css relative to jobhunt/. Default: templates/default.css' },
+      templateId: { type: 'string', description: 'Optional safe built-in visual template id, e.g. campus-standard or tech-compact.' },
       outPath: { type: 'string', description: 'Output html relative to jobhunt/. Default: sibling preview.html' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
@@ -143,6 +175,7 @@ export function apply(ctx) {
         resumePath: args.resumePath,
         templateCssPath: args.templateCssPath,
         outPath: args.outPath,
+        templateSpec: args.templateId ? getTemplatePreset(args.templateId) : undefined,
       })
       rememberPreview(root, rendered.previewPath)
       return {
