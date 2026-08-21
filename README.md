@@ -1,6 +1,8 @@
 # dsh-resume
 
-Campus job resume workbench for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
+Markdown campus resume workbench for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
+
+The agent edits resumes and CSS templates under jobhunt/; the user previews and exports from the sidebar.
 
 DeepSeek edits Markdown resumes and CSS templates.
 You preview in the UI and export yourself.
