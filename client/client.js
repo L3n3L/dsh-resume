@@ -277,7 +277,7 @@ window.__ModuleLoader__.load({
 .cj-ghostAction:hover { background: #edf0f5; color: #14213d; }
 .cj-solidAction { background: #14213d; color: #fff; }
 .cj-solidAction:hover { background: #23375f; }
-.cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 180px; }
+.cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 218px; }
 .cj-nav {
   padding: 16px 10px;
   border-right: 1px solid rgba(15,23,42,.08);
@@ -316,6 +316,15 @@ window.__ModuleLoader__.load({
 .cj-inspectorCard + .cj-inspectorCard { margin-top: 9px; }
 .cj-cardTitle { color: #26334d; font-size: 12px; font-weight: 700; }
 .cj-cardCopy { margin-top: 5px; color: #7b8496; font-size: 11px; line-height: 17px; }
+.cj-controlCard { margin-top: 10px; padding: 12px; border: 1px solid #e4e8ef; border-radius: 11px; background: #fff; }
+.cj-controlCard .cj-cardCopy { margin-bottom: 10px; }
+.cj-controlRow { margin-top: 10px; }
+.cj-controlRow:first-of-type { margin-top: 0; }
+.cj-controlMeta { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #59667d; font-size: 11px; }
+.cj-controlValue { color: #26334d; font-variant-numeric: tabular-nums; }
+.cj-range { display: block; width: 100%; height: 16px; margin: 4px 0 0; accent-color: #3559a8; }
+.cj-controlActions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.cj-controlActions .cj-ghostAction { width: 100%; text-align: center; }
 .cj-fitLarge { margin-top: 8px; color: #15803d; font-size: 18px; font-weight: 800; }
 .cj-fitLarge[data-state="overflow"] { color: #b91c1c; }
 .cj-fitLarge[data-state="multi"] { color: #1d4ed8; }
@@ -423,7 +432,26 @@ window.__ModuleLoader__.load({
       const [selected, setSelected] = useState('')
       const [fitState, setFitState] = useState({ text: '等待排版信息', state: 'pending' })
       const [view, setView] = useState('preview')
+      const [layout, setLayout] = useState(null)
+      const [layoutSettings, setLayoutSettings] = useState({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
+      const [layoutHistory, setLayoutHistory] = useState([])
       const { quality, qualityLoading } = useQuality(selected, tick)
+
+      useEffect(() => {
+        const onLayoutMessage = (event) => {
+          if (event.data?.source !== 'dsh-resume-preview') return
+          const metrics = event.data.metrics || null
+          setLayout(metrics)
+          if (metrics) {
+            setFitState({
+              text: metrics.overflow ? `内容超出页面：${metrics.pageCount} 页` : `排版完成：${metrics.pageCount} 页`,
+              state: metrics.overflow ? 'overflow' : metrics.pageCount === 1 ? 'fit' : 'multi',
+            })
+          }
+        }
+        window.addEventListener('message', onLayoutMessage)
+        return () => window.removeEventListener('message', onLayoutMessage)
+      }, [])
 
       useEffect(() => {
         if (!selected && status?.previewRel) setSelected(status.previewRel)
@@ -432,20 +460,46 @@ window.__ModuleLoader__.load({
 
       const previewSrc = useMemo(() => {
         if (!selected) return null
-        return `/dsh-resume/preview?path=${encodeURIComponent(selected)}&t=${tick}`
-      }, [selected, tick])
+        const params = new URLSearchParams({ path: selected, t: String(tick) })
+        for (const [key, value] of Object.entries(layoutSettings)) params.set(key, String(value))
+        return `/dsh-resume/preview?${params.toString()}`
+      }, [selected, tick, layoutSettings])
 
       const onRefresh = () => {
         setFitState({ text: '正在重新检查', state: 'pending' })
+        setLayout(null)
         setTick((n) => n + 1)
         void reload()
+      }
+
+      const updateLayoutSetting = (key, value) => {
+        setFitState({ text: '正在重新计算', state: 'pending' })
+        setLayout((current) => current ? { ...current, pageCount: null } : current)
+        setLayoutHistory((history) => [...history, layoutSettings].slice(-20))
+        setLayoutSettings((current) => ({ ...current, [key]: value }))
+      }
+
+      const resetLayoutSettings = () => {
+        setFitState({ text: '正在恢复默认', state: 'pending' })
+        setLayoutHistory((history) => [...history, layoutSettings].slice(-20))
+        setLayoutSettings({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
+      }
+
+      const undoLayout = () => {
+        if (!layoutHistory.length) return
+        const previous = layoutHistory[layoutHistory.length - 1]
+        setFitState({ text: '正在撤销调整', state: 'pending' })
+        setLayoutSettings(previous)
+        setLayoutHistory((history) => history.slice(0, -1))
       }
 
       const onDownload = async () => {
         if (!previewSrc) return
         const res = await fetch(previewSrc, { cache: 'no-store' })
         const html = await res.text()
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+        const exportStyle = `<style data-dsh-resume-export>body{line-height:${layoutSettings.lineHeight} !important}.resume-sheet-content{padding:${layoutSettings.pageMargin}px !important}.resume-module{margin-bottom:${layoutSettings.sectionGap}px !important}p,li{font-size:${layoutSettings.fontSize}px !important}</style>`
+        const exportedHtml = html.replace('</head>', `${exportStyle}</head>`)
+        const blob = new Blob([exportedHtml], { type: 'text/html;charset=utf-8' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -485,6 +539,7 @@ window.__ModuleLoader__.load({
         ? status.previews.map((p) => React.createElement('option', { key: p, value: p }, p))
         : [React.createElement('option', { key: 'empty', value: '' }, loading ? '加载中…' : '暂无 preview.html')]
       const fitLabel = fitState.state === 'overflow' ? '版式需调整' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '一页通过' : '检查中'
+      const pageSummary = layout?.pageCount ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : ''}` : '正在测量'
       const navItems = [
         ['preview', '▣', '预览'],
         ['files', '≡', '投递版本'],
@@ -548,17 +603,67 @@ window.__ModuleLoader__.load({
           ]).map((item, index) => React.createElement('div', { className: 'cj-guideRow', key: item.id }, React.createElement('span', { className: `cj-qualityStatus cj-quality-${item.status}` }, item.status === 'pass' ? '✓' : item.status === 'error' ? '!' : item.status === 'warn' ? '!' : '·'), React.createElement('span', null, React.createElement('strong', null, String(index + 1).padStart(2, '0') + '　' + item.message), item.detail ? React.createElement('small', null, item.detail) : null))),
         ),
       )
+      const inspectorView = React.createElement(
+        'aside',
+        { className: 'cj-inspector' },
+        React.createElement('div', { className: 'cj-inspectorTitle' }, '当前状态'),
+        React.createElement(
+          'div',
+          { className: 'cj-inspectorCard' },
+          React.createElement('div', { className: 'cj-cardTitle' }, '版式结果'),
+          React.createElement('div', { className: 'cj-fitLarge', 'data-state': fitState.state }, fitLabel),
+          React.createElement('div', { className: 'cj-cardCopy' }, `${fitState.text} · ${pageSummary}`),
+        ),
+        React.createElement(
+          'div',
+          { className: 'cj-controlCard' },
+          React.createElement('div', { className: 'cj-cardTitle' }, '手动调整'),
+          React.createElement('div', { className: 'cj-cardCopy' }, '只影响当前预览，可随时恢复默认。'),
+          ...[
+            ['fontSize', '字号', (value) => `${value}px`, 11, 18, 0.5],
+            ['lineHeight', '行高', (value) => value.toFixed(2), 1.2, 2, 0.05],
+            ['sectionGap', '模块间距', (value) => `${value}px`, 6, 30, 1],
+            ['pageMargin', '页边距', (value) => `${value}px`, 24, 72, 2],
+          ].map(([key, label, format, min, max, step]) => React.createElement(
+            'label',
+            { className: 'cj-controlRow', key },
+            React.createElement('span', { className: 'cj-controlMeta' }, React.createElement('span', null, label), React.createElement('span', { className: 'cj-controlValue' }, format(layoutSettings[key]))),
+            React.createElement('input', { className: 'cj-range', type: 'range', min, max, step, value: layoutSettings[key], onChange: (event) => updateLayoutSetting(key, Number(event.target.value)) }),
+          )),
+          React.createElement('div', { className: 'cj-controlActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoLayout, disabled: !layoutHistory.length }, '撤销'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: resetLayoutSettings }, '恢复默认')),
+        ),
+        React.createElement(
+          'div',
+          { className: 'cj-inspectorCard' },
+          React.createElement('div', { className: 'cj-cardTitle' }, '内容检查'),
+          React.createElement('div', { className: 'cj-fitLarge', 'data-state': quality?.passed ? 'fit' : quality ? 'overflow' : 'pending' }, quality ? `${quality.score}/100` : '检查中'),
+          React.createElement('div', { className: 'cj-cardCopy' }, quality ? `${quality.warnings.length} 项提醒` : '切换到排版检查查看结果'),
+        ),
+        React.createElement(
+          'div',
+          { className: 'cj-inspectorCard' },
+          React.createElement('div', { className: 'cj-cardTitle' }, '工作区'),
+          React.createElement('div', { className: 'cj-cardCopy' }, status?.root || '等待工作区初始化'),
+        ),
+        React.createElement(
+          'div',
+          { className: 'cj-inspectorCard' },
+          React.createElement('div', { className: 'cj-cardTitle' }, '投递前确认'),
+          React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '内容来自你的真实经历'),
+          React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '已检查页面数量'),
+        ),
+      )
 
       return React.createElement(
         'div',
         { className: 'cj-workbench' },
-        !compact && React.createElement('div', { className: 'cj-workbenchTop' }, React.createElement('div', { className: 'cj-brand' }, React.createElement('div', { className: 'cj-brandIcon' }, '简'), React.createElement('div', null, React.createElement('div', { className: 'cj-brandTitle' }, '投递版简历工作台'), React.createElement('div', { className: 'cj-brandDesc' }, '真实经历 · JD 匹配 · 一页排版'))), React.createElement('div', { className: 'cj-topActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onRefresh }, '重新检查'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: onPrint, disabled: !previewSrc }, '确认并导出'))),
+        !compact && React.createElement('div', { className: 'cj-workbenchTop' }, React.createElement('div', { className: 'cj-brand' }, React.createElement('div', { className: 'cj-brandIcon' }, '简'), React.createElement('div', null, React.createElement('div', { className: 'cj-brandTitle' }, '投递版简历工作台'), React.createElement('div', { className: 'cj-brandDesc' }, '真实经历 · JD 匹配 · 一页排版'))), React.createElement('div', { className: 'cj-topActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onRefresh }, '重新检查'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onDownload, disabled: !previewSrc }, '下载 HTML'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: onPrint, disabled: !previewSrc }, '确认并导出'))),
         React.createElement(
           'div',
           { className: 'cj-workbenchBody' },
           React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, 'Agent 负责改稿与排版。\n你负责最终确认。')),
           React.createElement('main', { className: 'cj-main' }, view === 'preview' ? previewView : view === 'files' ? filesView : guideView),
-          React.createElement('aside', { className: 'cj-inspector' }, React.createElement('div', { className: 'cj-inspectorTitle' }, '当前状态'), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '版式结果'), React.createElement('div', { className: 'cj-fitLarge', 'data-state': fitState.state }, fitLabel), React.createElement('div', { className: 'cj-cardCopy' }, fitState.text)), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '内容检查'), React.createElement('div', { className: 'cj-fitLarge', 'data-state': quality?.passed ? 'fit' : quality ? 'overflow' : 'pending' }, quality ? `${quality.score}/100` : '检查中'), React.createElement('div', { className: 'cj-cardCopy' }, quality ? `${quality.warnings.length} 项提醒` : '切换到排版检查查看结果')), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '工作区'), React.createElement('div', { className: 'cj-cardCopy' }, status?.root || '等待工作区初始化')), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '投递前确认'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '内容来自你的真实经历'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '已检查页面数量'))),
+          inspectorView,
         ),
       )
     }
