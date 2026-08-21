@@ -5,7 +5,10 @@
   --line: #e5e7eb;
   --accent: #2563eb;
   --bg: #ffffff;
-  --page-width: 820px;
+  --page-width: 794px;
+  --page-height: 1123px;
+  --page-padding-x: 48px;
+  --page-padding-y: 40px;
 }
 
 * { box-sizing: border-box; }
@@ -13,19 +16,42 @@
 html, body {
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
   background: #f3f4f6;
   color: var(--text);
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   line-height: 1.55;
 }
 
-.resume-page {
+.resume-document {
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  padding: 24px 12px;
+}
+
+.resume-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+}
+
+.resume-sheet {
   width: var(--page-width);
-  max-width: 100%;
-  margin: 24px auto;
+  height: var(--page-height);
+  flex: 0 0 var(--page-height);
+  overflow: hidden;
   background: var(--bg);
-  padding: 40px 48px;
   box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+  position: relative;
+}
+
+.resume-sheet-content {
+  height: 100%;
+  overflow: hidden;
+  padding: var(--page-padding-y) var(--page-padding-x);
 }
 
 .header-block {
@@ -48,6 +74,7 @@ html, body {
 
 .resume-module {
   margin: 0 0 20px;
+  break-inside: avoid;
 }
 
 .resume-module > h2 {
@@ -85,13 +112,41 @@ a { color: var(--accent); text-decoration: none; }
   padding-top: 10px;
 }
 
+.resume-fit-indicator {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, .88);
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, .16);
+}
+
+.resume-fit-indicator[data-state="overflow"] { background: #b42318; }
+.resume-fit-indicator[data-state="fit"] { background: #067647; }
+
+@media (max-width: 820px) {
+  .resume-document { padding: 0; }
+  .resume-pages { gap: 10px; }
+  .resume-sheet { transform-origin: top center; }
+}
+
 @media print {
+  @page { size: A4 portrait; margin: 0; }
   html, body { background: #fff !important; }
-  .resume-page {
+  .resume-document { padding: 0 !important; }
+  .resume-pages { display: block !important; }
+  .resume-sheet {
     margin: 0 !important;
     box-shadow: none !important;
-    width: auto !important;
-    padding: 0 !important;
+    page-break-after: always;
+    break-after: page;
   }
+  .resume-sheet:last-child { page-break-after: auto; break-after: auto; }
   .meta { display: none !important; }
+  .resume-fit-indicator { display: none !important; }
 }

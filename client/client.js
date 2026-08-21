@@ -52,16 +52,16 @@ window.__ModuleLoader__.load({
   left: 72px;
   bottom: 20px;
   z-index: 80;
-  width: min(780px, calc(100vw - 96px));
-  height: min(840px, calc(100vh - 40px));
+  width: min(960px, calc(100vw - 96px));
+  height: min(900px, calc(100vh - 40px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 22px;
   border: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22));
   background: var(--dsw-alias-bg-module-platform, #fff);
   color: var(--dsw-alias-label-primary, #111);
-  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.22);
 }
 .cj-panel[data-wide="true"] { left: 268px; }
 .cj-header {
@@ -69,11 +69,11 @@ window.__ModuleLoader__.load({
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px 14px;
+  padding: 20px 22px 16px;
   border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.18));
 }
 .cj-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 24px;
   letter-spacing: -0.01em;
@@ -104,8 +104,8 @@ window.__ModuleLoader__.load({
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px 18px 18px;
+  gap: 12px;
+  padding: 14px 22px 22px;
 }
 .cj-settings {
   display: flex;
@@ -116,7 +116,7 @@ window.__ModuleLoader__.load({
 .cj-toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .cj-selectWrap {
@@ -127,7 +127,7 @@ window.__ModuleLoader__.load({
   appearance: none;
   width: 100%;
   height: 36px;
-  border-radius: 12px;
+  border-radius: 11px;
   border: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22));
   background:
     linear-gradient(45deg, transparent 50%, var(--dsw-alias-label-secondary, #6b7280) 50%) calc(100% - 18px) calc(1em + 2px) / 5px 5px no-repeat,
@@ -148,7 +148,7 @@ window.__ModuleLoader__.load({
   gap: 2px;
   padding: 3px;
   border-radius: 999px;
-  background: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.10));
+  background: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.08));
 }
 .cj-action {
   all: unset;
@@ -177,10 +177,26 @@ window.__ModuleLoader__.load({
   filter: brightness(1.08);
   background: var(--dsw-alias-label-primary, #111);
 }
+.cj-fitBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, .10);
+  color: #15803d;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.cj-fitBadge[data-state="overflow"] { background: rgba(185, 28, 28, .10); color: #b91c1c; }
+.cj-fitBadge[data-state="multi"] { background: rgba(37, 99, 235, .10); color: #1d4ed8; }
 .cj-meta {
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-label-secondary, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cj-error {
   font-size: 12px;
@@ -193,7 +209,8 @@ window.__ModuleLoader__.load({
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.18));
-  background: #f5f6f8;
+  background: #eef1f5;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, .05);
 }
 .cj-frame iframe {
   width: 100%;
@@ -208,6 +225,124 @@ window.__ModuleLoader__.load({
   place-items: center;
   color: var(--dsw-alias-label-secondary, #6b7280);
   font-size: 13px;
+}
+.cj-workbench {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f7f8fb;
+}
+.cj-workbenchTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(15, 23, 42, .08);
+  background: rgba(255,255,255,.86);
+}
+.cj-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.cj-brandIcon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #14213d;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+}
+.cj-brandTitle { font-size: 15px; font-weight: 700; line-height: 20px; }
+.cj-brandDesc { margin-top: 1px; font-size: 11px; color: #7b8496; line-height: 16px; }
+.cj-topActions { display: flex; align-items: center; gap: 8px; }
+.cj-ghostAction, .cj-solidAction {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 32px;
+  white-space: nowrap;
+}
+.cj-ghostAction { color: #536078; }
+.cj-ghostAction:hover { background: #edf0f5; color: #14213d; }
+.cj-solidAction { background: #14213d; color: #fff; }
+.cj-solidAction:hover { background: #23375f; }
+.cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 180px; }
+.cj-nav {
+  padding: 16px 10px;
+  border-right: 1px solid rgba(15,23,42,.08);
+  background: #f1f3f7;
+}
+.cj-navLabel { padding: 0 10px 8px; color: #98a1b2; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.cj-navItem {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: #657087;
+  font-size: 12px;
+}
+.cj-navItem:hover { background: #e7eaf0; color: #14213d; }
+.cj-navItem[data-active="true"] { background: #fff; color: #14213d; font-weight: 700; box-shadow: 0 2px 7px rgba(15,23,42,.07); }
+.cj-navIcon { width: 18px; text-align: center; font-size: 14px; }
+.cj-navFoot { margin-top: 18px; padding: 12px 10px 0; border-top: 1px solid rgba(15,23,42,.07); color: #99a2b3; font-size: 11px; line-height: 17px; }
+.cj-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 16px; gap: 11px; }
+.cj-mainBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
+.cj-mainHeading { font-size: 13px; font-weight: 700; color: #26334d; }
+.cj-mainHint { margin-top: 2px; color: #8b95a7; font-size: 11px; }
+.cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
+.cj-canvas { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.cj-canvas .cj-frame { min-height: 0 !important; flex: 1; border-radius: 12px; }
+.cj-frame iframe { background: #eef1f5; }
+.cj-inspector { min-width: 0; padding: 16px 13px; border-left: 1px solid rgba(15,23,42,.08); background: #fff; }
+.cj-inspectorTitle { color: #9aa3b3; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.cj-inspectorCard { margin-top: 10px; padding: 12px; border: 1px solid #e4e8ef; border-radius: 11px; background: #fafbfc; }
+.cj-inspectorCard + .cj-inspectorCard { margin-top: 9px; }
+.cj-cardTitle { color: #26334d; font-size: 12px; font-weight: 700; }
+.cj-cardCopy { margin-top: 5px; color: #7b8496; font-size: 11px; line-height: 17px; }
+.cj-fitLarge { margin-top: 8px; color: #15803d; font-size: 18px; font-weight: 800; }
+.cj-fitLarge[data-state="overflow"] { color: #b91c1c; }
+.cj-fitLarge[data-state="multi"] { color: #1d4ed8; }
+.cj-check { display: flex; align-items: center; gap: 7px; margin-top: 8px; color: #66738a; font-size: 11px; }
+.cj-checkDot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #22a06b; }
+.cj-fileList { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+.cj-fileItem { all: unset; box-sizing: border-box; cursor: pointer; display: block; padding: 12px; border: 1px solid #e3e7ee; border-radius: 10px; background: #fff; }
+.cj-fileItem:hover, .cj-fileItem[data-active="true"] { border-color: #9db5e8; box-shadow: 0 3px 12px rgba(45,80,150,.08); }
+.cj-fileItemName { color: #26334d; font-size: 12px; font-weight: 700; }
+.cj-fileItemMeta { margin-top: 4px; color: #8a94a6; font-size: 11px; }
+.cj-guide { flex: 1; padding: 20px; overflow: auto; border: 1px solid #e3e7ee; border-radius: 12px; background: #fff; }
+.cj-guide h3 { margin: 0; color: #26334d; font-size: 16px; }
+.cj-guide p { margin: 7px 0 16px; color: #7b8496; font-size: 12px; line-height: 19px; }
+.cj-guideRow { display: flex; gap: 10px; padding: 11px 0; border-top: 1px solid #edf0f4; color: #59667d; font-size: 12px; line-height: 18px; }
+.cj-guideNo { color: #9aabc9; font-weight: 800; }
+@media (max-width: 720px) {
+  .cj-panel, .cj-panel[data-wide="true"] { left: 12px; bottom: 12px; width: calc(100vw - 24px); height: calc(100vh - 24px); }
+  .cj-header, .cj-body { padding-left: 14px; padding-right: 14px; }
+  .cj-selectWrap { min-width: 100%; }
+  .cj-actions { width: 100%; justify-content: space-between; }
+  .cj-action { flex: 1; padding-left: 8px; padding-right: 8px; }
+  .cj-workbenchBody { display: block; overflow: auto; }
+  .cj-nav { display: flex; gap: 4px; overflow-x: auto; border-right: 0; border-bottom: 1px solid rgba(15,23,42,.08); padding: 8px; }
+  .cj-navLabel, .cj-navFoot { display: none; }
+  .cj-navItem { width: auto; padding: 0 12px; white-space: nowrap; }
+  .cj-main { min-height: 560px; }
+  .cj-inspector { border-left: 0; border-top: 1px solid rgba(15,23,42,.08); }
 }
 `
 
@@ -253,6 +388,8 @@ window.__ModuleLoader__.load({
       const [tick, setTick] = useState(0)
       const { status, error, loading, reload } = useStatus(tick)
       const [selected, setSelected] = useState('')
+      const [fitState, setFitState] = useState({ text: '等待排版信息', state: 'pending' })
+      const [view, setView] = useState('preview')
 
       useEffect(() => {
         if (!selected && status?.previewRel) setSelected(status.previewRel)
@@ -265,6 +402,7 @@ window.__ModuleLoader__.load({
       }, [selected, tick])
 
       const onRefresh = () => {
+        setFitState({ text: '正在重新检查', state: 'pending' })
         setTick((n) => n + 1)
         void reload()
       }
@@ -299,67 +437,96 @@ window.__ModuleLoader__.load({
         }, 200)
       }
 
-      return React.createElement(
-        'div',
-        { className: compact ? 'cj-body' : 'cj-settings', style: compact ? { padding: 0 } : undefined },
-        !compact &&
+      const onFrameLoad = (event) => {
+        try {
+          event.currentTarget.contentWindow?.scrollTo(0, 0)
+          const indicator = event.currentTarget.contentDocument?.querySelector('.resume-fit-indicator')
+          if (indicator) setFitState({ text: indicator.textContent || '已完成排版', state: indicator.dataset.state || 'multi' })
+        } catch {
+          setFitState({ text: '已加载预览', state: 'pending' })
+        }
+      }
+
+      const previewOptions = status?.previews?.length
+        ? status.previews.map((p) => React.createElement('option', { key: p, value: p }, p))
+        : [React.createElement('option', { key: 'empty', value: '' }, loading ? '加载中…' : '暂无 preview.html')]
+      const fitLabel = fitState.state === 'overflow' ? '需要调整' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '适合投递' : '检查中'
+      const navItems = [
+        ['preview', '▣', '预览'],
+        ['files', '≡', '投递版本'],
+        ['guide', '✓', '排版检查'],
+      ]
+      const previewView = React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(
+          'div',
+          { className: 'cj-mainBar' },
           React.createElement(
             'div',
             null,
-            React.createElement('div', { className: 'cj-title' }, '求职简历预览'),
-            React.createElement('div', { className: 'cj-subtitle' }, 'Agent 负责改稿与排版，导出由你确认。'),
-          ),
-        React.createElement(
-          'div',
-          { className: 'cj-toolbar' },
-          React.createElement(
-            'div',
-            { className: 'cj-selectWrap' },
-            React.createElement(
-              'select',
-              {
-                className: 'cj-select',
-                value: selected,
-                onChange: (e) => setSelected(e.target.value),
-              },
-              ...(status?.previews?.length
-                ? status.previews.map((p) => React.createElement('option', { key: p, value: p }, p))
-                : [React.createElement('option', { key: 'empty', value: '' }, loading ? '加载中…' : '暂无 preview.html')]),
-            ),
+            React.createElement('div', { className: 'cj-mainHeading' }, '投递版预览'),
+            React.createElement('div', { className: 'cj-mainHint' }, '先确认内容与版式，再导出 PDF'),
           ),
           React.createElement(
-            'div',
-            { className: 'cj-actions' },
-            React.createElement('button', { type: 'button', className: 'cj-action', onClick: onRefresh }, '刷新'),
-            React.createElement(
-              'button',
-              { type: 'button', className: 'cj-action', onClick: onDownload, disabled: !previewSrc },
-              '下载 HTML',
-            ),
-            React.createElement(
-              'button',
-              {
-                type: 'button',
-                className: 'cj-action cj-actionPrimary',
-                onClick: onPrint,
-                disabled: !previewSrc,
-              },
-              '导出 PDF',
-            ),
+            'select',
+            { className: 'cj-fileSelect', value: selected, onChange: (e) => setSelected(e.target.value) },
+            ...previewOptions,
           ),
         ),
         error ? React.createElement('div', { className: 'cj-error' }, error) : null,
         React.createElement(
           'div',
-          { className: 'cj-meta' },
-          status?.root ? `工作区 ${status.root}` : '还没有预览。先让 Agent 执行 jobhunt_render。',
+          { className: 'cj-canvas' },
+          React.createElement(
+            'div',
+            { className: 'cj-frame', style: { minHeight: compact ? 440 : 480 } },
+            previewSrc
+              ? React.createElement('iframe', { title: 'resume-preview', src: previewSrc, onLoad: onFrameLoad })
+              : React.createElement('div', { className: 'cj-empty' }, '等待预览文件'),
+          ),
         ),
+      )
+      const filesView = React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '投递版本'), React.createElement('div', { className: 'cj-mainHint' }, '每个岗位保留一份独立简历，避免覆盖主简历。'))),
         React.createElement(
           'div',
-          { className: 'cj-frame', style: { minHeight: compact ? 440 : 480 } },
-          previewSrc
-            ? React.createElement('iframe', { title: 'resume-preview', src: previewSrc })
-            : React.createElement('div', { className: 'cj-empty' }, '等待预览文件'),
+          { className: 'cj-fileList' },
+          ...(status?.previews?.length
+            ? status.previews.map((p) => React.createElement('button', { key: p, type: 'button', className: 'cj-fileItem', 'data-active': selected === p ? 'true' : 'false', onClick: () => { setSelected(p); setView('preview') } }, React.createElement('div', { className: 'cj-fileItemName' }, p), React.createElement('div', { className: 'cj-fileItemMeta' }, '可预览 · 点击打开')))
+            : [React.createElement('div', { className: 'cj-empty', key: 'empty' }, '还没有投递版预览')]),
+        ),
+      )
+      const guideView = React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '排版检查'), React.createElement('div', { className: 'cj-mainHint' }, '帮助你判断这份简历是否适合直接投递。'))),
+        React.createElement(
+          'div',
+          { className: 'cj-guide' },
+          React.createElement('h3', null, '一页简历检查清单'),
+          React.createElement('p', null, '内容不足时补充真实证据，内容过多时先删重复信息，不用用极小字号硬塞。'),
+          ...[
+            ['01', '真实性', '没有经历就留空或记录缺口，不让 Agent 猜测。'],
+            ['02', '匹配度', '根据目标 JD 调整项目顺序和关键词，但不改变事实。'],
+            ['03', '可读性', '优先保证标题、项目和量化结果在一眼扫描中清楚。'],
+            ['04', '页数', '校园求职优先控制为 1 页，超出时先压缩内容和间距。'],
+          ].map(([no, title, copy]) => React.createElement('div', { className: 'cj-guideRow', key: no }, React.createElement('span', { className: 'cj-guideNo' }, no), React.createElement('span', null, React.createElement('strong', null, title), '　', copy))),
+        ),
+      )
+
+      return React.createElement(
+        'div',
+        { className: 'cj-workbench' },
+        !compact && React.createElement('div', { className: 'cj-workbenchTop' }, React.createElement('div', { className: 'cj-brand' }, React.createElement('div', { className: 'cj-brandIcon' }, '简'), React.createElement('div', null, React.createElement('div', { className: 'cj-brandTitle' }, '投递版简历工作台'), React.createElement('div', { className: 'cj-brandDesc' }, '真实经历 · JD 匹配 · 一页排版'))), React.createElement('div', { className: 'cj-topActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onRefresh }, '重新检查'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: onPrint, disabled: !previewSrc }, '确认并导出'))),
+        React.createElement(
+          'div',
+          { className: 'cj-workbenchBody' },
+          React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, 'Agent 负责改稿与排版。\n你负责最终确认。')),
+          React.createElement('main', { className: 'cj-main' }, view === 'preview' ? previewView : view === 'files' ? filesView : guideView),
+          React.createElement('aside', { className: 'cj-inspector' }, React.createElement('div', { className: 'cj-inspectorTitle' }, '当前状态'), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '版式结果'), React.createElement('div', { className: 'cj-fitLarge', 'data-state': fitState.state }, fitLabel), React.createElement('div', { className: 'cj-cardCopy' }, fitState.text)), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '工作区'), React.createElement('div', { className: 'cj-cardCopy' }, status?.root || '等待工作区初始化')), React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '投递前确认'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '内容来自你的真实经历'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '已检查页面数量'))),
         ),
       )
     }

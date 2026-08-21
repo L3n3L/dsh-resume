@@ -12,7 +12,12 @@ import { registerPreviewRoutes, rememberPreview } from './lib/preview-api.js'
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer']
 
-const PROMPT = `You are the campus job resume officer for this workspace.
+const PROMPT = `You are the campus job application resume workbench for this workspace.
+
+Product promise:
+- Turn the user's real materials into a truthful, JD-targeted, readable投递版简历.
+- Help the user decide what to keep, what evidence is missing, and whether the layout is ready to export.
+- Treat each company/role as an independent version; never silently overwrite the master resume.
 
 Role split (mandatory):
 - You MAY read/write Markdown resumes, story-bank, profile, JD files, and text templates (md/css) under jobhunt/.
@@ -24,10 +29,12 @@ Role split (mandatory):
 Workflow:
 1) jobhunt_init if needed
 2) read profile/resume/story-bank and the target JD
-3) write companies/<name>/jd.md and companies/<name>/resume.md
-4) optionally adjust templates/default.css
-5) jobhunt_render to refresh preview.html
-6) ask the user to review in Settings → 求职简历 and export themselves`
+3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
+4) write companies/<name>/jd.md and companies/<name>/resume.md
+5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
+6) optionally adjust templates/default.css, using the preview's page-count/overflow indicator as feedback
+7) jobhunt_render to refresh preview.html, then re-render after any fit adjustment
+8) summarize changes, unresolved evidence gaps, JD match choices, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
 function textResult() {
   return {
@@ -82,6 +89,40 @@ export function apply(ctx) {
     async execute(args, exec) {
       const root = resolveJobhuntRoot(exec, args.rootDir)
       return await readJobhuntFile(root, args.path)
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_check',
+    description: 'Run a deterministic preflight on a resume draft: section/bullet counts, suspiciously long bullets, and missing high-signal fields. This is a planning check, not a replacement for visual preview.',
+    parameters: {
+      resumePath: { type: 'string', description: 'Resume md relative to jobhunt/. Default: resume.md' },
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+    },
+    output: textResult(),
+    async execute(args, exec) {
+      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const resumePath = args.resumePath || 'resume.md'
+      const { content } = await readJobhuntFile(root, resumePath)
+      const lines = content.replace(/\r\n/g, '\n').split('\n')
+      const bullets = lines.filter((line) => /^\s*[-*]\s+/.test(line))
+      const longBullets = bullets.filter((line) => line.replace(/^\s*[-*]\s+/, '').length > 110)
+      const sections = lines.filter((line) => /^##\s+/.test(line)).length
+      const warnings = []
+      if (!/^\s*#\s+\S+/m.test(content)) warnings.push('缺少姓名一级标题')
+      if (sections === 0) warnings.push('没有用二级标题划分简历模块')
+      if (longBullets.length) warnings.push(`${longBullets.length} 条项目要点偏长，可能影响一页排版`)
+      if (!/(邮箱|email|@)/i.test(content)) warnings.push('未发现邮箱信息')
+      if (!/(电话|手机|tel|1[3-9]\d{9})/i.test(content)) warnings.push('未发现联系电话')
+      return {
+        resumePath,
+        target: '校园求职优先一页 A4',
+        sections,
+        bullets: bullets.length,
+        longBullets: longBullets.length,
+        warnings,
+        next: warnings.length ? '先补充证据或精简内容，再调用 jobhunt_render 查看实际页数。' : '结构检查通过，调用 jobhunt_render 进行视觉和页数检查。',
+      }
     },
   }))
 
