@@ -90,6 +90,28 @@ html, body {
   text-transform: none;
 }
 
+.dsh-module-skill-tags li {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  list-style: none;
+}
+
+.dsh-module-metric-row ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-left: 0;
+  list-style: none;
+}
+
+.dsh-module-timeline {
+  border-left: 2px solid var(--line);
+  padding-left: 14px;
+}
+
 h3 {
   margin: 14px 0 6px;
   font-size: 15px;

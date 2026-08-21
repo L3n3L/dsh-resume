@@ -180,11 +180,12 @@ DeepSeek 的稳定性来自“结构化输出 + 白名单 + 固定渲染 + 测�
 - `lib/template-validator.js`：模板生成后的视觉规则校验；
 - `client/template-workshop.js`：模板卡片和 AI 生成入口。
 
-建议新增工具：
+当前工具：
 
 - `jobhunt_template_list`：列出内置模板和用户模板；
-- `jobhunt_template_generate`：根据风格描述生成模板 JSON；
-- `jobhunt_template_apply`：应用模板到当前预览；
+- `jobhunt_template_save`：保存经过校验的 AI 模板 JSON；
+- `jobhunt_layout_validate`：检查布局侧车文件和扩展模块；
+- `jobhunt_layout_save`：保存 `resume.layout.json`；
 - `jobhunt_template_validate`：检查模板是否适合 A4 投递。
 
 模板应用只保存模板设置和版本，不覆盖 `resume.md`。用户的内容和视觉方案必须可以独立撤销。
@@ -229,17 +230,17 @@ AI 输出模板后先进入预览，不自动覆盖当前版本。
 5. 模板切换不修改简历内容；
 6. 复用现有页数、留白、溢出测量。
 
-### P1：AI 模板生成
+### P1：AI 模板自动调优
 
-1. 增加模板生成工具；
-2. 增加结构化输出和失败重试；
+1. 把模板生成、保存、预览串成工作台流程；
+2. 将渲染测量结果回传给 Agent；
 3. 自动渲染并校正最多 3 轮；
 4. 展示模板生成前后对比；
 5. 保存、撤销和恢复模板版本。
 
 ### P2：模板资产能力
 
-1. 用户保存个人模板；
+1. 用户从模板库复制和重命名个人模板；
 2. 从自然语言继续修改模板；
 3. 从参考截图提取设计原则后生成原创方案；
 4. 模板导入导出；
@@ -267,9 +268,12 @@ AI 输出模板后先进入预览，不自动覆盖当前版本。
 
 ## 13. 当前已接入
 
-- 已实现模板 Schema、范围校验和三套原创内置预设；
-- 已提供 `jobhunt_template_list` 和 `jobhunt_template_validate`；
-- `/dsh-resume/api/templates` 可供工作台读取模板列表；
+- 已实现模板 Schema、范围校验和四套原创内置预设；
+- 已提供 `jobhunt_template_list`、`jobhunt_template_validate` 和 `jobhunt_template_save`；
+- 已支持 `jobhunt/templates/*.json` 自定义模板的读取和预览；
+- 已提供 `jobhunt_layout_validate`、`jobhunt_layout_save` 和 `resume.layout.json`；
+- 已将 `skill-tags`、`project-list`、`metric-row`、`timeline` 接入独立模块样式标识；
+- `/dsh-resume/api/templates` 可供工作台读取内置和自定义模板列表；
 - 工作台已提供带 A4 缩略图的模板卡片，并用不同视觉变体区分模板；
 - 预览 URL 支持 `template` 参数，模板切换不会修改简历正文；
 - 模板 Token 会和现有字号、行高、模块间距、页边距调节叠加；

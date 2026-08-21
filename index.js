@@ -9,7 +9,8 @@ import {
 import { renderPreview } from './lib/renderer.js'
 import { registerPreviewRoutes, rememberPreview } from './lib/preview-api.js'
 import { resumeQualityCheck } from './lib/quality.js'
-import { getTemplatePreset, listTemplatePresets, validateTemplate } from './lib/template-presets.js'
+import { listAvailableTemplates, loadTemplate, saveTemplate, validateTemplate } from './lib/template-presets.js'
+import { validateLayoutSpec } from './lib/layout-schema.js'
 
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer']
@@ -34,10 +35,11 @@ Workflow:
 3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
-6) use jobhunt_template_list to choose a safe visual baseline; do not write arbitrary CSS when a preset can solve the problem
-7) optionally adjust templates/default.css, using the preview's page-count/overflow/blank-space indicator as feedback
-8) jobhunt_render to refresh preview.html, then re-render after any fit adjustment
-9) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
+6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, generate a TemplateSpec JSON and save it with jobhunt_template_save
+7) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md
+8) use the preview's page-count/overflow/blank-space indicator as feedback; prefer TemplateSpec controls over arbitrary CSS
+9) jobhunt_render to refresh preview.html, then re-render after any fit adjustment
+10) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
 function textResult() {
   return {
@@ -116,11 +118,14 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_list',
-    description: 'List safe built-in resume visual templates. Templates change layout styling only and do not overwrite resume content.',
-    parameters: {},
+    description: 'List safe built-in and saved resume visual templates. Templates change layout styling only and do not overwrite resume content.',
+    parameters: {
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+    },
     output: textResult(),
-    async execute() {
-      return { templates: listTemplatePresets() }
+    async execute(args, exec) {
+      const root = resolveJobhuntRoot(exec, args.rootDir)
+      return { templates: await listAvailableTemplates(root) }
     },
   }))
 
@@ -144,8 +149,79 @@ export function apply(ctx) {
   }))
 
   ctx.tools.register(defineTool({
+    name: 'jobhunt_template_save',
+    description: 'Save an AI-generated, validated visual resume template as jobhunt/templates/<id>.json so it appears in the template library.',
+    parameters: {
+      templateJson: { type: 'string', required: true, description: 'Validated TemplateSpec JSON. The id must be lower-kebab-case and must not use a built-in id.' },
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+    },
+    output: textResult(),
+    async execute(args, exec) {
+      let parsed
+      try {
+        parsed = JSON.parse(args.templateJson)
+      } catch {
+        return { saved: false, valid: false, errors: ['templateJson must be valid JSON'] }
+      }
+      const validation = validateTemplate(parsed)
+      if (!validation.valid) return { saved: false, valid: false, errors: validation.errors, template: validation.value }
+      try {
+        const root = resolveJobhuntRoot(exec, args.rootDir)
+        return { saved: true, valid: true, ...(await saveTemplate(root, validation.value)) }
+      } catch (err) {
+        return { saved: false, valid: true, errors: [String(err?.message || err)], template: validation.value }
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_layout_validate',
+    description: 'Validate resume.layout.json structure for extension modules, regions, and content sources.',
+    parameters: {
+      layoutJson: { type: 'string', required: true, description: 'JSON object containing mode, regions, and blocks.' },
+    },
+    output: textResult(),
+    async execute(args) {
+      let parsed
+      try {
+        parsed = JSON.parse(args.layoutJson)
+      } catch {
+        return { valid: false, errors: ['layoutJson must be valid JSON'] }
+      }
+      const result = validateLayoutSpec(parsed)
+      return { valid: result.valid, errors: result.errors, layout: result.value }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_layout_save',
+    description: 'Validate and save resume.layout.json next to a resume so the renderer can apply extension module types and order.',
+    parameters: {
+      layoutJson: { type: 'string', required: true, description: 'JSON object containing mode, regions, and blocks.' },
+      resumePath: { type: 'string', description: 'Resume md relative to jobhunt/. Default: resume.md' },
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+    },
+    output: textResult(),
+    async execute(args, exec) {
+      let parsed
+      try {
+        parsed = JSON.parse(args.layoutJson)
+      } catch {
+        return { saved: false, valid: false, errors: ['layoutJson must be valid JSON'] }
+      }
+      const validation = validateLayoutSpec(parsed)
+      if (!validation.valid) return { saved: false, valid: false, errors: validation.errors, layout: validation.value }
+      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const resumePath = args.resumePath || 'resume.md'
+      const layoutPath = resumePath.replace(/\.md$/i, '.layout.json')
+      const result = await writeJobhuntFile(root, layoutPath, `${JSON.stringify(validation.value, null, 2)}\n`)
+      return { saved: true, valid: true, ...result, layout: validation.value }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'jobhunt_write',
-    description: 'Write a text file relative to jobhunt/. Allowed extensions: md, css, txt. Prefer company resume versions over master resume.',
+    description: 'Write a text file relative to jobhunt/. Allowed extensions: md, css, txt, json. Prefer company resume versions over master resume.',
     parameters: {
       path: { type: 'string', required: true, description: 'Relative path under jobhunt/' },
       content: { type: 'string', required: true, description: 'Full file content to write' },
@@ -175,7 +251,7 @@ export function apply(ctx) {
         resumePath: args.resumePath,
         templateCssPath: args.templateCssPath,
         outPath: args.outPath,
-        templateSpec: args.templateId ? getTemplatePreset(args.templateId) : undefined,
+        templateSpec: args.templateId ? await loadTemplate(root, args.templateId) : undefined,
       })
       rememberPreview(root, rendered.previewPath)
       return {

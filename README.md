@@ -34,6 +34,7 @@ DeepSeek 可以在 `jobhunt/` 里读写这些内容：
 
 - `profile.md`：求职意向、城市、到岗时间
 - `resume.md`：通用底稿
+- `resume.layout.json`：模块顺序、扩展模块和布局声明
 - `story-bank.md`：项目/实习素材（STAR）
 - `notes.md`：缺口、面试反馈、待补材料
 - `companies/<公司-岗位>/jd.md`：岗位描述
@@ -62,7 +63,7 @@ DeepSeek 可以在 `jobhunt/` 里读写这些内容：
 
 ### 6. 选择安全的视觉模板
 
-可以先让 DeepSeek 执行 `jobhunt_template_list`，从原创内置模板中选择视觉基线。模板只改变视觉 Token，不覆盖 `resume.md`；如果要生成新模板，应先用 `jobhunt_template_validate` 校验 JSON，再进入预览。
+可以先让 DeepSeek 执行 `jobhunt_template_list`，从原创内置模板或工作区自定义模板中选择视觉基线。模板只改变视觉 Token，不覆盖 `resume.md`。如果要生成新模板，DeepSeek 会生成 TemplateSpec JSON，先用 `jobhunt_template_validate` 校验，再用 `jobhunt_template_save` 保存并进入预览。
 
 当前内置：
 
@@ -70,6 +71,18 @@ DeepSeek 可以在 `jobhunt/` 里读写这些内容：
 - `tech-compact`：技术极简
 - `quiet-editorial`：安静编辑
 - `mono-terminal`：黑白终端
+
+也可以直接说：
+
+```text
+生成一个适合前端实习投递的黑白高密度一页模板，保留项目成果指标，保存后让我在模板库里预览。
+```
+
+扩展模块不需要写进 Markdown：
+
+```text
+请用 resume.layout.json 把项目经历设为 project-list、技能设为 skill-tags，保留项目成果指标，然后重新渲染。
+```
 
 ### 7. 生成预览供你验收
 执行 `jobhunt_render` 后，侧边栏「求职简历」能看到最新效果。  
