@@ -21,7 +21,8 @@
     "LICENSE",
     "package.json",
     "AUTHORS.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "README.en.md"
   ],
   "keywords": [
     "deepseek",
