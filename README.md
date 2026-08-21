@@ -69,6 +69,7 @@ DeepSeek 可以在 `jobhunt/` 里读写这些内容：
 - `campus-standard`：校招标准
 - `tech-compact`：技术极简
 - `quiet-editorial`：安静编辑
+- `mono-terminal`：黑白终端
 
 ### 7. 生成预览供你验收
 执行 `jobhunt_render` 后，侧边栏「求职简历」能看到最新效果。  

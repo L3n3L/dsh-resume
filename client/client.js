@@ -307,7 +307,26 @@ window.__ModuleLoader__.load({
 .cj-mainHeading { font-size: 13px; font-weight: 700; color: #26334d; }
 .cj-mainHint { margin-top: 2px; color: #8b95a7; font-size: 11px; }
 .cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
-.cj-templateSelect { width: 100%; height: 30px; margin-top: 9px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 8px; font-size: 11px; }
+.cj-templateGallery { display: flex; gap: 8px; min-height: 104px; overflow-x: auto; padding: 1px 1px 4px; }
+.cj-templateCard { all: unset; box-sizing: border-box; flex: 0 0 116px; cursor: pointer; padding: 5px; border: 1px solid #e1e6ee; border-radius: 10px; background: #fff; }
+.cj-templateCard:hover { border-color: #9db5e8; box-shadow: 0 3px 12px rgba(45,80,150,.08); }
+.cj-templateCard[data-active="true"] { border-color: #3559a8; box-shadow: 0 0 0 2px rgba(53,89,168,.12); }
+.cj-templatePaper { position: relative; height: 63px; overflow: hidden; padding: 8px 9px; border: 1px solid #e7eaf0; border-radius: 3px; background: #fff; color: #26334d; }
+.cj-thumbTop { display: flex; align-items: flex-end; gap: 5px; height: 12px; }
+.cj-thumbTop:before { content: ''; display: block; width: 26px; height: 5px; border-radius: 1px; background: currentColor; }
+.cj-thumbTop:after { content: ''; display: block; width: 42px; height: 3px; border-radius: 1px; background: #cbd3df; }
+.cj-thumbRule { height: 2px; margin-top: 5px; background: #3559a8; }
+.cj-thumbSection { width: 42px; height: 4px; margin-top: 8px; background: currentColor; box-shadow: 0 10px 0 #d7dde7, 28px 10px 0 #d7dde7, 0 20px 0 #d7dde7, 34px 20px 0 #d7dde7; }
+.cj-thumbLines { position: absolute; left: 56px; right: 9px; top: 29px; height: 3px; background: #cbd3df; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
+.cj-templatePaper-technical { color: #1f3a5f; border-left: 5px solid #1f3a5f; }
+.cj-templatePaper-technical .cj-thumbRule { background: #1f3a5f; }
+.cj-templatePaper-editorial { color: #0f766e; background: linear-gradient(135deg, #effcf9, #fff 60%); }
+.cj-templatePaper-editorial .cj-thumbRule { height: 7px; background: #0f766e22; }
+.cj-templatePaper-editorial .cj-thumbSection { border-radius: 8px; }
+.cj-templatePaper-terminal { color: #c2410c; background: linear-gradient(90deg, #fff 0, #fff 88%, #f1f5f9 88%); }
+.cj-templatePaper-terminal .cj-thumbRule { background: #c2410c; }
+.cj-templateName { margin-top: 5px; overflow: hidden; color: #26334d; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.cj-templateTags { margin-top: 2px; overflow: hidden; color: #8a94a6; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .cj-canvas { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .cj-canvas .cj-frame { min-height: 0 !important; flex: 1; border-radius: 12px; }
 .cj-frame iframe { background: #eef1f5; }
@@ -568,6 +587,7 @@ window.__ModuleLoader__.load({
       const fitLabel = fitState.state === 'overflow' ? '版式需调整' : fitState.state === 'sparse' ? '一页但偏空' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '一页通过' : '检查中'
       const pageSummary = layout?.pageCount ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : layout.sparse ? ` · 留白 ${Math.round((layout.pages?.[0]?.blankRatio || 0) * 100)}%` : ''}` : '正在测量'
       const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
+      const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
       const navItems = [
         ['preview', '▣', '预览'],
         ['files', '≡', '投递版本'],
@@ -590,6 +610,24 @@ window.__ModuleLoader__.load({
             { className: 'cj-fileSelect', value: selected, onChange: (e) => setSelected(e.target.value) },
             ...previewOptions,
           ),
+        ),
+        React.createElement(
+          'div',
+          { className: 'cj-templateGallery', 'aria-label': '视觉模板' },
+          ...templateOptions.map((template) => React.createElement(
+            'button',
+            { key: template.id, type: 'button', className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', onClick: () => onTemplateChange(template.id), 'aria-label': `使用模板：${template.name}` },
+            React.createElement(
+              'div',
+              { className: `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}` },
+              React.createElement('div', { className: 'cj-thumbTop' }),
+              React.createElement('div', { className: 'cj-thumbRule' }),
+              React.createElement('div', { className: 'cj-thumbSection' }),
+              React.createElement('div', { className: 'cj-thumbLines' }),
+            ),
+            React.createElement('div', { className: 'cj-templateName' }, template.name),
+            React.createElement('div', { className: 'cj-templateTags' }, (template.tags || []).slice(0, 2).join(' · ')),
+          )),
         ),
         error ? React.createElement('div', { className: 'cj-error' }, error) : null,
         React.createElement(
@@ -646,9 +684,9 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'cj-controlCard' },
           React.createElement('div', { className: 'cj-cardTitle' }, '视觉模板'),
-          React.createElement('div', { className: 'cj-cardCopy' }, '先选一个稳定基线，再用下方参数微调。'),
-          React.createElement('select', { className: 'cj-templateSelect', value: templateId, onChange: (event) => onTemplateChange(event.target.value) }, ...templateOptions.map((template) => React.createElement('option', { key: template.id, value: template.id }, template.name))),
-          React.createElement('div', { className: 'cj-cardCopy' }, templateOptions.find((template) => template.id === templateId)?.description || '原创视觉预设'),
+          React.createElement('div', { className: 'cj-fitLarge', 'data-state': 'fit' }, selectedTemplate?.name || '校招标准'),
+          React.createElement('div', { className: 'cj-cardCopy' }, selectedTemplate?.description || '原创视觉预设'),
+          React.createElement('div', { className: 'cj-cardCopy' }, '上方卡片可切换模板。'),
         ),
         React.createElement(
           'div',
