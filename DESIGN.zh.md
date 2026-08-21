@@ -1,0 +1,192 @@
+# dsh-resume 复盘对接文档
+
+> 状态：已定案，可开发  
+> 日期：2026-08-21  
+> 仓库：`E:\vsws\deepseek-harness-plugins`  
+> 插件目录：`1-插件源码/dsh-resume`
+
+## 1. 背景与目标
+
+做一个面向学生求职的 DeepSeek Harness 插件。第一期不追求全能求职，只打穿：
+
+> **DeepSeek 读写简历 Markdown 与模板并优化排版；用户负责预览验收与导出。**
+
+排版思路参考 CodeCV 的产品路径（Markdown → 模块 → 模板样式 → 导出），但：
+
+- 不复制 CodeCV 源码 / 模板 / 资源
+- 不嵌入 CodeCV 整站
+- 渲染、模板、插件结构全部自研
+
+## 2. 角色边界（已定案）
+
+| 角色 | 职责 | 不做 |
+|---|---|---|
+| DeepSeek Agent | 读/写 md、读/写模板、按 JD 优化内容与排版、维护公司投递版 | 不自动导出 PDF/最终投递物 |
+| 用户 | 预览、确认、亲手导出 | 不需要手写全部改稿 |
+| 插件 | 提供工作区约定、读写工具、渲染预览、导出入口（给人点） | 不做成自动海投机器人 |
+
+### Agent 人设
+
+校园求职简历官：把通用简历改成匹配具体 JD 的可投递版本；真实、简洁、可验证；不编造经历。
+
+## 3. 第一期 MVP
+
+### 做
+
+1. 初始化本地求职工作区 `jobhunt/`
+2. Agent 可读写约定文件（见下）
+3. 自研 MD → HTML 简历渲染（按标题拆模块 + 默认模板）
+4. 生成/刷新预览 HTML，供用户查看
+5. 系统提示词说明职责与文件约定
+6. Host 工具给 Agent 调用
+
+### 暂不做
+
+- Client 可视化编辑器（后续）
+- PDF 导出按钮完善版（可第二期；第一期先稳定 HTML 预览）
+- 模拟面试、投递看板、自动网申
+- 海量模板中心
+
+> 说明：导出最终归用户。第一期先保证“渲染预览文件”；PDF 作为紧随其后的用户侧能力。
+
+## 4. 工作区文件约定
+
+根目录：当前会话 workspace 下的 `jobhunt/`
+
+```text
+jobhunt/
+  profile.md              # 意向：方向/城市/阶段等
+  resume.md               # 主简历
+  story-bank.md           # 项目/经历 STAR 素材
+  templates/
+    default.md            # 模板说明（结构约定）
+    default.css           # 模板样式（Agent 可改）
+  companies/
+    <公司-岗位>/
+      jd.md
+      resume.md           # 投递版，默认改这里
+      preview.html        # 渲染预览（给用户看）
+  notes.md                # 复盘笔记（可选）
+```
+
+### 读写权限（第一期）
+
+| 文件 | Agent 读 | Agent 写 | 备注 |
+|---|---|---|---|
+| `resume.md` | 是 | 慎写 | 优先改公司投递版 |
+| `templates/*` | 是 | 是 | 限文本样式/说明 |
+| `story-bank.md` | 是 | 是 | 素材库 |
+| `profile.md` | 是 | 是 | 意向档案 |
+| `companies/*/jd.md` | 是 | 是 | 归档 JD |
+| `companies/*/resume.md` | 是 | 是 | 主改写对象 |
+| `companies/*/preview.html` | 是 | 通过 render 生成 | 不是最终导出动作 |
+| `*.pdf` | 否/弱 | 否 | 导出归用户 |
+
+## 5. 工具设计（Host）
+
+- `jobhunt_init`：创建工作区骨架与默认模板
+- `jobhunt_list`：列出工作区文件
+- `jobhunt_read`：读取相对 `jobhunt/` 的文本文件
+- `jobhunt_write`：写入允许的文本文件（md/css）
+- `jobhunt_render`：用指定简历 md + 模板 css 生成 `preview.html`
+
+不提供 Agent 用的 `jobhunt_export_pdf`（避免越权导出）。
+
+## 6. 渲染方案（自研）
+
+独立实现，不依赖 CodeCV：
+
+1. Markdown → HTML（轻量自研/可替换）
+2. 按 `h2` 分模块包裹
+3. 套模板 CSS
+4. 输出预览 HTML
+
+第一期只内置 1 套默认模板，允许 Agent 改 CSS/说明来优化排版。
+
+## 7. 典型使用流程
+
+1. 用户（或 Agent）执行初始化工作区
+2. 用户维护/粘贴主简历与 story-bank
+3. 用户给出某公司 JD
+4. Agent 写入 `companies/<x>/jd.md`，生成/改写 `companies/<x>/resume.md`，必要时调模板
+5. Agent 调用 `jobhunt_render` 刷新预览
+6. 用户打开预览验收；满意后再自行导出
+
+## 8. 非目标与风险
+
+- 不做自动投递、不做爬取招聘站
+- 不编造经历；缺素材就写进 notes/todo，不假写
+- 许可：参考 CodeCV 思路可以，禁止拷贝其代码与模板
+
+## 9. 验收标准（第一期）
+
+- 插件可安装进 `web` profile
+- Agent 能 init/list/read/write/render
+- 改 md 或 css 后预览 HTML 能反映变化
+- 系统提示词明确“Agent 不负责最终导出”
+- 工作区文件结构稳定、路径限制在 `jobhunt/` 内
+
+## 10. 后续迭代
+
+1. 用户侧 PDF 导出按钮
+2. Client 预览面板
+3. 投递看板与状态
+4. 模拟面试
+5. Offer 对比
+
+## 11. 开发备注
+
+- 本地插件路径：`1-插件源码/dsh-resume`
+- 安装：`.\安装插件.cmd -PluginPath .\1-插件源码\dsh-resume`
+- 运行数据：`3-运行数据`
+- Web：`.\启动Web.cmd` → `http://127.0.0.1:3099`
+
+## 12. 预览与插件形态（补充定案）
+
+第一期 Host 工具可用，但缺少界面预览时，体感会接近 Skill。已定案补齐 Client 面：
+
+### 产品形态
+
+- **Host**：读写工具 + 渲染 + 预览 HTTP API
+- **Client**：设置页「求职简历」面板内嵌预览
+- **导出**：面板上的用户按钮（下载 HTML / 浏览器打印为 PDF）
+- **Agent**：只负责改 md/模板并触发 render，不点导出
+
+### 预览交互
+
+1. Agent 或用户完成改稿后调用 `jobhunt_render`
+2. Host 记录最近预览路径，并提供：
+   - `GET /dsh-resume/preview`
+   - `GET /dsh-resume/api/status`
+   - `GET /dsh-resume/api/previews`
+3. 用户打开 **设置 → 求职简历** 查看 iframe 预览
+4. 用户点击「下载 HTML」或「打印/导出 PDF」
+
+### 验收补充
+
+- 设置里能看到「求职简历」入口
+- 渲染后面板能显示最新预览
+- 导出入口只出现在 UI，不提供给 Agent 工具
+
+## 13. 入口与渲染器说明（补充）
+
+### 入口
+
+- 主入口：侧边栏底部 **求职简历** 按钮（点开浮动预览面板）
+- 次入口：设置 → 求职简历（保留）
+
+### 与 CodeCV 的关系（渲染器）
+
+已学习并采用的是产品路径，不是拷贝实现：
+
+- Markdown 写简历
+- 按 `h2` 拆模块
+- CSS 模板控制视觉
+- 预览后由用户导出
+
+未搬用 CodeCV 的：
+
+- `markdown-transform-html` 与其模板 HTML DSL
+- 原模板 CSS / 图标 / 分页实现源码
+
+当前渲染器是自研轻量实现；后续可继续独立增强排版质量，但保持自研与合规。
