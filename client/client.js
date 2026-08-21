@@ -698,6 +698,7 @@ window.__ModuleLoader__.load({
         ['preview', '▣', '预览'],
         ['files', '≡', '投递版本'],
         ['templates', '▤', '模板库'],
+        ['workshop', '✦', '模板工坊'],
         ['guide', '✓', '排版检查'],
       ]
       const templateGallery = React.createElement(
@@ -705,7 +706,7 @@ window.__ModuleLoader__.load({
         { className: 'cj-templateGallery', 'data-library': 'true', 'aria-label': '视觉模板' },
         ...templateOptions.map((template) => React.createElement(
           'button',
-          { key: template.id, type: 'button', className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', onClick: () => { onTemplateChange(template.id); setView('preview') }, 'aria-label': `使用模板：${template.name}` },
+          { key: template.id, type: 'button', className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', onClick: () => onTemplateChange(template.id), 'aria-label': `选择模板：${template.name}` },
           React.createElement(
             'div',
             { className: `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}${template.layout?.mode === 'two-column' ? ' cj-templatePaper-two-column' : ''}` },
@@ -761,30 +762,39 @@ window.__ModuleLoader__.load({
             : [React.createElement('div', { className: 'cj-empty', key: 'empty' }, '还没有投递版预览')]),
         ),
       )
+      const templateWorkshop = React.createElement(
+        'div',
+        { className: 'cj-workshop' },
+        React.createElement('div', { className: 'cj-workshopTitle' }, '生成或维护模板'),
+        React.createElement('div', { className: 'cj-workshopHint' }, '让 DeepSeek 生成 TemplateSpec JSON 后粘贴到这里。保存前会自动校验，模型不直接写 CSS。'),
+        React.createElement('div', { className: 'cj-workshopPrompt' }, '推荐提示：生成一个适合前端实习投递的黑白高密度一页模板，保留项目成果指标，并输出符合 dsh-resume TemplateSpec 的 JSON。'),
+        React.createElement('textarea', { className: 'cj-templateJson', value: templateDraft, onChange: (event) => setTemplateDraft(event.target.value), spellCheck: false, 'aria-label': '模板 JSON' }),
+        React.createElement('div', { className: 'cj-workshopActions' },
+          React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveTemplateDraft }, '保存 AI 模板'),
+          React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: copySelectedTemplate }, '复制当前模板'),
+          React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoTemplateChoice, disabled: !templateHistory.length }, '撤销切换'),
+          React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: restoreLatestTemplate, disabled: !templateVersions.length }, '恢复上一版本'),
+        ),
+        templateMessage ? React.createElement('div', { className: 'cj-workshopMessage' }, templateMessage) : null,
+        React.createElement('div', { className: 'cj-cardCopy' }, templateVersions.length ? `当前模板有 ${templateVersions.length} 个历史版本` : '自定义模板保存后会自动保留历史版本。'),
+        templateVersions.length ? React.createElement('div', { className: 'cj-versionList' }, ...templateVersions.slice(0, 5).map((version) => React.createElement('span', { className: 'cj-versionTag', key: version.id }, version.id))) : null,
+      )
       const templatesView = React.createElement(
         React.Fragment,
         null,
-        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板库'), React.createElement('div', { className: 'cj-mainHint' }, '先选视觉基线，再回到预览区调节密度和页边距。'))),
+        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板库'), React.createElement('div', { className: 'cj-mainHint' }, '选择视觉基线，不会自动离开当前页面。'))),
         React.createElement('div', { className: 'cj-guide' },
           React.createElement('h3', null, '选择一个视觉方向'),
-          React.createElement('p', null, '模板只改变字体、颜色、层级和间距，不会覆盖你的简历正文。点击卡片后会立即回到 A4 预览。'),
+          React.createElement('p', null, '点击卡片只会选择并应用模板，不会跳转。确认后点击下面的按钮进入 A4 预览。'),
           templateGallery,
-          React.createElement('div', { className: 'cj-workshop' },
-            React.createElement('div', { className: 'cj-workshopTitle' }, '模板工坊'),
-            React.createElement('div', { className: 'cj-workshopHint' }, '让 DeepSeek 生成 TemplateSpec JSON 后粘贴到这里。保存前会自动校验，模型不直接写 CSS。'),
-            React.createElement('div', { className: 'cj-workshopPrompt' }, '推荐提示：生成一个适合前端实习投递的黑白高密度一页模板，保留项目成果指标，并输出符合 dsh-resume TemplateSpec 的 JSON。'),
-            React.createElement('textarea', { className: 'cj-templateJson', value: templateDraft, onChange: (event) => setTemplateDraft(event.target.value), spellCheck: false, 'aria-label': '模板 JSON' }),
-            React.createElement('div', { className: 'cj-workshopActions' },
-              React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveTemplateDraft }, '保存 AI 模板'),
-              React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: copySelectedTemplate }, '复制当前模板'),
-              React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoTemplateChoice, disabled: !templateHistory.length }, '撤销切换'),
-              React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: restoreLatestTemplate, disabled: !templateVersions.length }, '恢复上一版本'),
-            ),
-            templateMessage ? React.createElement('div', { className: 'cj-workshopMessage' }, templateMessage) : null,
-            React.createElement('div', { className: 'cj-cardCopy' }, templateVersions.length ? `当前模板有 ${templateVersions.length} 个历史版本` : '自定义模板保存后会自动保留历史版本。'),
-            templateVersions.length ? React.createElement('div', { className: 'cj-versionList' }, ...templateVersions.slice(0, 5).map((version) => React.createElement('span', { className: 'cj-versionTag', key: version.id }, version.id))) : null,
-          ),
+          React.createElement('div', { className: 'cj-workshopActions' }, React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => setView('preview') }, '应用并查看预览')),
         ),
+      )
+      const workshopView = React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板工坊'), React.createElement('div', { className: 'cj-mainHint' }, '生成、保存、复制和恢复视觉模板。'))),
+        React.createElement('div', { className: 'cj-guide' }, templateWorkshop),
       )
       const guideView = React.createElement(
         React.Fragment,
@@ -818,7 +828,7 @@ window.__ModuleLoader__.load({
           React.createElement('div', { className: 'cj-cardTitle' }, '视觉模板'),
           React.createElement('div', { className: 'cj-fitLarge', 'data-state': 'fit' }, selectedTemplate?.name || '校招标准'),
           React.createElement('div', { className: 'cj-cardCopy' }, selectedTemplate?.description || '原创视觉预设'),
-          React.createElement('div', { className: 'cj-cardCopy' }, '上方卡片可切换模板。'),
+          React.createElement('div', { className: 'cj-cardCopy' }, '在左侧模板库选择；模板工坊负责生成和维护。'),
         ),
         React.createElement(
           'div',
@@ -868,7 +878,7 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'cj-workbenchBody' },
           React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, 'Agent 负责改稿与排版。\n你负责最终确认。')),
-          React.createElement('main', { className: 'cj-main' }, view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : guideView),
+          React.createElement('main', { className: 'cj-main' }, view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : view === 'workshop' ? workshopView : guideView),
           inspectorView,
         ),
       )
