@@ -186,6 +186,8 @@ DeepSeek 的稳定性来自“结构化输出 + 白名单 + 固定渲染 + 测�
 - `jobhunt_template_save`：保存经过校验的 AI 模板 JSON；
 - `jobhunt_layout_validate`：检查布局侧车文件和扩展模块；
 - `jobhunt_layout_save`：保存 `resume.layout.json`；
+- `jobhunt_layout_metrics`：读取浏览器实际测量的页数、溢出和留白；
+- `jobhunt_template_autotune`：基于测量结果给出最多 3 轮的受控调优；
 - `jobhunt_template_validate`：检查模板是否适合 A4 投递。
 
 模板应用只保存模板设置和版本，不覆盖 `resume.md`。用户的内容和视觉方案必须可以独立撤销。
@@ -225,7 +227,7 @@ AI 输出模板后先进入预览，不自动覆盖当前版本。
 
 1. 定义 Schema 和范围校验；
 2. 把当前 default.css 改为 Token 驱动；
-3. 增加 4 个原创内置模板；
+3. 增加 5 个原创内置模板；
 4. 预览页支持模板参数；
 5. 模板切换不修改简历内容；
 6. 复用现有页数、留白、溢出测量。
@@ -264,14 +266,15 @@ AI 输出模板后先进入预览，不自动覆盖当前版本。
 3. `quiet-editorial`：低饱和、舒展层级，适合运营和产品岗位；
 4. `mono-terminal`：黑白高对比，适合开发、测试和工程岗位。
 
-这四套模板先作为 AI 的安全基线。AI 先从基线模板修改 Token，而不是每次从零创作，稳定性会明显更高。双栏和侧栏结构暂缓到 P1，等模块测量和打印回归稳定后再开放。
+这五套模板先作为 AI 的安全基线。AI 先从基线模板修改 Token，而不是每次从零创作，稳定性会明显更高。`split-sidebar` 已接入双栏 Renderer，后续继续补齐双栏下的断裂测量和打印回归。
 
 ## 13. 当前已接入
 
-- 已实现模板 Schema、范围校验和四套原创内置预设；
+- 已实现模板 Schema、范围校验和五套原创内置预设；
 - 已提供 `jobhunt_template_list`、`jobhunt_template_validate` 和 `jobhunt_template_save`；
 - 已支持 `jobhunt/templates/*.json` 自定义模板的读取和预览；
 - 已提供 `jobhunt_layout_validate`、`jobhunt_layout_save` 和 `resume.layout.json`；
+- 已提供 `jobhunt_layout_metrics` 和 `jobhunt_template_autotune`，支持测量反馈和最多 3 轮受控调整；
 - 已将 `skill-tags`、`project-list`、`metric-row`、`timeline` 接入独立模块样式标识；
 - `/dsh-resume/api/templates` 可供工作台读取内置和自定义模板列表；
 - 工作台已提供带 A4 缩略图的模板卡片，并用不同视觉变体区分模板；

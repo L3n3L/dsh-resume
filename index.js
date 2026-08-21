@@ -7,10 +7,19 @@ import {
   resolveJobhuntRoot,
 } from './lib/workspace.js'
 import { renderPreview } from './lib/renderer.js'
-import { registerPreviewRoutes, rememberPreview } from './lib/preview-api.js'
+import { getLatestMetrics, registerPreviewRoutes, rememberPreview } from './lib/preview-api.js'
 import { resumeQualityCheck } from './lib/quality.js'
-import { listAvailableTemplates, loadTemplate, saveTemplate, validateTemplate } from './lib/template-presets.js'
+import {
+  copyTemplate,
+  listAvailableTemplates,
+  listTemplateVersions,
+  loadTemplate,
+  restoreLatestTemplate,
+  saveTemplate,
+  validateTemplate,
+} from './lib/template-presets.js'
 import { validateLayoutSpec } from './lib/layout-schema.js'
+import { autoTuneTemplate } from './lib/autotune.js'
 
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer']
@@ -35,11 +44,12 @@ Workflow:
 3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
-6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, generate a TemplateSpec JSON and save it with jobhunt_template_save
+6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, copy a built-in with jobhunt_template_copy or generate a new TemplateSpec JSON, then save it with jobhunt_template_save
 7) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md
-8) use the preview's page-count/overflow/blank-space indicator as feedback; prefer TemplateSpec controls over arbitrary CSS
-9) jobhunt_render to refresh preview.html, then re-render after any fit adjustment
-10) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
+8) after the user opens the preview, call jobhunt_layout_metrics to read the browser's real A4 measurement; if it is not fit, make a bounded adjustment and repeat this check at most 3 rounds
+9) use the preview's page-count/overflow/blank-space indicator as feedback; prefer TemplateSpec controls over arbitrary CSS
+10) jobhunt_render to refresh preview.html, then re-render after any fit adjustment
+11) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
 function textResult() {
   return {
@@ -175,6 +185,50 @@ export function apply(ctx) {
   }))
 
   ctx.tools.register(defineTool({
+    name: 'jobhunt_template_copy',
+    description: 'Copy a built-in or custom template into a new editable custom template.',
+    parameters: {
+      sourceId: { type: 'string', required: true, description: 'Existing template id.' },
+      newId: { type: 'string', required: true, description: 'New lower-kebab-case template id.' },
+      name: { type: 'string', description: 'Optional display name for the copy.' },
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+    },
+    output: textResult(),
+    async execute(args, exec) {
+      const root = resolveJobhuntRoot(exec, args.rootDir)
+      return { saved: true, ...(await copyTemplate(root, args.sourceId, args.newId, args.name)) }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_template_versions',
+    description: 'List saved versions for a custom template.',
+    parameters: {
+      id: { type: 'string', required: true, description: 'Custom template id.' },
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+    },
+    output: textResult(),
+    async execute(args, exec) {
+      const root = resolveJobhuntRoot(exec, args.rootDir)
+      return { id: args.id, versions: await listTemplateVersions(root, args.id) }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_template_restore',
+    description: 'Restore the latest saved version of a custom template.',
+    parameters: {
+      id: { type: 'string', required: true, description: 'Custom template id.' },
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+    },
+    output: textResult(),
+    async execute(args, exec) {
+      const root = resolveJobhuntRoot(exec, args.rootDir)
+      return { restored: true, ...(await restoreLatestTemplate(root, args.id)) }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'jobhunt_layout_validate',
     description: 'Validate resume.layout.json structure for extension modules, regions, and content sources.',
     parameters: {
@@ -220,6 +274,38 @@ export function apply(ctx) {
   }))
 
   ctx.tools.register(defineTool({
+    name: 'jobhunt_layout_metrics',
+    description: 'Read the latest browser-measured A4 metrics from the resume preview, including page count, overflow, blank ratio, and module names.',
+    parameters: {},
+    output: textResult(),
+    async execute() {
+      return getLatestMetrics()
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_template_autotune',
+    description: 'Suggest one bounded visual-template adjustment from real browser A4 metrics. Use at most three rounds, then save the returned template JSON if the user accepts it.',
+    parameters: {
+      templateJson: { type: 'string', required: true, description: 'Current TemplateSpec JSON.' },
+      metricsJson: { type: 'string', required: true, description: 'Metrics returned by jobhunt_layout_metrics.' },
+      round: { type: 'number', description: 'Adjustment round, from 1 to 3.' },
+    },
+    output: textResult(),
+    async execute(args) {
+      let template
+      let metrics
+      try {
+        template = JSON.parse(args.templateJson)
+        metrics = JSON.parse(args.metricsJson)
+      } catch {
+        return { changed: false, valid: false, errors: ['templateJson and metricsJson must be valid JSON'] }
+      }
+      return autoTuneTemplate(template, metrics.metrics || metrics, Number(args.round) || 1)
+    },
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'jobhunt_write',
     description: 'Write a text file relative to jobhunt/. Allowed extensions: md, css, txt, json. Prefer company resume versions over master resume.',
     parameters: {
@@ -256,6 +342,7 @@ export function apply(ctx) {
       rememberPreview(root, rendered.previewPath)
       return {
         ...rendered,
+        latestMetrics: getLatestMetrics(),
         uiHint: 'Open Settings → 求职简历 to preview. Export is user-owned.',
         previewUrl: `/dsh-resume/preview?path=${encodeURIComponent(rendered.previewPath)}`,
       }

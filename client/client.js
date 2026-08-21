@@ -328,8 +328,20 @@ window.__ModuleLoader__.load({
 .cj-templatePaper-editorial .cj-thumbSection { border-radius: 8px; }
 .cj-templatePaper-terminal { color: #c2410c; background: linear-gradient(90deg, #fff 0, #fff 88%, #f1f5f9 88%); }
 .cj-templatePaper-terminal .cj-thumbRule { background: #c2410c; }
+.cj-templatePaper-two-column .cj-thumbLines { left: 64px; right: 28px; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
+.cj-templatePaper-two-column:after { content: ''; position: absolute; top: 29px; right: 9px; width: 18px; height: 3px; background: currentColor; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
 .cj-templateName { margin-top: 5px; overflow: hidden; color: #26334d; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .cj-templateTags { margin-top: 2px; overflow: hidden; color: #8a94a6; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.cj-workshop { padding: 14px; border: 1px solid #e3e7ee; border-radius: 12px; background: #fbfcfe; }
+.cj-workshopTitle { color: #26334d; font-size: 13px; font-weight: 700; }
+.cj-workshopHint { margin-top: 5px; color: #7b8496; font-size: 11px; line-height: 17px; }
+.cj-workshopPrompt { margin-top: 9px; padding: 9px 10px; border-radius: 8px; background: #f0f3f8; color: #59667d; font-size: 11px; line-height: 17px; }
+.cj-templateJson { display: block; width: 100%; min-height: 150px; margin-top: 10px; resize: vertical; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #26334d; padding: 9px; font: 11px/16px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.cj-workshopActions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.cj-workshopActions .cj-ghostAction, .cj-workshopActions .cj-solidAction { height: 30px; line-height: 30px; font-size: 11px; }
+.cj-workshopMessage { margin-top: 8px; color: #26734d; font-size: 11px; line-height: 16px; }
+.cj-versionList { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.cj-versionTag { padding: 3px 6px; border-radius: 6px; background: #edf1f6; color: #6d7890; font-size: 10px; }
 .cj-canvas { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .cj-canvas .cj-frame { min-height: 0 !important; flex: 1; border-radius: 12px; }
 .cj-frame iframe { background: #eef1f5; }
@@ -461,18 +473,28 @@ window.__ModuleLoader__.load({
       const [layoutHistory, setLayoutHistory] = useState([])
       const [templates, setTemplates] = useState([])
       const [templateId, setTemplateId] = useState('campus-standard')
+      const [templateHistory, setTemplateHistory] = useState([])
+      const [templateDraft, setTemplateDraft] = useState('')
+      const [templateMessage, setTemplateMessage] = useState('')
+      const [templateVersions, setTemplateVersions] = useState([])
+      const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
+      const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
       const { quality, qualityLoading } = useQuality(selected, tick)
 
+      const reloadTemplates = useCallback(async () => {
+        try {
+          const res = await fetch('/dsh-resume/api/templates', { cache: 'no-store' })
+          if (!res.ok) throw new Error(`templates ${res.status}`)
+          const data = await res.json()
+          if (Array.isArray(data.templates)) setTemplates(data.templates)
+        } catch {
+          // Keep the last known template list when the preview server is restarting.
+        }
+      }, [selected])
+
       useEffect(() => {
-        let active = true
-        fetch('/dsh-resume/api/templates', { cache: 'no-store' })
-          .then((res) => res.ok ? res.json() : Promise.reject(new Error(`templates ${res.status}`)))
-          .then((data) => {
-            if (active && Array.isArray(data.templates)) setTemplates(data.templates)
-          })
-          .catch(() => {})
-        return () => { active = false }
-      }, [])
+        void reloadTemplates()
+      }, [reloadTemplates])
 
       useEffect(() => {
         const onLayoutMessage = (event) => {
@@ -490,6 +512,11 @@ window.__ModuleLoader__.load({
                     : `排版完成：${metrics.pageCount} 页`,
               state: metrics.overflow ? 'overflow' : metrics.sparse ? 'sparse' : metrics.pageCount === 1 ? 'fit' : 'multi',
             })
+            void fetch('/dsh-resume/api/metrics', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ preview: selected, metrics }),
+            }).catch(() => {})
           }
         }
         window.addEventListener('message', onLayoutMessage)
@@ -516,10 +543,88 @@ window.__ModuleLoader__.load({
       }
 
       const onTemplateChange = (value) => {
+        if (value !== templateId) setTemplateHistory((history) => [...history, templateId].slice(-20))
         setTemplateId(value)
         setFitState({ text: '正在应用模板', state: 'pending' })
         setLayout(null)
+        setTemplateMessage('')
       }
+
+      const undoTemplateChoice = () => {
+        if (!templateHistory.length) return
+        const previous = templateHistory[templateHistory.length - 1]
+        setTemplateHistory((history) => history.slice(0, -1))
+        setTemplateId(previous)
+        setTemplateMessage('已撤销模板切换')
+        setLayout(null)
+      }
+
+      const saveTemplateDraft = async () => {
+        setTemplateMessage('正在校验并保存模板…')
+        try {
+          const res = await fetch('/dsh-resume/api/templates/actions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action: 'save', templateJson: templateDraft }),
+          })
+          const result = await res.json()
+          if (!res.ok || !result.saved) throw new Error(result.error || result.errors?.join('；') || '模板保存失败')
+          await reloadTemplates()
+          setTemplateId(result.template.id)
+          setTemplateMessage(`已保存「${result.template.name}」，现在可以回到预览查看。`)
+        } catch (err) {
+          setTemplateMessage(`保存失败：${err?.message || err}`)
+        }
+      }
+
+      const copySelectedTemplate = async () => {
+        const newId = window.prompt('请输入新模板 ID（小写英文和短横线）', `${selectedTemplate.id}-copy`)
+        if (!newId) return
+        try {
+          const res = await fetch('/dsh-resume/api/templates/actions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action: 'copy', sourceId: selectedTemplate.id, newId }),
+          })
+          const result = await res.json()
+          if (!res.ok || !result.saved) throw new Error(result.error || '模板复制失败')
+          await reloadTemplates()
+          setTemplateId(result.template.id)
+          setTemplateMessage(`已复制为「${result.template.name}」`)
+        } catch (err) {
+          setTemplateMessage(`复制失败：${err?.message || err}`)
+        }
+      }
+
+      const restoreLatestTemplate = async () => {
+        if (!templateVersions.length) return
+        try {
+          const res = await fetch('/dsh-resume/api/templates/actions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action: 'restore-latest', id: templateId }),
+          })
+          const result = await res.json()
+          if (!res.ok || !result.restored) throw new Error(result.error || '恢复失败')
+          await reloadTemplates()
+          setTemplateMessage('已恢复上一个模板版本')
+        } catch (err) {
+          setTemplateMessage(`恢复失败：${err?.message || err}`)
+        }
+      }
+
+      useEffect(() => {
+        if (selectedTemplate) setTemplateDraft(JSON.stringify(selectedTemplate, null, 2))
+      }, [templateId, templates.length])
+
+      useEffect(() => {
+        let active = true
+        fetch(`/dsh-resume/api/templates/versions?id=${encodeURIComponent(templateId)}`, { cache: 'no-store' })
+          .then((res) => res.ok ? res.json() : Promise.reject(new Error(`versions ${res.status}`)))
+          .then((data) => { if (active) setTemplateVersions(Array.isArray(data.versions) ? data.versions : []) })
+          .catch(() => { if (active) setTemplateVersions([]) })
+        return () => { active = false }
+      }, [templateId, templates.length])
 
       const updateLayoutSetting = (key, value) => {
         setFitState({ text: '正在重新计算', state: 'pending' })
@@ -589,8 +694,6 @@ window.__ModuleLoader__.load({
         : [React.createElement('option', { key: 'empty', value: '' }, loading ? '加载中…' : '暂无 preview.html')]
       const fitLabel = fitState.state === 'overflow' ? '版式需调整' : fitState.state === 'sparse' ? '一页但偏空' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '一页通过' : '检查中'
       const pageSummary = layout?.pageCount ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : layout.sparse ? ` · 留白 ${Math.round((layout.pages?.[0]?.blankRatio || 0) * 100)}%` : ''}` : '正在测量'
-      const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
-      const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
       const navItems = [
         ['preview', '▣', '预览'],
         ['files', '≡', '投递版本'],
@@ -605,7 +708,7 @@ window.__ModuleLoader__.load({
           { key: template.id, type: 'button', className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', onClick: () => { onTemplateChange(template.id); setView('preview') }, 'aria-label': `使用模板：${template.name}` },
           React.createElement(
             'div',
-            { className: `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}` },
+            { className: `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}${template.layout?.mode === 'two-column' ? ' cj-templatePaper-two-column' : ''}` },
             React.createElement('div', { className: 'cj-thumbTop' }),
             React.createElement('div', { className: 'cj-thumbRule' }),
             React.createElement('div', { className: 'cj-thumbSection' }),
@@ -662,7 +765,26 @@ window.__ModuleLoader__.load({
         React.Fragment,
         null,
         React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板库'), React.createElement('div', { className: 'cj-mainHint' }, '先选视觉基线，再回到预览区调节密度和页边距。'))),
-        React.createElement('div', { className: 'cj-guide' }, React.createElement('h3', null, '选择一个视觉方向'), React.createElement('p', null, '模板只改变字体、颜色、层级和间距，不会覆盖你的简历正文。点击卡片后会立即回到 A4 预览。'), templateGallery),
+        React.createElement('div', { className: 'cj-guide' },
+          React.createElement('h3', null, '选择一个视觉方向'),
+          React.createElement('p', null, '模板只改变字体、颜色、层级和间距，不会覆盖你的简历正文。点击卡片后会立即回到 A4 预览。'),
+          templateGallery,
+          React.createElement('div', { className: 'cj-workshop' },
+            React.createElement('div', { className: 'cj-workshopTitle' }, '模板工坊'),
+            React.createElement('div', { className: 'cj-workshopHint' }, '让 DeepSeek 生成 TemplateSpec JSON 后粘贴到这里。保存前会自动校验，模型不直接写 CSS。'),
+            React.createElement('div', { className: 'cj-workshopPrompt' }, '推荐提示：生成一个适合前端实习投递的黑白高密度一页模板，保留项目成果指标，并输出符合 dsh-resume TemplateSpec 的 JSON。'),
+            React.createElement('textarea', { className: 'cj-templateJson', value: templateDraft, onChange: (event) => setTemplateDraft(event.target.value), spellCheck: false, 'aria-label': '模板 JSON' }),
+            React.createElement('div', { className: 'cj-workshopActions' },
+              React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveTemplateDraft }, '保存 AI 模板'),
+              React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: copySelectedTemplate }, '复制当前模板'),
+              React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoTemplateChoice, disabled: !templateHistory.length }, '撤销切换'),
+              React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: restoreLatestTemplate, disabled: !templateVersions.length }, '恢复上一版本'),
+            ),
+            templateMessage ? React.createElement('div', { className: 'cj-workshopMessage' }, templateMessage) : null,
+            React.createElement('div', { className: 'cj-cardCopy' }, templateVersions.length ? `当前模板有 ${templateVersions.length} 个历史版本` : '自定义模板保存后会自动保留历史版本。'),
+            templateVersions.length ? React.createElement('div', { className: 'cj-versionList' }, ...templateVersions.slice(0, 5).map((version) => React.createElement('span', { className: 'cj-versionTag', key: version.id }, version.id))) : null,
+          ),
+        ),
       )
       const guideView = React.createElement(
         React.Fragment,

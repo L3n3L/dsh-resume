@@ -58,6 +58,15 @@ html, body {
   padding: var(--resume-page-margin) var(--resume-page-margin);
 }
 
+.dsh-resume-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.dsh-resume-column { min-width: 0; }
+
 .header-block {
   border-bottom: 2px solid var(--accent);
   padding-bottom: 14px;

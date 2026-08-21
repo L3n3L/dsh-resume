@@ -1,6 +1,6 @@
 {
   "name": "dsh-resume",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Markdown campus resume workbench: the agent edits resumes and CSS templates under jobhunt/, and the user previews and exports from the sidebar.",
   "type": "module",
   "main": "index.js",

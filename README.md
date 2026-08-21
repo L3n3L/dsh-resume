@@ -71,6 +71,7 @@ DeepSeek 可以在 `jobhunt/` 里读写这些内容：
 - `tech-compact`：技术极简
 - `quiet-editorial`：安静编辑
 - `mono-terminal`：黑白终端
+- `split-sidebar`：侧栏聚焦双栏
 
 也可以直接说：
 
@@ -82,6 +83,12 @@ DeepSeek 可以在 `jobhunt/` 里读写这些内容：
 
 ```text
 请用 resume.layout.json 把项目经历设为 project-list、技能设为 skill-tags，保留项目成果指标，然后重新渲染。
+```
+
+预览打开后，DeepSeek 可以读取真实浏览器测量结果，并最多自动调优 3 轮：
+
+```text
+读取 jobhunt_layout_metrics。如果不是一页平衡状态，用 jobhunt_template_autotune 调整模板，最多 3 轮；每轮保存后重新渲染。
 ```
 
 ### 7. 生成预览供你验收
