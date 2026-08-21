@@ -278,6 +278,7 @@ window.__ModuleLoader__.load({
 .cj-solidAction { background: #14213d; color: #fff; }
 .cj-solidAction:hover { background: #23375f; }
 .cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 218px; overflow: hidden; }
+.cj-workbenchBody[data-view="start"], .cj-workbenchBody[data-view="templates"], .cj-workbenchBody[data-view="workshop"], .cj-workbenchBody[data-view="files"], .cj-workbenchBody[data-view="guide"] { grid-template-columns: 120px minmax(0, 1fr); }
 .cj-nav {
   min-height: 0;
   overflow-y: auto;
@@ -932,10 +933,10 @@ window.__ModuleLoader__.load({
         !compact && React.createElement('div', { className: 'cj-workbenchTop' }, React.createElement('div', { className: 'cj-brand' }, React.createElement('div', { className: 'cj-brandIcon' }, '简'), React.createElement('div', null, React.createElement('div', { className: 'cj-brandTitle' }, '投递版简历工作台'), React.createElement('div', { className: 'cj-brandDesc' }, '真实经历 · JD 匹配 · 一页排版'))), React.createElement('div', { className: 'cj-topActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onRefresh }, '重新检查'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onDownload, disabled: !previewSrc }, '下载 HTML'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: onPrint, disabled: !previewSrc }, '确认并导出'))),
         React.createElement(
           'div',
-          { className: 'cj-workbenchBody' },
+          { className: 'cj-workbenchBody', 'data-view': view },
           React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, 'Agent 负责改稿与排版。\n你负责最终确认。')),
           React.createElement('main', { className: 'cj-main' }, view === 'start' ? startView : view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : view === 'workshop' ? workshopView : guideView),
-          inspectorView,
+          view === 'preview' ? inspectorView : null,
         ),
       )
     }
