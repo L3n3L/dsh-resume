@@ -311,11 +311,11 @@ window.__ModuleLoader__.load({
 .cj-mainHint { margin-top: 2px; color: #8b95a7; font-size: 11px; }
 .cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
 .cj-templateGallery { display: flex; gap: 8px; min-height: 104px; overflow-x: auto; padding: 1px 1px 4px; }
-.cj-templateGallery[data-library="true"] { flex-wrap: wrap; align-content: flex-start; min-height: 0; overflow: visible; }
-.cj-templateCard { all: unset; box-sizing: border-box; flex: 0 0 116px; cursor: pointer; padding: 5px; border: 1px solid #e1e6ee; border-radius: 10px; background: #fff; }
+.cj-templateGallery[data-library="true"] { flex-wrap: wrap; align-content: flex-start; min-height: 0; overflow: visible; gap: 12px; }
+.cj-templateCard { all: unset; box-sizing: border-box; flex: 0 0 176px; cursor: pointer; padding: 7px; border: 1px solid #e1e6ee; border-radius: 12px; background: #fff; }
 .cj-templateCard:hover { border-color: #9db5e8; box-shadow: 0 3px 12px rgba(45,80,150,.08); }
 .cj-templateCard[data-active="true"] { border-color: #3559a8; box-shadow: 0 0 0 2px rgba(53,89,168,.12); }
-.cj-templatePaper { position: relative; height: 63px; overflow: hidden; padding: 8px 9px; border: 1px solid #e7eaf0; border-radius: 3px; background: #fff; color: #26334d; }
+.cj-templatePaper { position: relative; height: 88px; overflow: hidden; padding: 10px 11px; border: 1px solid #e7eaf0; border-radius: 4px; background: #fff; color: #26334d; }
 .cj-thumbTop { display: flex; align-items: flex-end; gap: 5px; height: 12px; }
 .cj-thumbTop:before { content: ''; display: block; width: 26px; height: 5px; border-radius: 1px; background: currentColor; }
 .cj-thumbTop:after { content: ''; display: block; width: 42px; height: 3px; border-radius: 1px; background: #cbd3df; }
@@ -331,11 +331,27 @@ window.__ModuleLoader__.load({
 .cj-templatePaper-terminal .cj-thumbRule { background: #c2410c; }
 .cj-templatePaper-two-column .cj-thumbLines { left: 64px; right: 28px; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
 .cj-templatePaper-two-column:after { content: ''; position: absolute; top: 29px; right: 9px; width: 18px; height: 3px; background: currentColor; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
-.cj-templateName { margin-top: 5px; overflow: hidden; color: #26334d; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.cj-templateTags { margin-top: 2px; overflow: hidden; color: #8a94a6; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.cj-templateName { margin-top: 7px; overflow: hidden; color: #26334d; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.cj-templateTags { margin-top: 3px; overflow: hidden; color: #5571aa; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.cj-templateDescription { min-height: 30px; margin-top: 4px; overflow: hidden; color: #8a94a6; font-size: 10px; line-height: 15px; }
 .cj-workshop { padding: 14px; border: 1px solid #e3e7ee; border-radius: 12px; background: #fbfcfe; }
 .cj-workshopTitle { color: #26334d; font-size: 13px; font-weight: 700; }
 .cj-workshopHint { margin-top: 5px; color: #7b8496; font-size: 11px; line-height: 17px; }
+.cj-workshopFlow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.cj-workshopStep { min-height: 68px; padding: 9px; border: 1px solid #e0e6ef; border-radius: 9px; background: #fff; }
+.cj-workshopStep > span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #e9eef9; color: #3559a8; font-size: 10px; font-weight: 800; }
+.cj-workshopStep strong { display: block; margin-top: 5px; color: #26334d; font-size: 11px; }
+.cj-workshopStep small { display: block; margin-top: 3px; color: #8a94a6; font-size: 10px; line-height: 14px; }
+.cj-workshopCurrent { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 9px 10px; border-radius: 9px; background: #eef3fb; color: #5571aa; font-size: 11px; }
+.cj-workshopCurrent strong { color: #26334d; }
+.cj-workshopMiniPaper { position: relative; width: 54px; height: 40px; flex: 0 0 auto; overflow: hidden; border: 1px solid #d8e0ef; border-radius: 3px; background: #fff; }
+.cj-workshopMiniPaper:before { content: ''; position: absolute; left: 7px; right: 7px; top: 7px; height: 3px; background: currentColor; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7, 20px 24px 0 #d7dde7; }
+.cj-workshopMiniPaper:after { content: ''; position: absolute; left: 7px; right: 7px; top: 13px; height: 1px; background: currentColor; opacity: .55; }
+.cj-workshopMiniPaper[data-variant="technical"] { color: #1f3a5f; border-left: 4px solid #1f3a5f; }
+.cj-workshopMiniPaper[data-variant="editorial"] { color: #0f766e; background: #effcf9; }
+.cj-workshopMiniPaper[data-variant="terminal"] { color: #c2410c; background: linear-gradient(90deg, #fff 0, #fff 86%, #f1f5f9 86%); }
+.cj-advanced { margin-top: 12px; border-top: 1px solid #e5e9f0; padding-top: 10px; }
+.cj-advanced summary { cursor: pointer; color: #59667d; font-size: 11px; font-weight: 700; }
 .cj-workshopPrompt { margin-top: 9px; padding: 9px 10px; border-radius: 8px; background: #f0f3f8; color: #59667d; font-size: 11px; line-height: 17px; }
 .cj-templateJson { display: block; width: 100%; min-height: 150px; margin-top: 10px; resize: vertical; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #26334d; padding: 9px; font: 11px/16px ui-monospace, SFMono-Regular, Consolas, monospace; }
 .cj-workshopActions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
@@ -384,10 +400,23 @@ window.__ModuleLoader__.load({
 .cj-startActions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
 .cj-startOption { all: unset; box-sizing: border-box; cursor: pointer; min-height: 116px; padding: 14px; border: 1px solid #dfe5ee; border-radius: 12px; background: #fff; }
 .cj-startOption:hover { border-color: #8da6d4; box-shadow: 0 5px 16px rgba(45,80,150,.1); transform: translateY(-1px); }
+.cj-startOption[data-recommended="true"] { border-color: #7190ca; background: linear-gradient(155deg, #fff, #f4f7fd); box-shadow: 0 4px 15px rgba(53,89,168,.08); }
+.cj-startOptionBadge { display: inline-flex; padding: 2px 6px; border-radius: 999px; background: #e6edfb; color: #3559a8; font-size: 9px; font-weight: 800; }
 .cj-startOptionTitle { color: #26334d; font-size: 13px; font-weight: 700; }
 .cj-startOptionCopy { margin-top: 7px; color: #7b8496; font-size: 11px; line-height: 17px; }
-.cj-startStatus { margin-top: 14px; color: #5571aa; font-size: 11px; }
-@media (max-width: 720px) { .cj-startActions { grid-template-columns: 1fr; } .cj-startCard { padding: 20px; } }
+.cj-startStatus { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; color: #5571aa; font-size: 11px; line-height: 17px; }
+.cj-startStatus[data-state="error"] { color: #b42318; }
+.cj-startRetry { flex: 0 0 auto; border: 0; border-radius: 7px; background: #eef3fb; color: #3559a8; padding: 5px 9px; font-size: 11px; cursor: pointer; }
+.cj-startRetry:hover { background: #e1eafc; }
+.cj-nextStep { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #edf0f4; color: #66738a; font-size: 11px; line-height: 16px; }
+.cj-nextStep strong { color: #59667d; }
+.cj-nextStepButton { flex: 0 0 auto; border: 0; border-radius: 7px; background: #eef3fb; color: #3559a8; padding: 6px 8px; font-size: 10px; cursor: pointer; }
+.cj-nextStepButton:hover { background: #e1eafc; }
+.cj-inspectorDetails { margin-top: 9px; border-top: 1px solid #edf0f4; padding-top: 8px; }
+.cj-inspectorDetails summary { cursor: pointer; color: #66738a; font-size: 11px; font-weight: 700; }
+.cj-inspectorDetails .cj-inspectorCard { margin-top: 8px; }
+.cj-inspectorCard[data-priority="primary"] { border-color: #cfdbf2; background: linear-gradient(155deg, #f7f9fe, #fff); }
+@media (max-width: 720px) { .cj-startActions { grid-template-columns: 1fr; } .cj-startCard { padding: 20px; } .cj-workshopFlow { grid-template-columns: 1fr; } .cj-templateCard { flex-basis: 160px; } }
 .cj-guideNo { color: #9aabc9; font-weight: 800; }
 .cj-qualityStatus { display: inline-grid; place-items: center; width: 19px; height: 19px; flex: 0 0 auto; border-radius: 50%; background: #eef1f5; color: #7b8496; font-size: 11px; font-weight: 800; }
 .cj-quality-pass { background: #e4f5ed; color: #15803d; }
@@ -418,6 +447,22 @@ window.__ModuleLoader__.load({
       tag.dataset.pluginCss = CSS_ID
       tag.textContent = css
       document.head.appendChild(tag)
+    }
+
+    async function readJsonResponse(response, label) {
+      const contentType = response.headers.get('content-type') || ''
+      const text = await response.text()
+      let data = null
+      try {
+        data = text ? JSON.parse(text) : null
+      } catch {
+        if (contentType.includes('text/html')) {
+          throw new Error(`${label}服务尚未刷新，请重启 DSH Web 后重试`)
+        }
+        throw new Error(`${label}返回了无效数据，请稍后重试`)
+      }
+      if (!response.ok) throw new Error(data?.error || `${label}失败（${response.status}）`)
+      return data
     }
 
     function useStatus(refreshKey) {
@@ -482,6 +527,8 @@ window.__ModuleLoader__.load({
       const [fitState, setFitState] = useState({ text: '等待排版信息', state: 'pending' })
       const [view, setView] = useState('start')
       const [startupMessage, setStartupMessage] = useState('')
+      const [startupError, setStartupError] = useState(false)
+      const [startupMode, setStartupMode] = useState('demo')
       const [hasResolvedInitialView, setHasResolvedInitialView] = useState(false)
       const [layout, setLayout] = useState(null)
       const [layoutSettings, setLayoutSettings] = useState({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
@@ -564,6 +611,8 @@ window.__ModuleLoader__.load({
       }
 
       const startWorkspace = async (mode) => {
+        setStartupMode(mode)
+        setStartupError(false)
         setStartupMessage(mode === 'demo' ? '正在准备示例简历…' : '正在创建你的简历工作区…')
         try {
           const res = await fetch('/dsh-resume/api/onboarding', {
@@ -571,14 +620,14 @@ window.__ModuleLoader__.load({
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ mode }),
           })
-          const result = await res.json()
-          if (!res.ok) throw new Error(result.error || '初始化失败')
+          const result = await readJsonResponse(res, '工作区初始化')
           if (result.rendered?.previewPath) setSelected(result.rendered.previewPath)
           setStartupMessage('')
           setView('preview')
           setTick((n) => n + 1)
           void reload()
         } catch (err) {
+          setStartupError(true)
           setStartupMessage(`初始化失败：${err?.message || err}`)
         }
       }
@@ -734,7 +783,10 @@ window.__ModuleLoader__.load({
         ? status.previews.map((p) => React.createElement('option', { key: p, value: p }, p))
         : [React.createElement('option', { key: 'empty', value: '' }, loading ? '加载中…' : '暂无 preview.html')]
       const fitLabel = fitState.state === 'overflow' ? '版式需调整' : fitState.state === 'sparse' ? '一页但偏空' : fitState.state === 'multi' ? '多页' : fitState.state === 'fit' ? '一页通过' : '检查中'
-      const pageSummary = layout?.pageCount ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : layout.sparse ? ` · 留白 ${Math.round((layout.pages?.[0]?.blankRatio || 0) * 100)}%` : ''}` : '正在测量'
+      const measuredBlank = Number(layout?.pages?.[0]?.blankRatio)
+      const pageSummary = layout?.pageCount
+        ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : Number.isFinite(measuredBlank) ? ` · 留白 ${Math.round(measuredBlank * 100)}%` : ''}`
+        : '正在测量'
       const navItems = [
         ['start', '⌂', '开始'],
         ['preview', '▣', '预览'],
@@ -758,7 +810,8 @@ window.__ModuleLoader__.load({
             React.createElement('div', { className: 'cj-thumbLines' }),
           ),
           React.createElement('div', { className: 'cj-templateName' }, template.name),
-          React.createElement('div', { className: 'cj-templateTags' }, (template.tags || []).slice(0, 2).join(' · ')),
+          React.createElement('div', { className: 'cj-templateTags' }, [template.layout?.mode === 'two-column' ? '双栏' : '单栏', ...(template.tags || []).filter((tag) => tag !== '单栏' && tag !== '双栏')].slice(0, 3).join(' · ')),
+          React.createElement('div', { className: 'cj-templateDescription' }, template.description || '原创视觉预设，适合投递版简历。'),
         )),
       )
       const previewView = React.createElement(
@@ -802,9 +855,9 @@ window.__ModuleLoader__.load({
           React.createElement('div', { className: 'cj-startActions' },
             React.createElement('button', { type: 'button', className: 'cj-startOption', onClick: () => startWorkspace('existing') }, React.createElement('div', { className: 'cj-startOptionTitle' }, '我已有简历'), React.createElement('div', { className: 'cj-startOptionCopy' }, '先创建工作区，再把已有内容交给 DeepSeek 优化。')),
             React.createElement('button', { type: 'button', className: 'cj-startOption', onClick: () => startWorkspace('blank') }, React.createElement('div', { className: 'cj-startOptionTitle' }, '从零开始'), React.createElement('div', { className: 'cj-startOptionCopy' }, '生成一份空白结构，逐步填写教育、技能和项目经历。')),
-            React.createElement('button', { type: 'button', className: 'cj-startOption', onClick: () => startWorkspace('demo') }, React.createElement('div', { className: 'cj-startOptionTitle' }, '先看看示例'), React.createElement('div', { className: 'cj-startOptionCopy' }, '打开示例简历和完整 A4 预览，先了解插件能做什么。')),
+            React.createElement('button', { type: 'button', className: 'cj-startOption', 'data-recommended': 'true', onClick: () => startWorkspace('demo') }, React.createElement('div', { className: 'cj-startOptionBadge' }, '推荐第一次使用'), React.createElement('div', { className: 'cj-startOptionTitle' }, '先看看示例'), React.createElement('div', { className: 'cj-startOptionCopy' }, '先看一份完整 A4 简历，再替换成你的真实经历。')),
           ),
-          startupMessage ? React.createElement('div', { className: 'cj-startStatus' }, startupMessage) : null,
+          startupMessage ? React.createElement('div', { className: 'cj-startStatus', 'data-state': startupError ? 'error' : 'pending' }, React.createElement('span', null, startupMessage), startupError ? React.createElement('button', { type: 'button', className: 'cj-startRetry', onClick: () => startWorkspace(startupMode) }, '重试') : null) : null,
         ),
       )
       const filesView = React.createElement(
@@ -823,14 +876,27 @@ window.__ModuleLoader__.load({
         'div',
         { className: 'cj-workshop' },
         React.createElement('div', { className: 'cj-workshopTitle' }, '生成或维护模板'),
-        React.createElement('div', { className: 'cj-workshopHint' }, '让 DeepSeek 生成 TemplateSpec JSON 后粘贴到这里。保存前会自动校验，模型不直接写 CSS。'),
+        React.createElement('div', { className: 'cj-workshopHint' }, '模板工坊负责生成、复制和维护视觉方案；你不需要手写 CSS，先选择一个方向，再让 DeepSeek 生成或修改模板。'),
+        React.createElement('div', { className: 'cj-workshopFlow' },
+          React.createElement('div', { className: 'cj-workshopStep' }, React.createElement('span', null, '1'), React.createElement('strong', null, '确定视觉方向'), React.createElement('small', null, '单栏、双栏、黑白或强调色。')),
+          React.createElement('div', { className: 'cj-workshopStep' }, React.createElement('span', null, '2'), React.createElement('strong', null, '让 DeepSeek 生成'), React.createElement('small', null, '输出 dsh-resume TemplateSpec JSON。')),
+          React.createElement('div', { className: 'cj-workshopStep' }, React.createElement('span', null, '3'), React.createElement('strong', null, '保存并去预览'), React.createElement('small', null, '保存版本，再用 A4 结果确认。')),
+        ),
+        React.createElement('div', { className: 'cj-workshopCurrent' }, React.createElement('div', { className: 'cj-workshopMiniPaper', 'data-variant': selectedTemplate?.visual?.variant || 'standard' }), React.createElement('span', null, '当前模板'), React.createElement('strong', null, selectedTemplate?.name || '校招标准'), React.createElement('span', null, selectedTemplate?.layout?.mode === 'two-column' ? '双栏' : '单栏')),
         React.createElement('div', { className: 'cj-workshopPrompt' }, '推荐提示：生成一个适合前端实习投递的黑白高密度一页模板，保留项目成果指标，并输出符合 dsh-resume TemplateSpec 的 JSON。'),
-        React.createElement('textarea', { className: 'cj-templateJson', value: templateDraft, onChange: (event) => setTemplateDraft(event.target.value), spellCheck: false, 'aria-label': '模板 JSON' }),
         React.createElement('div', { className: 'cj-workshopActions' },
-          React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveTemplateDraft }, '保存 AI 模板'),
-          React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: copySelectedTemplate }, '复制当前模板'),
-          React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoTemplateChoice, disabled: !templateHistory.length }, '撤销切换'),
-          React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: restoreLatestTemplate, disabled: !templateVersions.length }, '恢复上一版本'),
+          React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: copySelectedTemplate }, '复制当前模板'),
+          React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setView('templates') }, '回到模板库'),
+        ),
+        React.createElement('details', { className: 'cj-advanced', open: Boolean(templateDraft) },
+          React.createElement('summary', null, '高级：编辑 TemplateSpec JSON'),
+          React.createElement('div', { className: 'cj-workshopHint' }, '把 DeepSeek 输出的 JSON 粘贴到这里。保存前会自动校验，模型不直接写 CSS。'),
+          React.createElement('textarea', { className: 'cj-templateJson', value: templateDraft, onChange: (event) => setTemplateDraft(event.target.value), spellCheck: false, 'aria-label': '模板 JSON' }),
+          React.createElement('div', { className: 'cj-workshopActions' },
+            React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveTemplateDraft }, '保存 AI 模板'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoTemplateChoice, disabled: !templateHistory.length }, '撤销切换'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: restoreLatestTemplate, disabled: !templateVersions.length }, '恢复上一版本'),
+          ),
         ),
         templateMessage ? React.createElement('div', { className: 'cj-workshopMessage' }, templateMessage) : null,
         React.createElement('div', { className: 'cj-cardCopy' }, templateVersions.length ? `当前模板有 ${templateVersions.length} 个历史版本` : '自定义模板保存后会自动保留历史版本。'),
@@ -868,29 +934,38 @@ window.__ModuleLoader__.load({
           ]).map((item, index) => React.createElement('div', { className: 'cj-guideRow', key: item.id }, React.createElement('span', { className: `cj-qualityStatus cj-quality-${item.status}` }, item.status === 'pass' ? '✓' : item.status === 'error' ? '!' : item.status === 'warn' ? '!' : '·'), React.createElement('span', null, React.createElement('strong', null, String(index + 1).padStart(2, '0') + '　' + item.message), item.detail ? React.createElement('small', null, item.detail) : null))),
         ),
       )
+      const needsTuning = ['sparse', 'overflow', 'multi'].includes(fitState.state)
+      const nextStepText = fitState.state === 'sparse'
+        ? '留白偏多：先换高密度模板或增加字号，再重新测量。'
+        : fitState.state === 'overflow' || fitState.state === 'multi'
+          ? '内容超出：先减少重复信息，再收紧间距。'
+          : fitState.state === 'fit'
+            ? '版式达到目标密度，可以进入投递前确认。'
+            : '打开预览后会自动测量 A4 页数和留白。'
       const inspectorView = React.createElement(
         'aside',
         { className: 'cj-inspector' },
         React.createElement('div', { className: 'cj-inspectorTitle' }, '当前状态'),
         React.createElement(
           'div',
-          { className: 'cj-inspectorCard' },
+          { className: 'cj-inspectorCard', 'data-priority': 'primary' },
           React.createElement('div', { className: 'cj-cardTitle' }, '版式结果'),
           React.createElement('div', { className: 'cj-fitLarge', 'data-state': fitState.state }, fitLabel),
           React.createElement('div', { className: 'cj-cardCopy' }, `${fitState.text} · ${pageSummary}`),
+          React.createElement('div', { className: 'cj-nextStep' }, React.createElement('span', null, React.createElement('strong', null, '下一步：'), nextStepText), needsTuning ? React.createElement('button', { type: 'button', className: 'cj-nextStepButton', onClick: () => setView('templates') }, '看模板') : null),
         ),
         React.createElement(
           'div',
           { className: 'cj-controlCard' },
-          React.createElement('div', { className: 'cj-cardTitle' }, '视觉模板'),
+          React.createElement('div', { className: 'cj-cardTitle' }, '当前模板'),
           React.createElement('div', { className: 'cj-fitLarge', 'data-state': 'fit' }, selectedTemplate?.name || '校招标准'),
           React.createElement('div', { className: 'cj-cardCopy' }, selectedTemplate?.description || '原创视觉预设'),
-          React.createElement('div', { className: 'cj-cardCopy' }, '在左侧模板库选择；模板工坊负责生成和维护。'),
+          React.createElement('div', { className: 'cj-cardCopy' }, `${selectedTemplate?.layout?.mode === 'two-column' ? '双栏' : '单栏'} · 可在模板库切换`),
         ),
         React.createElement(
           'div',
           { className: 'cj-controlCard' },
-          React.createElement('div', { className: 'cj-cardTitle' }, '手动调整'),
+          React.createElement('div', { className: 'cj-cardTitle' }, '手动微调'),
           React.createElement('div', { className: 'cj-cardCopy' }, '只影响当前预览，可随时恢复默认。'),
           ...[
             ['fontSize', '字号', (value) => `${value}px`, 11, 18, 0.5],
@@ -905,25 +980,11 @@ window.__ModuleLoader__.load({
           )),
           React.createElement('div', { className: 'cj-controlActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoLayout, disabled: !layoutHistory.length }, '撤销'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: resetLayoutSettings }, '恢复默认')),
         ),
-        React.createElement(
-          'div',
-          { className: 'cj-inspectorCard' },
-          React.createElement('div', { className: 'cj-cardTitle' }, '内容检查'),
-          React.createElement('div', { className: 'cj-fitLarge', 'data-state': quality?.passed ? 'fit' : quality ? 'overflow' : 'pending' }, quality ? `${quality.score}/100` : '检查中'),
-          React.createElement('div', { className: 'cj-cardCopy' }, quality ? `${quality.warnings.length} 项提醒` : '切换到排版检查查看结果'),
-        ),
-        React.createElement(
-          'div',
-          { className: 'cj-inspectorCard' },
-          React.createElement('div', { className: 'cj-cardTitle' }, '工作区'),
-          React.createElement('div', { className: 'cj-cardCopy' }, status?.root || '等待工作区初始化'),
-        ),
-        React.createElement(
-          'div',
-          { className: 'cj-inspectorCard' },
-          React.createElement('div', { className: 'cj-cardTitle' }, '投递前确认'),
-          React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '内容来自你的真实经历'),
-          React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '已检查页面数量'),
+        React.createElement('details', { className: 'cj-inspectorDetails' },
+          React.createElement('summary', null, '更多状态'),
+          React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '内容检查'), React.createElement('div', { className: 'cj-fitLarge', 'data-state': quality?.passed ? 'fit' : quality ? 'overflow' : 'pending' }, quality ? `${quality.score}/100` : '检查中'), React.createElement('div', { className: 'cj-cardCopy' }, quality ? `${quality.warnings.length} 项提醒 · 打开排版检查查看详情` : '切换到排版检查查看结果')),
+          React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '投递前确认'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '内容来自你的真实经历'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '已检查页面数量')),
+          React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '工作区'), React.createElement('div', { className: 'cj-cardCopy' }, status?.root || '等待工作区初始化')),
         ),
       )
 
