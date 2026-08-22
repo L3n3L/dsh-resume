@@ -277,6 +277,7 @@ window.__ModuleLoader__.load({
 .cj-solidAction { background: #14213d; color: #fff; }
 .cj-solidAction:hover { background: #23375f; }
 .cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 218px; overflow: hidden; }
+.cj-workbenchBody[data-view="preview"] { grid-template-columns: 120px minmax(0, 1fr); }
 .cj-workbenchBody[data-view="start"], .cj-workbenchBody[data-view="templates"], .cj-workbenchBody[data-view="workshop"], .cj-workbenchBody[data-view="files"], .cj-workbenchBody[data-view="guide"] { grid-template-columns: 120px minmax(0, 1fr); }
 .cj-nav {
   min-height: 0;
@@ -305,6 +306,7 @@ window.__ModuleLoader__.load({
 .cj-navIcon { width: 18px; text-align: center; font-size: 14px; }
 .cj-navFoot { margin-top: 18px; padding: 12px 10px 0; border-top: 1px solid rgba(15,23,42,.07); color: #99a2b3; font-size: 11px; line-height: 17px; }
 .cj-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; padding: 16px; gap: 11px; }
+.cj-main-preview { overflow: hidden; }
 .cj-mainBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
 .cj-mainHeading { font-size: 13px; font-weight: 700; color: #26334d; }
 .cj-mainHint { margin-top: 2px; color: #8b95a7; font-size: 11px; }
@@ -416,6 +418,48 @@ window.__ModuleLoader__.load({
 .cj-inspectorDetails .cj-inspectorCard { margin-top: 8px; }
 .cj-inspectorCard[data-priority="primary"] { border-color: #cfdbf2; background: linear-gradient(155deg, #f7f9fe, #fff); }
 .cj-previewActions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cj-previewShell { position: relative; min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.cj-previewShell > .cj-mainBar { flex: 0 0 auto; padding-right: 0; }
+.cj-toolButton { all: unset; box-sizing: border-box; cursor: pointer; max-width: 180px; height: 30px; overflow: hidden; padding: 0 10px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; font-size: 11px; line-height: 30px; text-overflow: ellipsis; white-space: nowrap; }
+.cj-toolButton:hover, .cj-toolButton[aria-expanded="true"] { border-color: #9db5e8; color: #3559a8; background: #f7f9fe; }
+.cj-inlineTuning { min-width: 300px; flex: 1; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 0 8px; }
+.cj-inlineControl { min-width: 78px; display: grid; grid-template-columns: auto auto; align-items: center; gap: 4px 6px; color: #7b8496; font-size: 9px; white-space: nowrap; }
+.cj-inlineControl strong { color: #536078; font-size: 9px; font-weight: 700; }
+.cj-inlineControl input { grid-column: 1 / -1; display: block; width: 82px; height: 13px; margin: 0; accent-color: #3559a8; }
+.cj-inlineReset { all: unset; box-sizing: border-box; cursor: pointer; min-width: 23px; height: 23px; padding: 0 4px; border-radius: 6px; color: #7b8496; font-size: 10px; line-height: 23px; text-align: center; }
+.cj-inlineReset:hover { background: #edf1f6; color: #3559a8; }
+.cj-inlineReset:disabled { cursor: default; opacity: .4; }
+.cj-inlineStatus { flex: 0 0 auto; color: #7b8496; font-size: 10px; white-space: nowrap; }
+.cj-inlineStatus-sparse { color: #a16207; }
+.cj-inlineStatus-overflow, .cj-inlineStatus-multi { color: #b42318; }
+.cj-inlineStatus-fit { color: #15803d; }
+.cj-templatePicker { position: absolute; top: 42px; right: 0; z-index: 50; width: min(760px, calc(100vw - 190px)); max-height: 300px; overflow: auto; padding: 12px; border: 1px solid #dfe5ee; border-radius: 13px; background: rgba(255,255,255,.98); box-shadow: 0 16px 40px rgba(24,43,78,.16); }
+.cj-templatePickerHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; color: #26334d; font-size: 12px; }
+.cj-templatePickerHead strong { font-weight: 800; }
+.cj-templatePickerClose { all: unset; cursor: pointer; padding: 4px 6px; border-radius: 6px; color: #8b95a7; font-size: 10px; }
+.cj-templatePickerClose:hover { background: #edf1f6; color: #3559a8; }
+.cj-tuningPopover { position: absolute; top: 42px; right: 0; z-index: 50; width: 360px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border: 1px solid #dfe5ee; border-radius: 13px; background: rgba(255,255,255,.98); box-shadow: 0 16px 40px rgba(24,43,78,.16); }
+.cj-tuningPopoverHead { flex: 0 0 100%; display: flex; align-items: center; justify-content: space-between; color: #26334d; font-size: 12px; }
+.cj-tuningPopover .cj-inlineControl { flex: 1 1 145px; min-width: 140px; }
+.cj-tuningPopover .cj-inlineControl input { width: 100%; }
+.cj-tuningPopover .cj-inlineReset { margin-left: auto; }
+.cj-previewWorkspace { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(300px, .82fr) minmax(420px, 1.18fr); gap: 10px; }
+.cj-previewWorkspace[data-chat="open"] { grid-template-columns: minmax(260px, .7fr) minmax(360px, 1fr) 292px; }
+.cj-previewEditorPane, .cj-previewA4Pane { min-height: 0; }
+.cj-editorLoading { min-height: 0; flex: 1; display: grid; place-items: center; color: #8b95a7; font-size: 12px; }
+.cj-inspectorDock { position: absolute; top: 0; right: 0; z-index: 40; }
+.cj-inspectorToggle { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 20px auto auto 14px; align-items: center; gap: 6px; min-width: 164px; height: 32px; padding: 0 9px; border: 1px solid #dbe0e9; border-radius: 9px; background: rgba(255,255,255,.96); color: #536078; box-shadow: 0 4px 14px rgba(24,43,78,.08); }
+.cj-inspectorToggle:hover, .cj-inspectorToggle[aria-expanded="true"] { border-color: #9db5e8; color: #26334d; }
+.cj-inspectorToggle > span:nth-child(2) { font-size: 11px; font-weight: 700; }
+.cj-inspectorToggle small { overflow: hidden; color: #8b95a7; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.cj-inspectorChevron { color: #8b95a7; font-size: 12px; text-align: center; }
+.cj-inspectorDot { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #eef1f5; color: #7b8496; font-size: 11px; font-weight: 800; }
+.cj-inspectorDot-fit { background: #e4f5ed; color: #15803d; }
+.cj-inspectorDot-sparse { background: #fff2d8; color: #a16207; }
+.cj-inspectorDot-overflow, .cj-inspectorDot-multi { background: #fde8e8; color: #b91c1c; }
+.cj-inspectorPopover { width: 310px; max-height: min(620px, calc(100vh - 150px)); overflow: auto; margin-top: 7px; padding: 11px; border: 1px solid #dfe5ee; border-radius: 13px; background: rgba(255,255,255,.98); box-shadow: 0 16px 40px rgba(24,43,78,.18); }
+.cj-inspectorPopoverHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 1px 8px; color: #26334d; font-size: 12px; }
+.cj-inspectorPopover .cj-inspectorCard, .cj-inspectorPopover .cj-controlCard { margin-top: 8px; }
 .cj-editorOverlay { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; overflow: hidden; background: #f7f8fb; }
 .cj-editorTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 10px 16px; border-bottom: 1px solid rgba(15,23,42,.09); background: #fff; }
 .cj-editorTopTitle { min-width: 0; color: #26334d; font-size: 13px; font-weight: 800; }
@@ -453,7 +497,7 @@ window.__ModuleLoader__.load({
 .cj-chatSend { border: 0; border-radius: 8px; background: #14213d; color: #fff; padding: 7px 10px; font-size: 11px; cursor: pointer; }
 .cj-chatSend:disabled { opacity: .45; cursor: default; }
 .cj-chatApply { margin-top: 6px; border: 0; border-radius: 7px; background: #e4f5ed; color: #15803d; padding: 5px 7px; font-size: 10px; cursor: pointer; }
-@media (max-width: 900px) { .cj-editorBody, .cj-editorBody[data-chat="open"] { grid-template-columns: 1fr; overflow: auto; } .cj-editorPane { min-height: 360px; } .cj-editorChat { min-height: 300px; } }
+@media (max-width: 900px) { .cj-editorBody, .cj-editorBody[data-chat="open"], .cj-previewWorkspace, .cj-previewWorkspace[data-chat="open"] { grid-template-columns: 1fr; overflow: auto; } .cj-editorPane, .cj-previewWorkspace .cj-editorPane { min-height: 360px; } .cj-editorChat { min-height: 300px; } .cj-inlineTuning { min-width: 0; justify-content: flex-start; overflow-x: auto; } }
 @media (max-width: 720px) { .cj-startActions { grid-template-columns: 1fr; } .cj-startCard { padding: 20px; } .cj-workshopFlow { grid-template-columns: 1fr; } .cj-templateCard { flex-basis: 160px; } }
 .cj-guideNo { color: #9aabc9; font-weight: 800; }
 .cj-qualityStatus { display: inline-grid; place-items: center; width: 19px; height: 19px; flex: 0 0 auto; border-radius: 50%; background: #eef1f5; color: #7b8496; font-size: 11px; font-weight: 800; }
@@ -472,6 +516,12 @@ window.__ModuleLoader__.load({
   .cj-navLabel, .cj-navFoot { display: none; }
   .cj-navItem { width: auto; padding: 0 12px; white-space: nowrap; }
   .cj-main { min-height: 560px; }
+  .cj-main-preview { overflow: auto; }
+  .cj-previewShell > .cj-mainBar { padding-right: 0; align-items: flex-start; flex-direction: column; }
+  .cj-previewActions { width: 100%; flex-wrap: wrap; }
+  .cj-inspectorDock { top: auto; right: 0; bottom: 6px; }
+  .cj-templatePicker { left: 0; right: auto; width: min(100%, 420px); }
+  .cj-tuningPopover { left: 0; right: auto; width: min(100%, 360px); }
   .cj-inspector { border-left: 0; border-top: 1px solid rgba(15,23,42,.08); }
 }
 `
@@ -591,6 +641,8 @@ window.__ModuleLoader__.load({
       const [chatMessages, setChatMessages] = useState([])
       const [chatBridgeState, setChatBridgeState] = useState('idle')
       const [editorCandidate, setEditorCandidate] = useState(null)
+      const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
+      const [tuningOpen, setTuningOpen] = useState(false)
 
       useEffect(() => {
         const onAssistantResponse = (event) => {
@@ -633,6 +685,11 @@ window.__ModuleLoader__.load({
           setEditorBusy(false)
         }
       }
+
+      useEffect(() => {
+        if (view !== 'preview' || !selected || editorBusy || editorSource?.previewPath === selected) return
+        void openEditor()
+      }, [view, selected, editorSource?.previewPath, editorBusy])
 
       useEffect(() => {
         if (!editorOpen || !editorSource || !editorDraft.trim()) return undefined
@@ -680,7 +737,6 @@ window.__ModuleLoader__.load({
           })
           const result = await readJsonResponse(res, '保存 Markdown')
           setEditorMessage('已保存，并重新生成预览。')
-          setEditorOpen(false)
           setTick((n) => n + 1)
           void reload()
           if (result.rendered?.previewPath) setSelected(result.rendered.previewPath)
@@ -832,6 +888,8 @@ window.__ModuleLoader__.load({
       const onTemplateChange = (value) => {
         if (value !== templateId) setTemplateHistory((history) => [...history, templateId].slice(-20))
         setTemplateId(value)
+        setTemplatePickerOpen(false)
+        setTuningOpen(false)
         setFitState({ text: '正在应用模板', state: 'pending' })
         setLayout(null)
         setTemplateMessage('')
@@ -969,8 +1027,6 @@ window.__ModuleLoader__.load({
       const onFrameLoad = (event) => {
         try {
           event.currentTarget.contentWindow?.scrollTo(0, 0)
-          const indicator = event.currentTarget.contentDocument?.querySelector('.dsh-resume-layout-status')
-          if (indicator) setFitState({ text: indicator.textContent || '已完成排版', state: indicator.dataset.state || 'multi' })
         } catch {
           setFitState({ text: '已加载预览', state: 'pending' })
         }
@@ -984,6 +1040,10 @@ window.__ModuleLoader__.load({
       const pageSummary = layout?.pageCount
         ? `${layout.pageCount} 页${layout.overflow ? ' · 有溢出' : Number.isFinite(measuredBlank) ? ` · 留白 ${Math.round(measuredBlank * 100)}%` : ''}`
         : '正在测量'
+      const statusButtonLabel = Number.isFinite(measuredBlank)
+        ? `留白 ${Math.round(measuredBlank * 100)}%`
+        : fitState.state === 'overflow' ? '有溢出' : fitState.state === 'multi' ? '多页' : '测量中'
+      const statusButtonMeta = layout?.pageCount ? `${layout.pageCount} 页` : '排版指标'
       const navItems = [
         ['start', '⌂', '开始'],
         ['preview', '▣', '预览'],
@@ -1010,42 +1070,6 @@ window.__ModuleLoader__.load({
           React.createElement('div', { className: 'cj-templateTags' }, [template.layout?.mode === 'two-column' ? '双栏' : '单栏', ...(template.tags || []).filter((tag) => tag !== '单栏' && tag !== '双栏')].slice(0, 3).join(' · ')),
           React.createElement('div', { className: 'cj-templateDescription' }, template.description || '原创视觉预设，适合投递版简历。'),
         )),
-      )
-      const previewView = React.createElement(
-        React.Fragment,
-        null,
-        React.createElement(
-          'div',
-          { className: 'cj-mainBar' },
-          React.createElement(
-            'div',
-            null,
-            React.createElement('div', { className: 'cj-mainHeading' }, '投递版预览'),
-            React.createElement('div', { className: 'cj-mainHint' }, '先确认内容与版式，再导出 PDF'),
-          ),
-          React.createElement(
-            'div',
-            { className: 'cj-previewActions' },
-            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: openEditor, disabled: editorBusy || !selected }, '编辑 Markdown'),
-            React.createElement(
-              'select',
-              { className: 'cj-fileSelect', value: selected, onChange: (e) => setSelected(e.target.value) },
-              ...previewOptions,
-            ),
-          ),
-        ),
-        error ? React.createElement('div', { className: 'cj-error' }, error) : null,
-        React.createElement(
-          'div',
-          { className: 'cj-canvas' },
-          React.createElement(
-            'div',
-            { className: 'cj-frame', style: { minHeight: compact ? 440 : 480 } },
-            previewSrc
-              ? React.createElement('iframe', { title: 'resume-preview', src: previewSrc, onLoad: onFrameLoad })
-              : React.createElement('div', { className: 'cj-empty' }, '等待预览文件'),
-          ),
-        ),
       )
       const startView = React.createElement(
         'div',
@@ -1136,58 +1160,24 @@ window.__ModuleLoader__.load({
           ]).map((item, index) => React.createElement('div', { className: 'cj-guideRow', key: item.id }, React.createElement('span', { className: `cj-qualityStatus cj-quality-${item.status}` }, item.status === 'pass' ? '✓' : item.status === 'error' ? '!' : item.status === 'warn' ? '!' : '·'), React.createElement('span', null, React.createElement('strong', null, String(index + 1).padStart(2, '0') + '　' + item.message), item.detail ? React.createElement('small', null, item.detail) : null))),
         ),
       )
-      const needsTuning = ['sparse', 'overflow', 'multi'].includes(fitState.state)
-      const nextStepText = fitState.state === 'sparse'
-        ? '留白偏多：先换高密度模板或增加字号，再重新测量。'
-        : fitState.state === 'overflow' || fitState.state === 'multi'
-          ? '内容超出：先减少重复信息，再收紧间距。'
-          : fitState.state === 'fit'
-            ? '版式达到目标密度，可以进入投递前确认。'
-            : '打开预览后会自动测量 A4 页数和留白。'
-      const inspectorView = React.createElement(
-        'aside',
-        { className: 'cj-inspector' },
-        React.createElement('div', { className: 'cj-inspectorTitle' }, '当前状态'),
-        React.createElement(
-          'div',
-          { className: 'cj-inspectorCard', 'data-priority': 'primary' },
-          React.createElement('div', { className: 'cj-cardTitle' }, '版式结果'),
-          React.createElement('div', { className: 'cj-fitLarge', 'data-state': fitState.state }, fitLabel),
-          React.createElement('div', { className: 'cj-cardCopy' }, `${fitState.text} · ${pageSummary}`),
-          React.createElement('div', { className: 'cj-nextStep' }, React.createElement('span', null, React.createElement('strong', null, '下一步：'), nextStepText), needsTuning ? React.createElement('button', { type: 'button', className: 'cj-nextStepButton', onClick: () => setView('templates') }, '看模板') : null),
-        ),
-        React.createElement(
-          'div',
-          { className: 'cj-controlCard' },
-          React.createElement('div', { className: 'cj-cardTitle' }, '当前模板'),
-          React.createElement('div', { className: 'cj-fitLarge', 'data-state': 'fit' }, selectedTemplate?.name || '校招标准'),
-          React.createElement('div', { className: 'cj-cardCopy' }, selectedTemplate?.description || '原创视觉预设'),
-          React.createElement('div', { className: 'cj-cardCopy' }, `${selectedTemplate?.layout?.mode === 'two-column' ? '双栏' : '单栏'} · 可在模板库切换`),
-        ),
-        React.createElement(
-          'div',
-          { className: 'cj-controlCard' },
-          React.createElement('div', { className: 'cj-cardTitle' }, '手动微调'),
-          React.createElement('div', { className: 'cj-cardCopy' }, '只影响当前预览，可随时恢复默认。'),
-          ...[
-            ['fontSize', '字号', (value) => `${value}px`, 11, 18, 0.5],
-            ['lineHeight', '行高', (value) => value.toFixed(2), 1.2, 2, 0.05],
-            ['sectionGap', '模块间距', (value) => `${value}px`, 6, 30, 1],
-            ['pageMargin', '页边距', (value) => `${value}px`, 24, 72, 2],
-          ].map(([key, label, format, min, max, step]) => React.createElement(
-            'label',
-            { className: 'cj-controlRow', key },
-            React.createElement('span', { className: 'cj-controlMeta' }, React.createElement('span', null, label), React.createElement('span', { className: 'cj-controlValue' }, format(layoutSettings[key]))),
-            React.createElement('input', { className: 'cj-range', type: 'range', min, max, step, value: layoutSettings[key], onChange: (event) => updateLayoutSetting(key, Number(event.target.value)) }),
-          )),
-          React.createElement('div', { className: 'cj-controlActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoLayout, disabled: !layoutHistory.length }, '撤销'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: resetLayoutSettings }, '恢复默认')),
-        ),
-        React.createElement('details', { className: 'cj-inspectorDetails' },
-          React.createElement('summary', null, '更多状态'),
-          React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '内容检查'), React.createElement('div', { className: 'cj-fitLarge', 'data-state': quality?.passed ? 'fit' : quality ? 'overflow' : 'pending' }, quality ? `${quality.score}/100` : '检查中'), React.createElement('div', { className: 'cj-cardCopy' }, quality ? `${quality.warnings.length} 项提醒 · 打开排版检查查看详情` : '切换到排版检查查看结果')),
-          React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '投递前确认'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '内容来自你的真实经历'), React.createElement('div', { className: 'cj-check' }, React.createElement('span', { className: 'cj-checkDot' }), '已检查页面数量')),
-          React.createElement('div', { className: 'cj-inspectorCard' }, React.createElement('div', { className: 'cj-cardTitle' }, '工作区'), React.createElement('div', { className: 'cj-cardCopy' }, status?.root || '等待工作区初始化')),
-        ),
+      const tuningPanel = React.createElement(
+        'div',
+        { className: 'cj-tuningPopover', 'aria-label': '手动调整' },
+        React.createElement('div', { className: 'cj-tuningPopoverHead' }, React.createElement('strong', null, '手动调整'), React.createElement('button', { type: 'button', className: 'cj-templatePickerClose', onClick: () => setTuningOpen(false) }, '收起')),
+        ...[
+          ['fontSize', '字号', (value) => `${value}px`, 11, 18, 0.5],
+          ['lineHeight', '行高', (value) => value.toFixed(2), 1.2, 2, 0.05],
+          ['sectionGap', '间距', (value) => `${value}px`, 6, 30, 1],
+          ['pageMargin', '边距', (value) => `${value}px`, 24, 72, 2],
+        ].map(([key, label, format, min, max, step]) => React.createElement(
+          'label',
+          { className: 'cj-inlineControl', key },
+          React.createElement('span', null, label),
+          React.createElement('strong', null, format(layoutSettings[key])),
+          React.createElement('input', { type: 'range', min, max, step, value: layoutSettings[key], onChange: (event) => updateLayoutSetting(key, Number(event.target.value)), 'aria-label': `${label} ${format(layoutSettings[key])}` }),
+        )),
+        React.createElement('button', { type: 'button', className: 'cj-inlineReset', onClick: undoLayout, disabled: !layoutHistory.length, title: '撤销上一次调整' }, '↶'),
+        React.createElement('button', { type: 'button', className: 'cj-inlineReset', onClick: resetLayoutSettings, title: '恢复默认排版' }, '默认'),
       )
 
       const lastUserPrompt = [...chatMessages].reverse().find((item) => item.role === 'user')?.text || ''
@@ -1208,19 +1198,58 @@ window.__ModuleLoader__.load({
           chatBridgeState === 'fallback' && lastUserPrompt ? React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => copyChatTask(lastUserPrompt) }, '复制任务到主对话') : null,
         ),
       )
-      const editorOverlay = editorOpen ? React.createElement(
-        'section',
-        { className: 'cj-editorOverlay', 'aria-label': 'Markdown 编辑工作台' },
-        React.createElement('header', { className: 'cj-editorTop' },
-          React.createElement('div', { style: { minWidth: 0 } }, React.createElement('div', { className: 'cj-editorTopTitle' }, '编辑 Markdown'), React.createElement('div', { className: 'cj-editorTopMeta' }, editorSource?.resumePath || 'resume.md')),
-          React.createElement('div', { className: 'cj-editorTopActions' }, onClose ? React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onClose }, '关闭') : null, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setEditorOpen(false) }, '返回预览'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setEditorChatOpen((value) => !value) }, editorChatOpen ? '收起 AI' : '打开 AI'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveEditor, disabled: editorBusy || !editorDraft.trim() }, editorBusy ? '处理中…' : '保存')),
+      const editorInlineView = React.createElement(
+        'div',
+        { className: 'cj-previewWorkspace', 'data-chat': editorChatOpen ? 'open' : 'closed' },
+        React.createElement(
+          'section',
+          { className: 'cj-editorPane cj-previewEditorPane' },
+          React.createElement('div', { className: 'cj-editorPaneHead' }, React.createElement('span', null, 'Markdown'), React.createElement('small', null, editorSource ? (editorSelection ? '已选中一段内容' : '直接编辑，自动预览') : '正在读取内容…')),
+          editorSource
+            ? React.createElement('textarea', { className: 'cj-editorText', value: editorDraft, onChange: (event) => setEditorDraft(event.target.value), onSelect: (event) => setEditorSelection(event.currentTarget.value.slice(event.currentTarget.selectionStart, event.currentTarget.selectionEnd)), spellCheck: false, 'aria-label': 'Markdown 简历内容' })
+            : React.createElement('div', { className: 'cj-editorLoading' }, editorBusy ? '正在读取 Markdown…' : '选择一份投递版本后开始编辑'),
+          React.createElement('div', { className: 'cj-editorStatus' }, editorMessage || '编辑内容后，右侧 A4 预览会自动更新。'),
         ),
-        React.createElement('div', { className: 'cj-editorBody', 'data-chat': editorChatOpen ? 'open' : 'closed' },
-          React.createElement('section', { className: 'cj-editorPane' }, React.createElement('div', { className: 'cj-editorPaneHead' }, React.createElement('span', null, 'Markdown'), React.createElement('small', null, editorSelection ? '已选中一段内容' : '内容源文件')), React.createElement('textarea', { className: 'cj-editorText', value: editorDraft, onChange: (event) => setEditorDraft(event.target.value), onSelect: (event) => setEditorSelection(event.currentTarget.value.slice(event.currentTarget.selectionStart, event.currentTarget.selectionEnd)), spellCheck: false, 'aria-label': 'Markdown 简历内容' }), React.createElement('div', { className: 'cj-editorStatus' }, editorMessage)),
-          React.createElement('section', { className: 'cj-editorPane' }, React.createElement('div', { className: 'cj-editorPaneHead' }, React.createElement('span', null, 'A4 预览'), React.createElement('small', null, editorPreviewUrl ? '草稿实时渲染' : '等待输入')), React.createElement('div', { className: 'cj-editorPreviewFrame' }, editorPreviewUrl ? React.createElement('iframe', { title: 'Markdown 草稿预览', src: editorPreviewUrl }) : React.createElement('div', { className: 'cj-empty' }, '输入内容后生成预览'))),
-          editorChatOpen ? editorChatView : null,
+        React.createElement(
+          'section',
+          { className: 'cj-editorPane cj-previewA4Pane' },
+          React.createElement('div', { className: 'cj-editorPaneHead' }, React.createElement('span', null, 'A4 预览'), React.createElement('small', null, editorPreviewUrl ? '草稿实时渲染' : '等待输入')),
+          React.createElement('div', { className: 'cj-editorPreviewFrame' }, editorPreviewUrl ? React.createElement('iframe', { title: 'Markdown 草稿预览', src: editorPreviewUrl }) : React.createElement('div', { className: 'cj-empty' }, '输入内容后生成预览')),
         ),
-      ) : null
+        editorChatOpen ? editorChatView : null,
+      )
+      const previewView = React.createElement(
+        'div',
+        { className: 'cj-previewShell' },
+        React.createElement(
+          'div',
+          { className: 'cj-mainBar' },
+          React.createElement(
+            'div',
+            null,
+            React.createElement('div', { className: 'cj-mainHeading' }, '投递版工作台'),
+            React.createElement('div', { className: 'cj-mainHint' }, '左侧改内容，中间看 A4，右侧只在需要时调排版'),
+          ),
+          React.createElement(
+            'div',
+            { className: 'cj-previewActions' },
+            React.createElement('button', { type: 'button', className: 'cj-toolButton', onClick: () => { setTemplatePickerOpen((value) => !value); setTuningOpen(false) }, 'aria-expanded': templatePickerOpen }, `模板 · ${selectedTemplate?.name || '选择模板'}`),
+            React.createElement(
+              'select',
+              { className: 'cj-fileSelect', value: selected, onChange: (e) => setSelected(e.target.value) },
+              ...previewOptions,
+            ),
+            React.createElement('button', { type: 'button', className: 'cj-toolButton', onClick: () => { setTuningOpen((value) => !value); setTemplatePickerOpen(false) }, 'aria-expanded': tuningOpen }, '手动调整'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setEditorChatOpen((value) => !value), disabled: !editorSource }, editorChatOpen ? '收起 AI' : 'AI 助手'),
+            React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveEditor, disabled: editorBusy || !editorDraft.trim() }, editorBusy ? '处理中…' : '保存'),
+            React.createElement('span', { className: `cj-inlineStatus cj-inlineStatus-${fitState.state}` }, `${statusButtonLabel} · ${statusButtonMeta}`),
+          ),
+          templatePickerOpen ? React.createElement('div', { className: 'cj-templatePicker', 'aria-label': '快速换模板' }, React.createElement('div', { className: 'cj-templatePickerHead' }, React.createElement('strong', null, '快速换模板'), React.createElement('button', { type: 'button', className: 'cj-templatePickerClose', onClick: () => setTemplatePickerOpen(false) }, '收起')), templateGallery) : null,
+        ),
+        error ? React.createElement('div', { className: 'cj-error' }, error) : null,
+        tuningOpen ? tuningPanel : null,
+        editorInlineView,
+      )
 
       return React.createElement(
         'div',
@@ -1230,10 +1259,8 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'cj-workbenchBody', 'data-view': view },
           React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, 'Agent 负责改稿与排版。\n你负责最终确认。')),
-          React.createElement('main', { className: 'cj-main' }, view === 'start' ? startView : view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : view === 'workshop' ? workshopView : guideView),
-          view === 'preview' ? inspectorView : null,
+          React.createElement('main', { className: `cj-main cj-main-${view}` }, view === 'start' ? startView : view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : view === 'workshop' ? workshopView : guideView),
         ),
-        editorOverlay,
       )
     }
 
