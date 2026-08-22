@@ -62,10 +62,11 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function classifyTimelineNode(node) {
+    function classifyTimelineNode(node, part = node, kindHint = '') {
       const rawKind = String(node?.kind || node?.type || '').toLowerCase()
-      const tool = toolDescriptor(node)
-      const raw = `${rawKind} ${tool.kind} ${tool.name}`.toLowerCase()
+      const partKind = String(part?.kind || part?.type || part?.role || part?.channel || '').toLowerCase()
+      const tool = toolDescriptor(part)
+      const raw = `${kindHint} ${rawKind} ${partKind} ${tool.kind} ${tool.name}`.toLowerCase()
       if (raw.includes('question') || raw.includes('pending')) return 'question'
       if (raw.includes('think') || raw.includes('reason')) return 'think'
       if (raw.includes('read')) return 'read'
@@ -95,27 +96,67 @@ window.__ModuleLoader__.load({
       return ''
     }
 
-    function normalizeTimelineNode(node, snapshot, index, nodes) {
-      const type = classifyTimelineNode(node)
-      const tool = toolDescriptor(node)
-      const rawStatus = String(node?.status || node?.state || node?.phase || '').toLowerCase()
-      const status = /error|fail|reject|cancel/.test(rawStatus)
-        ? 'error'
-        : /wait|pending|question/.test(rawStatus) || type === 'question'
-          ? 'waiting'
-          : /run|progress|active/.test(rawStatus) || (Boolean(snapshot?.running) && index === nodes.length - 1)
-            ? 'running'
-            : 'done'
-      const text = textFromConversationNode(node).trim()
-      const target = tool.name || (type === 'assistant' || type === 'user' ? '' : text.replace(/\s+/g, ' ').slice(0, 140))
-      return {
-        seq: Number(node?.seq) || index,
-        type,
-        label: timelineLabel(type),
-        target,
-        summary: text,
-        status,
+    function conversationNodeSegments(node) {
+      if (!node || typeof node !== 'object') return []
+      const candidates = []
+      const seen = new Set()
+      const add = (value, kindHint = '') => {
+        if (Array.isArray(value)) {
+          value.forEach((item) => add(item, kindHint))
+          return
+        }
+        if (value == null || (typeof value !== 'object' && typeof value !== 'string')) return
+        // Some hosts wrap several parts in one assistant block. Descend into
+        // that wrapper before reading its aggregate text, otherwise the
+        // reasoning and final answer would be merged again.
+        if (typeof value === 'object') {
+          const nested = ['blocks', 'content'].filter((field) => Array.isArray(value[field]))
+          if (nested.length) {
+            nested.forEach((field) => add(value[field], kindHint || String(value.kind || value.type || '')))
+            return
+          }
+        }
+        const text = textFromValue(value).trim()
+        if (!text || seen.has(text)) return
+        seen.add(text)
+        candidates.push({ source: typeof value === 'object' ? value : { text: value }, text, kindHint })
       }
+      // Hosts may flatten one assistant turn into sibling fields. Keep the
+      // reasoning fields before the final answer so the mirror follows the
+      // actual task-flow order instead of showing the answer first.
+      for (const field of ['thinking', 'reasoning', 'thought']) add(node[field], field)
+      add(node.blocks)
+      add(node.content)
+      for (const field of ['final', 'answer', 'response', 'text', 'output']) add(node[field], field)
+      if (candidates.length) return candidates
+      const fallback = textFromConversationNode(node).trim()
+      return fallback ? [{ source: node, text: fallback, kindHint: '' }] : []
+    }
+
+    function normalizeTimelineNode(node, snapshot, index, nodes) {
+      const rawStatus = String(node?.status || node?.state || node?.phase || '').toLowerCase()
+      return conversationNodeSegments(node).map((segment, segmentIndex) => {
+        const type = classifyTimelineNode(node, segment.source, segment.kindHint)
+        const tool = toolDescriptor(segment.source)
+        const status = /error|fail|reject|cancel/.test(rawStatus)
+          ? 'error'
+          : /wait|pending|question/.test(rawStatus) || type === 'question'
+            ? 'waiting'
+            : /run|progress|active/.test(rawStatus) || (Boolean(snapshot?.running) && index === nodes.length - 1)
+              ? 'running'
+              : 'done'
+        const baseSeq = Number(node?.seq)
+        const seq = Number.isFinite(baseSeq) ? baseSeq * 100 + segmentIndex : index * 100 + segmentIndex
+        const target = tool.name || (type === 'assistant' || type === 'user' ? '' : segment.text.replace(/\s+/g, ' ').slice(0, 140))
+        return {
+          seq,
+          type,
+          label: timelineLabel(type),
+          target,
+          summary: segment.text,
+          status,
+        }
+      })
     }
 
     function getCurrentSessionSource() {
@@ -132,17 +173,18 @@ window.__ModuleLoader__.load({
 
     function summarizeConversation(snapshot) {
       const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []
-      const messages = nodes
-        .map((node) => ({
-          role: node?.kind === 'assistant' ? 'assistant' : node?.kind === 'user' || node?.kind === 'steering' ? 'user' : 'system',
-          kind: String(node?.kind || 'unknown'),
-          text: textFromConversationNode(node).trim(),
-          seq: Number(node?.seq) || 0,
+      const normalized = nodes.flatMap((node, index) => normalizeTimelineNode(node, snapshot, index, nodes))
+      const messages = normalized
+        .filter((item) => item.type === 'user' || item.type === 'assistant')
+        .map((item) => ({
+          role: item.type,
+          kind: item.type,
+          text: item.summary,
+          seq: item.seq,
         }))
-        .filter((item) => item.text)
         .slice(-10)
-      const feed = nodes
-        .map((node, index) => ({ ...normalizeTimelineNode(node, snapshot, index, nodes), role: node?.kind === 'assistant' ? 'assistant' : node?.kind === 'user' || node?.kind === 'steering' ? 'user' : 'event' }))
+      const feed = normalized
+        .map((item) => ({ ...item, role: item.type === 'assistant' ? 'assistant' : item.type === 'user' ? 'user' : 'event' }))
         .filter((item) => item.type !== 'system' && (item.target || item.summary))
       const sessionFacts = [
         snapshot?.summary,
@@ -654,7 +696,7 @@ window.__ModuleLoader__.load({
 .cj-tuningPopover .cj-inlineControl input { width: 100%; }
 .cj-tuningPopover .cj-inlineReset { margin-left: auto; }
 .cj-previewWorkspace { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(300px, .82fr) minmax(420px, 1.18fr); gap: 10px; }
-.cj-previewWorkspace[data-chat="open"] { grid-template-columns: minmax(260px, .7fr) minmax(360px, 1fr) 292px; }
+.cj-previewWorkspace[data-chat="open"] { grid-template-columns: minmax(260px, .72fr) minmax(500px, .9fr) minmax(300px, .78fr); }
 .cj-previewEditorPane, .cj-previewA4Pane { min-height: 0; }
 .cj-editorLoading { min-height: 0; flex: 1; display: grid; place-items: center; color: #8b95a7; font-size: 12px; }
 .cj-inspectorDock { position: absolute; top: 0; right: 0; z-index: 40; }
@@ -683,8 +725,8 @@ window.__ModuleLoader__.load({
 .cj-editorText { min-height: 0; flex: 1; width: 100%; resize: none; border: 0; outline: 0; padding: 14px; color: #26334d; background: #fff; font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace; tab-size: 2; }
 .cj-editorText:focus { box-shadow: inset 0 0 0 2px rgba(53,89,168,.12); }
 .cj-editorStatus { padding: 7px 11px; border-top: 1px solid #edf0f4; color: #8b95a7; font-size: 10px; line-height: 15px; }
-.cj-editorPreviewFrame { min-height: 0; flex: 1; overflow: hidden; background: #eef1f5; }
-.cj-editorPreviewFrame iframe { width: 100%; height: 100%; border: 0; background: #eef1f5; }
+.cj-editorPreviewFrame { min-height: 0; flex: 1; overflow: hidden; background: #fff; }
+.cj-editorPreviewFrame iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 .cj-editorChat { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dfe5ee; border-radius: 14px; background: #f8fafc; box-shadow: 0 8px 24px rgba(24,43,78,.06); }
 .cj-editorChatHead { padding: 13px 13px 10px; border-bottom: 1px solid #e8edf3; background: rgba(255,255,255,.92); }
 .cj-editorChatTitle { color: #26334d; font-size: 12px; font-weight: 800; }
