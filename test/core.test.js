@@ -101,10 +101,14 @@ test('template renderer registry produces structural variants', () => {
   const source = '# 张三\n\n## 项目经历\n\n- 结果指标'
   const technical = assembleResumeSections(markdownToHtml(source), null, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'technical-timeline' })
   const portfolio = assembleResumeSections(markdownToHtml(source), null, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'portfolio-grid' })
+  const sidebar = assembleResumeSections(markdownToHtml('# 张三\n\n## 技能\n\n- JavaScript\n\n## 项目经历\n\n- 结果指标'), null, { mode: 'two-column', regions: { main: ['projects'], side: ['skills'] } }, { ...TEMPLATE_DEFAULTS, renderer: 'split-sidebar', layout: { ...TEMPLATE_DEFAULTS.layout, mode: 'two-column' } })
   assert.match(technical, /dsh-renderer-technical-timeline/)
   assert.match(technical, /dsh-renderer-item-projects/)
   assert.match(portfolio, /dsh-renderer-portfolio-grid/)
   assert.match(portfolio, /dsh-renderer-featured/)
+  assert.match(sidebar, /dsh-column-main-item/)
+  assert.match(sidebar, /dsh-column-side-item/)
+  assert.doesNotMatch(sidebar, /dsh-resume-columns/)
 })
 
 test('business timeline renderer keeps the header and timeline structure distinct', () => {
