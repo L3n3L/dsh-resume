@@ -134,6 +134,8 @@ dsh web
 保存为新版本并让我在模板库里预览。
 ```
 
+如果你想从零做一个视觉方向，也不需要手写完整模板 JSON。告诉 Agent 面向什么岗位、希望单栏还是双栏、内容密度和视觉语气，插件会先生成一个不会自动入库的候选模板和模块布局（例如技能标签、项目卡片、经历时间线），再经过校验、预览和 A4 测量；你确认后才保存到模板库。
+
 ### 复核层：A4 指标不是装饰
 
 插件会读取浏览器中的真实预览结果，关注这些指标：
@@ -198,6 +200,7 @@ AI 助手位于当前预览工作台右侧，拿到的是当前简历上下文�
 | `jobhunt_check` | 检查内容证据、目录和排版风险 |
 | `jobhunt_template_list` | 查看可用模板 |
 | `jobhunt_template_copy` | 复制模板并建立独立版本 |
+| `jobhunt_template_generate` | 从 DesignBrief 生成可校验的模板候选，不自动入库 |
 | `jobhunt_template_validate` | 校验模板配置 |
 | `jobhunt_template_save` | 保存模板版本 |
 | `jobhunt_layout_validate` | 校验模块布局声明 |
@@ -209,7 +212,8 @@ AI 助手位于当前预览工作台右侧，拿到的是当前简历上下文�
 
 ```text
 初始化 → 读取材料和 JD → 检查证据 → 生成投递版
-→ 选择模板 → 渲染 → 读取 A4 指标 → 有界调优 → 交给用户确认
+→ 选择或生成模板候选 → 校验 → 渲染 → 读取 A4 指标
+→ 有界调优 → 用户确认 → 保存模板版本
 ```
 
 ## 文件结构
@@ -291,6 +295,7 @@ dsh web
 
 - `client/client.js`：工作台、编辑器、A4 预览和 AI 助手
 - `lib/renderer.js`：Markdown、模板和固定 A4 页面渲染
+- `lib/template-generation.js`：DesignBrief 到安全 TemplateSpec 候选生成
 - `lib/template-presets.js`：内置模板
 - `lib/autotune.js`：排版指标和有限调优逻辑
 - `index.js`：插件工具、工作区和 Harness 对接

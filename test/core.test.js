@@ -3,8 +3,10 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { buildPreviewDocument, markdownToHtml } from '../lib/renderer.js'
+import { assembleResumeSections, buildPreviewDocument, markdownToHtml } from '../lib/renderer.js'
 import { TEMPLATE_DEFAULTS } from '../lib/template-schema.js'
+import { generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
+import { validateLayoutSpec } from '../lib/layout-schema.js'
 import { initJobhunt } from '../lib/workspace.js'
 
 test('Markdown renderer keeps resume structure and inline emphasis', () => {
@@ -39,4 +41,45 @@ test('new workspaces receive a substantive demo resume', async () => {
   } finally {
     await fs.rm(root, { recursive: true, force: true })
   }
+})
+
+test('DesignBrief generates a validated candidate without saving it', () => {
+  const result = generateTemplateCandidate({
+    name: '技术双栏',
+    audience: 'engineering',
+    layout: 'two-column',
+    density: 'compact',
+    tone: 'technical',
+    moduleOrder: ['profile', 'skills', 'projects', 'experience'],
+    bestFor: ['前端校招'],
+  })
+  assert.equal(result.valid, true)
+  assert.equal(result.template.id, '技术双栏'.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'ai-template')
+  assert.equal(result.template.layout.mode, 'two-column')
+  assert.equal(result.template.layout.density, 'compact')
+    assert.equal(result.template.typography.fontFamily, 'modern-sans')
+    assert.equal(result.template.metadata.generatedBy, 'dsh-template-design')
+  assert.equal(result.layoutSpec.mode, 'two-column')
+  assert.equal(result.layoutSpec.blocks.find((block) => block.id === 'skills').type, 'skill-tags')
+  assert.equal(result.layoutSpec.blocks.find((block) => block.id === 'projects').type, 'project-list')
+})
+
+test('module renderer gives skill tags a real visual semantic', () => {
+  const layout = validateLayoutSpec({
+    mode: 'single-column',
+    blocks: [{ id: 'skills', type: 'skill-tags', source: '技能' }],
+    regions: { main: ['skills'] },
+  }).value
+  const html = assembleResumeSections(markdownToHtml('## 技能\n\n- JavaScript\n- TypeScript'), layout)
+  assert.match(html, /dsh-module-skill-tags/)
+  assert.match(html, /dsh-skill-tags/)
+  assert.match(html, /dsh-skill-tag.*JavaScript/)
+})
+
+test('DesignBrief normalization keeps module order inside the safe registry', () => {
+  const brief = normalizeDesignBrief({
+    name: '双栏模板',
+    moduleOrder: ['skills', 'unknown', 'projects', 'skills'],
+  })
+  assert.deepEqual(brief.moduleOrder, ['skills', 'projects'])
 })

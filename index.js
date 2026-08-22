@@ -20,6 +20,7 @@ import {
 } from './lib/template-presets.js'
 import { validateLayoutSpec } from './lib/layout-schema.js'
 import { autoTuneTemplate } from './lib/autotune.js'
+import { generateTemplateCandidate, validateDesignBrief } from './lib/template-generation.js'
 
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer']
@@ -44,7 +45,7 @@ Workflow:
 3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
-6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, copy a built-in with jobhunt_template_copy or generate a new TemplateSpec JSON, then save it with jobhunt_template_save
+6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, call jobhunt_template_generate with a DesignBrief, validate and render the candidate, then save it only after the user confirms
 7) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md
 8) after jobhunt_render, call jobhunt_layout_metrics to read the browser's real A4 measurement; an open plugin preview refreshes itself when a new render lands
 9) use the preview's page-count/overflow/blank-space indicator as feedback; prefer TemplateSpec controls over arbitrary CSS
@@ -155,6 +156,26 @@ export function apply(ctx) {
       }
       const result = validateTemplate(parsed)
       return { valid: result.valid, errors: result.errors, template: result.value }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_template_generate',
+    description: 'Generate a safe visual resume template candidate from a compact DesignBrief. Returns a validated TemplateSpec and rationale; it never writes to the template library until the user confirms and jobhunt_template_save is called.',
+    parameters: {
+      briefJson: { type: 'string', required: true, description: 'JSON DesignBrief: name, audience, layout, density, tone, moduleOrder, palette, bestFor, and tags.' },
+    },
+    output: textResult(),
+    async execute(args) {
+      let parsed
+      try {
+        parsed = JSON.parse(args.briefJson)
+      } catch {
+        return { valid: false, errors: ['briefJson must be valid JSON'] }
+      }
+      const brief = validateDesignBrief(parsed)
+      if (!brief.valid) return { valid: false, errors: brief.errors, brief: brief.value }
+      return generateTemplateCandidate(brief.value)
     },
   }))
 
