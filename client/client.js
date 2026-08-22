@@ -76,6 +76,19 @@ window.__ModuleLoader__.load({
       return ({ think: 'Think', read: 'Read', edit: 'Edit', grep: 'Grep', shell: 'Shell', tool: 'Tool call', question: 'Question', assistant: 'Assistant', user: 'User', system: 'System' })[type] || 'Event'
     }
 
+    function templateIdFromText(text) {
+      const source = String(text || '')
+      const patterns = [
+        /["'](?:id|templateId)["']\s*:\s*["']([a-z0-9][a-z0-9_-]*)["']/i,
+        /\b(?:templateId|模板\s*(?:id|标识))\s*[:=：]\s*["'`]?([a-z0-9][a-z0-9_-]*)/i,
+      ]
+      for (const pattern of patterns) {
+        const match = source.match(pattern)
+        if (match?.[1]) return match[1]
+      }
+      return ''
+    }
+
     function normalizeTimelineNode(node, snapshot, index, nodes) {
       const type = classifyTimelineNode(node)
       const tool = toolDescriptor(node)
@@ -1261,20 +1274,60 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const reloadTemplates = useCallback(async () => {
+      const reloadTemplates = useCallback(async (preferredId = '') => {
         try {
           const res = await fetch('/dsh-resume/api/templates', { cache: 'no-store' })
           if (!res.ok) throw new Error(`templates ${res.status}`)
           const data = await res.json()
-          if (Array.isArray(data.templates)) setTemplates(data.templates)
+          if (!Array.isArray(data.templates)) return
+          setTemplates(data.templates)
+          const preferred = data.templates.find((template) => template.id === preferredId)
+          if (preferred) {
+            setTemplateId(preferred.id)
+            setLayoutSettings(layoutSettingsFromTemplate(preferred))
+            setLayoutHistory([])
+            setFitState({ text: `已同步新模板：${preferred.name}`, state: 'pending' })
+            setTemplateMessage(`主对话刚刚生成了「${preferred.name}」，已自动加载。`)
+          }
         } catch {
           // Keep the last known template list when the preview server is restarting.
         }
-      }, [selected])
+      }, [])
 
       useEffect(() => {
         void reloadTemplates()
       }, [reloadTemplates])
+
+      useEffect(() => {
+        if (templatePickerOpen || view === 'templates' || view === 'workshop') void reloadTemplates()
+      }, [reloadTemplates, templatePickerOpen, view])
+
+      const templateActivity = useMemo(() => {
+        const nodes = Array.isArray(mainConversation.snapshot?.nodes) ? mainConversation.snapshot.nodes : []
+        return nodes.map((node) => {
+          const tool = toolDescriptor(node)
+          const text = textFromConversationNode(node)
+          return {
+            signature: `${Number(node?.seq) || 0}:${tool.name}:${text.slice(0, 800)}`,
+            toolName: tool.name,
+            text,
+          }
+        }).filter((item) => /jobhunt_template_(save|validate)|jobhunt_render/i.test(`${item.toolName} ${item.text}`)).at(-1) || null
+      }, [mainConversation.snapshot])
+      const handledTemplateActivity = useRef('')
+
+      useEffect(() => {
+        if (!templateActivity?.signature) return
+        if (!handledTemplateActivity.current) {
+          handledTemplateActivity.current = templateActivity.signature
+          return
+        }
+        if (handledTemplateActivity.current === templateActivity.signature) return
+        handledTemplateActivity.current = templateActivity.signature
+        const preferredId = templateIdFromText(templateActivity.text)
+        const timer = setTimeout(() => { void reloadTemplates(preferredId) }, 250)
+        return () => clearTimeout(timer)
+      }, [reloadTemplates, templateActivity?.signature])
 
       useEffect(() => {
         const onLayoutMessage = (event) => {
