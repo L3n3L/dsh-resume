@@ -10,7 +10,7 @@ import { generateTemplateCandidate, normalizeDesignBrief } from '../lib/template
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { normalizeLayoutSpec, validateLayoutSpec } from '../lib/layout-schema.js'
 import { listTemplatePresets } from '../lib/template-presets.js'
-import { listRendererIds } from '../lib/renderers/registry.js'
+import { listRendererIds, resolveRendererId } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
 import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview } from '../lib/preview-api.js'
 
@@ -240,6 +240,30 @@ test('Layout IR controls module order and renderer wrappers', () => {
   assert.ok(html.indexOf('data-module-id="projects"') < html.indexOf('data-module-id="skills"'))
   const generated = generateTemplateCandidate({ name: '作品网格', family: 'portfolio-grid', moduleOrder: ['profile', 'skills', 'projects'] })
   assert.equal(generated.layoutSpec.ir.type, 'grid')
+})
+
+test('Layout IR selects the structural renderer before template style', () => {
+  const split = { ir: { type: 'split', columns: [{ id: 'main', width: '1fr', items: ['projects'] }, { id: 'side', width: '0.32fr', items: ['skills'] }] } }
+  const grid = { ir: { type: 'grid', columns: 2, items: ['projects', 'skills'] } }
+  assert.equal(resolveRendererId(TEMPLATE_DEFAULTS, split), 'split-sidebar')
+  assert.equal(resolveRendererId({ ...TEMPLATE_DEFAULTS, renderer: 'midnight-terminal' }, split), 'split-sidebar')
+  assert.equal(resolveRendererId({ ...TEMPLATE_DEFAULTS, renderer: 'swiss-grid' }, grid), 'portfolio-grid')
+
+  const layout = validateLayoutSpec({
+    mode: 'single-column',
+    ir: grid.ir,
+    blocks: [
+      { id: 'skills', type: 'skills', source: '技能' },
+      { id: 'projects', type: 'projects', source: '项目经历' },
+    ],
+  }).value
+  const terminal = { ...TEMPLATE_DEFAULTS, renderer: 'midnight-terminal', visual: { ...TEMPLATE_DEFAULTS.visual, variant: 'terminal' } }
+  const body = assembleResumeSections(markdownToHtml('# 林知远\n\n## 技能\n\n- TypeScript\n\n## 项目经历\n\n- 结果指标'), layout, terminal.layout, terminal)
+  assert.match(body, /dsh-renderer-portfolio-grid/)
+  const document = buildPreviewDocument({ title: 'IR', bodyHtml: body, cssText: '', sourcePath: 'resume.md', templatePath: 'templates/default.css', previewPath: 'preview.html', templateSpec: terminal, layoutSpec: layout })
+  assert.match(document, /data-renderer="portfolio-grid"/)
+  assert.match(document, /renderer-portfolio-grid renderer-midnight-terminal/)
+  assert.match(document, /data-template-renderer="midnight-terminal"/)
 })
 
 test('semantic modules render photo, summary, contact, and grouped skills', () => {
