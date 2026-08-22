@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
       if (typeof value === 'string') return value
       if (Array.isArray(value)) return value.map((item) => textFromValue(item, depth + 1)).filter(Boolean).join('')
       if (typeof value !== 'object') return ''
-      const fields = ['text', 'content', 'blocks', 'output', 'result', 'message', 'error', 'value', 'summary']
+      const fields = ['text', 'content', 'blocks', 'output', 'result', 'message', 'error', 'value', 'summary', 'argsRaw', 'arguments', 'rawInput']
       return fields.map((field) => textFromValue(value[field], depth + 1)).filter(Boolean).join('')
     }
 
@@ -34,6 +34,15 @@ window.__ModuleLoader__.load({
 
     function textFromConversationNode(node) {
       if (!node || typeof node !== 'object') return ''
+      if (node.kind === 'assistant' && Array.isArray(node.blocks)) {
+        const finalText = node.blocks
+          .filter((block) => String(block?.kind || block?.type || '').toLowerCase() === 'text')
+          .map((block) => textFromValue(block))
+          .filter(Boolean)
+          .join('')
+          .trim()
+        if (finalText) return finalText
+      }
       const parts = [
         Array.isArray(node.blocks) ? textFromBlocks(node.blocks) : textFromValue(node.blocks),
         Array.isArray(node.content) ? textFromBlocks(node.content) : textFromValue(node.content),
@@ -54,10 +63,10 @@ window.__ModuleLoader__.load({
     }
 
     function toolDescriptor(node) {
-      const candidate = nodeCandidates(node).find((item) => item.name || item.toolName || item.tool?.name || item.function?.name)
+      const candidate = nodeCandidates(node).find((item) => item.name || item.toolName || item.tool?.name || item.toolCall?.name || item.tool_call?.name || item.call?.name || item.function?.name)
       if (!candidate) return { name: '', kind: '' }
       return {
-        name: String(candidate.name || candidate.toolName || candidate.tool?.name || candidate.function?.name || ''),
+        name: String(candidate.name || candidate.toolName || candidate.tool?.name || candidate.toolCall?.name || candidate.tool_call?.name || candidate.call?.name || candidate.function?.name || ''),
         kind: String(candidate.type || candidate.kind || ''),
       }
     }
@@ -67,6 +76,17 @@ window.__ModuleLoader__.load({
       const partKind = String(part?.kind || part?.type || part?.role || part?.channel || '').toLowerCase()
       const tool = toolDescriptor(part)
       const raw = `${kindHint} ${rawKind} ${partKind} ${tool.kind} ${tool.name}`.toLowerCase()
+      const explicitKind = `${kindHint} ${rawKind} ${partKind}`.trim()
+      if (/\breasoning\b|\bthink(?:ing)?\b|\bthought\b/.test(explicitKind)) return 'think'
+      if (/\btool[-_ ]?call\b|\btool[-_ ]?result\b/.test(explicitKind) || tool.name) {
+        if (/\bread\b|\bcat\b|\bopen\b/.test(tool.name.toLowerCase())) return 'read'
+        if (/\bedit\b|\bwrite\b|\bpatch\b|\bapply\b/.test(tool.name.toLowerCase())) return 'edit'
+        if (/\bgrep\b|\bsearch\b|\bfind\b/.test(tool.name.toLowerCase())) return 'grep'
+        if (/\bshell\b|\bexec(?:ute)?\b|\bcommand\b|\brun\b/.test(tool.name.toLowerCase())) return 'shell'
+        return 'tool'
+      }
+      if (/^command$/.test(rawKind)) return 'shell'
+      if (/^tool[-_ ]?result$/.test(rawKind)) return 'tool'
       if (raw.includes('question') || raw.includes('pending')) return 'question'
       if (raw.includes('think') || raw.includes('reason')) return 'think'
       if (raw.includes('read')) return 'read'
@@ -104,6 +124,16 @@ window.__ModuleLoader__.load({
       return pathMatch?.[1]?.replace(/\\/g, '/') || ''
     }
 
+    function previewPathFromNode(node) {
+      for (const candidate of nodeCandidates(node)) {
+        for (const field of ['previewPath', 'outPath', 'preview']) {
+          const value = String(candidate?.[field] || '').replace(/\\/g, '/')
+          if (value.endsWith('preview.html')) return value
+        }
+      }
+      return ''
+    }
+
     function conversationNodeSegments(node) {
       if (!node || typeof node !== 'object') return []
       const candidates = []
@@ -124,17 +154,27 @@ window.__ModuleLoader__.load({
             return
           }
         }
-        const text = textFromValue(value).trim()
+        const valueKind = String(value?.kind || value?.type || '').toLowerCase()
+        const structuredText = valueKind === 'tool-call'
+          ? [value.name, value.argsRaw].filter(Boolean).join(' ').trim()
+          : valueKind === 'tool-result'
+            ? [value.call?.name, textFromValue(value.content), textFromValue(value.error), value.isError ? '工具调用失败' : ''].filter(Boolean).join(' ').trim()
+            : valueKind === 'command'
+              ? [value.name, value.args, value.outcome?.text].filter(Boolean).join(' ').trim()
+              : ''
+        const text = (structuredText || textFromValue(value)).trim()
         if (!text || seen.has(text)) return
         seen.add(text)
-        candidates.push({ source: typeof value === 'object' ? value : { text: value }, text, kindHint })
+        candidates.push({ source: typeof value === 'object' ? value : { text: value }, text, kindHint: kindHint || valueKind })
       }
+      const nodeKind = String(node.kind || node.type || '').toLowerCase()
+      if (nodeKind === 'tool-result' || nodeKind === 'command' || nodeKind === 'tool-call') add(node, nodeKind)
       // Hosts may flatten one assistant turn into sibling fields. Keep the
       // reasoning fields before the final answer so the mirror follows the
       // actual task-flow order instead of showing the answer first.
       for (const field of ['thinking', 'reasoning', 'thought']) add(node[field], field)
       add(node.blocks)
-      add(node.content)
+      if (nodeKind !== 'tool-result') add(node.content)
       for (const field of ['final', 'answer', 'response', 'text', 'output']) add(node[field], field)
       if (candidates.length) return candidates
       const fallback = textFromConversationNode(node).trim()
@@ -150,7 +190,7 @@ window.__ModuleLoader__.load({
           ? 'error'
           : /wait|pending|question/.test(rawStatus) || type === 'question'
             ? 'waiting'
-            : /run|progress|active/.test(rawStatus) || (Boolean(snapshot?.running) && index === nodes.length - 1)
+          : /run|progress|active/.test(rawStatus) || node?.kind === 'tool-call' || (Boolean(snapshot?.running) && index === nodes.length - 1)
               ? 'running'
               : 'done'
         const baseSeq = Number(node?.seq)
@@ -182,6 +222,16 @@ window.__ModuleLoader__.load({
     function summarizeConversation(snapshot) {
       const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []
       const normalized = nodes.flatMap((node, index) => normalizeTimelineNode(node, snapshot, index, nodes))
+      const lastSeq = nodes.reduce((max, node) => Math.max(max, Number(node?.seq) || 0), 0)
+      const liveNodes = []
+      if (snapshot?.partial?.blocks?.length) {
+        liveNodes.push({ kind: 'assistant', seq: lastSeq + 0.1, blocks: snapshot.partial.blocks })
+      }
+      if (Array.isArray(snapshot?.runningCalls)) {
+        snapshot.runningCalls.forEach((call, index) => liveNodes.push({ kind: 'tool-call', seq: lastSeq + 0.2 + index / 100, ...call }))
+      }
+      const liveNormalized = liveNodes.flatMap((node, index) => normalizeTimelineNode(node, snapshot, nodes.length + index, liveNodes))
+      normalized.push(...liveNormalized)
       const messages = normalized
         .filter((item) => item.type === 'user' || item.type === 'assistant')
         .map((item) => ({
@@ -209,6 +259,8 @@ window.__ModuleLoader__.load({
         sessionFacts,
         pending: Array.isArray(snapshot?.pending) ? snapshot.pending : [],
         pendingQuestion: snapshot?.pending?.find?.((item) => item?.kind === 'question') || null,
+        hasMore: Boolean(snapshot?.hasMore),
+        loadingOlder: Boolean(snapshot?.loadingOlder),
       }
     }
 
@@ -250,8 +302,13 @@ window.__ModuleLoader__.load({
     }
 
     function buildResumePrompt(message, context, mainSummary) {
-      const recent = (mainSummary?.messages || [])
-        .map((item) => `${item.role === 'assistant' ? '主对话 AI' : item.role === 'user' ? '用户' : `主对话 ${item.kind}`}：${item.text}`)
+      const recent = (mainSummary?.feed || mainSummary?.messages || [])
+        .slice(-24)
+        .map((item) => {
+          const label = item.role === 'assistant' ? '主对话 AI' : item.role === 'user' ? '用户' : (item.label || '主对话事件')
+          const detail = item.type === 'assistant' || item.type === 'user' ? item.summary : [item.target, item.summary].filter(Boolean).join('：')
+          return label + '：' + String(detail || '').slice(0, 800)
+        })
         .join('\n')
       return [
         '[DSH_RESUME_WORKBENCH]',
@@ -706,7 +763,7 @@ window.__ModuleLoader__.load({
 .cj-tuningPopover .cj-inlineControl input { width: 100%; }
 .cj-tuningPopover .cj-inlineReset { margin-left: auto; }
 .cj-previewWorkspace { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(300px, .82fr) minmax(420px, 1.18fr); gap: 10px; }
-.cj-previewWorkspace[data-chat="open"] { grid-template-columns: minmax(260px, .72fr) minmax(500px, .9fr) minmax(300px, .78fr); }
+.cj-previewWorkspace[data-chat="open"] { grid-template-columns: minmax(240px, .62fr) minmax(560px, 1.1fr) minmax(300px, .72fr); }
 .cj-previewEditorPane, .cj-previewA4Pane { min-height: 0; }
 .cj-editorLoading { min-height: 0; flex: 1; display: grid; place-items: center; color: #8b95a7; font-size: 12px; }
 .cj-inspectorDock { position: absolute; top: 0; right: 0; z-index: 40; }
@@ -747,6 +804,8 @@ window.__ModuleLoader__.load({
 .cj-chatMessages { min-height: 0; flex: 1; overflow: auto; padding: 11px 10px 6px; scroll-behavior: smooth; }
 .cj-chatLoadEarlier { display: block; margin: 0 auto 8px; border: 1px solid #dfe5ee; border-radius: 999px; background: #fff; color: #6d7890; padding: 5px 10px; font-size: 10px; cursor: pointer; }
 .cj-chatLoadEarlier:hover { border-color: #b9c9e4; background: #f8faff; color: #3559a8; }
+.cj-chatLoadEarlier:disabled { cursor: wait; opacity: .62; }
+.cj-chatHistoryNotice { margin: 0 auto 8px; color: #8791a3; font-size: 10px; line-height: 15px; text-align: center; }
 .cj-chatUnread { position: sticky; bottom: 2px; display: block; margin: 2px auto 0; border: 1px solid #cbd8ee; border-radius: 999px; background: #fff; color: #3559a8; padding: 5px 9px; font-size: 10px; box-shadow: 0 5px 14px rgba(24,43,78,.12); cursor: pointer; }
 .cj-chatEmpty { padding: 12px; border: 1px dashed #dbe3ef; border-radius: 11px; background: rgba(255,255,255,.72); color: #7b8496; font-size: 11px; line-height: 17px; }
 .cj-chatMessage { margin: 0 0 9px; padding: 9px 10px; border: 1px solid #e9edf3; border-radius: 11px; color: #59667d; background: #fff; font-size: 11px; line-height: 17px; box-shadow: 0 2px 8px rgba(24,43,78,.03); }
@@ -1227,6 +1286,9 @@ window.__ModuleLoader__.load({
       const [chatTask, setChatTask] = useState(null)
       const [chatUnread, setChatUnread] = useState(false)
       const [chatHistoryLimit, setChatHistoryLimit] = useState(24)
+      const [chatHistoryLoading, setChatHistoryLoading] = useState(false)
+      const [chatHistoryNotice, setChatHistoryNotice] = useState('')
+      const [chatHistoryRevision, setChatHistoryRevision] = useState(0)
       const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
       const [tuningOpen, setTuningOpen] = useState(false)
       const chatRequestRef = useRef(null)
@@ -1440,6 +1502,7 @@ window.__ModuleLoader__.load({
             selectedText: editorSelection || editorDraft,
             mainSessionId: mainConversation.sessionId,
             recentConversation: mainContext.messages,
+            recentTaskFlow: mainContext.feed.slice(-24),
           },
         }
         setChatMessages((messages) => [...messages, { role: 'user', text: message }])
@@ -1518,6 +1581,7 @@ window.__ModuleLoader__.load({
             signature: `${Number(node?.seq) || 0}:${tool.name}:${text.slice(0, 800)}`,
             toolName: tool.name,
             text,
+            previewPath: previewPathFromNode(node),
           }
         }).filter((item) => {
           const activity = `${item.toolName} ${item.text}`
@@ -1536,7 +1600,7 @@ window.__ModuleLoader__.load({
         if (handledPreviewActivity.current === previewActivity.signature) return
         handledPreviewActivity.current = previewActivity.signature
         const preferredId = templateIdFromText(previewActivity.text)
-        const nextPreviewPath = previewPathFromText(previewActivity.text)
+        const nextPreviewPath = previewActivity.previewPath || previewPathFromText(previewActivity.text)
         const canReadLatestEditorSource = Boolean(nextPreviewPath && editorSource?.previewPath === nextPreviewPath && editorDraft === editorDiskContentRef.current)
         setLayout(null)
         setFitState({ text: '检测到新的预览，正在刷新 A4 和排版指标…', state: 'pending' })
@@ -1575,8 +1639,10 @@ window.__ModuleLoader__.load({
         const onLayoutMessage = (event) => {
           if (event.data?.source !== 'dsh-resume-preview') return
           const metrics = event.data.metrics || null
-          setLayout(metrics)
           if (metrics) {
+            const metricPreview = String(event.data.previewPath || selected || '').replace(/\\/g, '/')
+            if (selected && metricPreview && metricPreview !== selected.replace(/\\/g, '/')) return
+            setLayout(metrics)
             setFitState({
               text: metrics.overflow
                 ? `内容超出页面：${metrics.pageCount} 页`
@@ -1590,13 +1656,13 @@ window.__ModuleLoader__.load({
             void fetch('/dsh-resume/api/metrics', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ preview: selected, metrics }),
+              body: JSON.stringify({ previewPath: metricPreview, metrics }),
             }).catch(() => {})
           }
         }
         window.addEventListener('message', onLayoutMessage)
         return () => window.removeEventListener('message', onLayoutMessage)
-      }, [])
+      }, [selected])
 
       useEffect(() => {
         if (!selected && status?.previewRel) setSelected(status.previewRel)
@@ -1780,25 +1846,38 @@ window.__ModuleLoader__.load({
 
       const onDownload = async () => {
         if (!previewSrc) return
-        const res = await fetch(previewSrc, { cache: 'no-store' })
-        const html = await res.text()
-        const exportStyle = `<style data-dsh-resume-export>body{line-height:${layoutSettings.lineHeight} !important}.dsh-resume-page-content{padding:${layoutSettings.pageMargin}px !important}.dsh-resume-section{margin-bottom:${layoutSettings.sectionGap}px !important}p,li{font-size:${layoutSettings.fontSize}px !important}</style>`
-        const exportedHtml = html.replace('</head>', `${exportStyle}</head>`)
-        const blob = new Blob([exportedHtml], { type: 'text/html;charset=utf-8' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = (selected || 'resume-preview').replace(/[\\/]/g, '_')
-        a.click()
-        URL.revokeObjectURL(url)
+        try {
+          const res = await fetch(previewSrc, { cache: 'no-store' })
+          if (!res.ok) throw new Error(`预览读取失败（${res.status}）`)
+          const html = await res.text()
+          const exportStyle = `<style data-dsh-resume-export>body{line-height:${layoutSettings.lineHeight} !important}.dsh-resume-page-content{padding:${layoutSettings.pageMargin}px !important}.dsh-resume-section{margin-bottom:${layoutSettings.sectionGap}px !important}p,li{font-size:${layoutSettings.fontSize}px !important}</style>`
+          const exportedHtml = html.replace('</head>', `${exportStyle}</head>`)
+          const blob = new Blob([exportedHtml], { type: 'text/html;charset=utf-8' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = (selected || 'resume-preview').replace(/[\\/]/g, '_')
+          a.click()
+          URL.revokeObjectURL(url)
+          setEditorMessage('HTML 已下载。')
+        } catch (err) {
+          setEditorMessage(`HTML 下载失败：${err?.message || err}`)
+        }
       }
 
       const onPrint = () => {
         if (!previewSrc) return
-        const w = window.open(previewSrc, '_blank', 'noopener,noreferrer')
-        if (!w) return
+        const w = window.open(previewSrc, '_blank')
+        if (!w) {
+          setEditorMessage('PDF 导出窗口被浏览器拦截，请允许弹窗后重试。')
+          return
+        }
         const timer = setInterval(() => {
           try {
+            if (w.closed) {
+              clearInterval(timer)
+              return
+            }
             if (w.document && w.document.readyState === 'complete') {
               clearInterval(timer)
               w.focus()
@@ -1806,6 +1885,7 @@ window.__ModuleLoader__.load({
             }
           } catch {
             clearInterval(timer)
+            setEditorMessage('PDF 导出失败，请直接打开预览页后使用浏览器打印。')
           }
         }, 200)
       }
@@ -1969,7 +2049,7 @@ window.__ModuleLoader__.load({
       const lastUserPrompt = [...chatMessages].reverse().find((item) => item.role === 'user')?.text || ''
       const baseFeed = Array.isArray(mainContext.feed) ? mainContext.feed : []
       const visibleFeed = baseFeed.slice(-chatHistoryLimit)
-      const hasEarlierFeed = baseFeed.length > chatHistoryLimit
+      const hasEarlierFeed = mainContext.hasMore || baseFeed.length > chatHistoryLimit
       const feedItems = mainContext.pendingQuestion && !visibleFeed.some((item) => item.type === 'question')
         ? [...visibleFeed, { seq: 'pending-question', type: 'question', label: 'Question', target: mainContext.pendingQuestion.payload?.questions?.[0]?.question || '等待用户确认', summary: '', status: 'waiting', role: 'event' }]
         : visibleFeed
@@ -1982,12 +2062,37 @@ window.__ModuleLoader__.load({
         : ''
       const mainContextState = mainConversation.session ? (mainContext.running ? 'pending' : 'connected') : 'idle'
       const mainContextLabel = mainConversation.session ? (mainContext.running ? '主对话处理中' : '已同步主对话') : '未找到当前主对话'
-      const loadEarlier = () => {
+      const loadEarlier = async () => {
         const stream = chatStreamRef.current
         if (stream) {
           chatPreserveScrollRef.current = { top: stream.scrollTop, height: stream.scrollHeight }
         }
-        setChatHistoryLimit((value) => value + 24)
+        setChatHistoryNotice('')
+        const session = mainConversation.session
+        if (typeof session?.loadOlder === 'function' && mainContext.hasMore) {
+          setChatHistoryLoading(true)
+          const beforeCount = session.getSnapshot?.()?.nodes?.length ?? baseFeed.length
+          try {
+            await session.loadOlder()
+            setChatHistoryRevision((value) => value + 1)
+            setChatHistoryLimit((value) => Math.max(value, 48))
+            const afterSnapshot = session.getSnapshot?.()
+            if ((afterSnapshot?.nodes?.length ?? baseFeed.length) === beforeCount && afterSnapshot?.hasMore === false) {
+              setChatHistoryNotice('已经到达最早的主对话记录。')
+            }
+          } catch (error) {
+            setChatHistoryNotice(`更早记录加载失败：${String(error?.message || error)}`)
+            chatPreserveScrollRef.current = null
+          } finally {
+            setChatHistoryLoading(false)
+          }
+          return
+        }
+        if (baseFeed.length > chatHistoryLimit) {
+          setChatHistoryLimit((value) => value + 24)
+          return
+        }
+        setChatHistoryNotice('当前主对话没有更多可加载的历史记录。')
       }
       const scrollChatToBottom = () => {
         const align = () => {
@@ -2008,6 +2113,9 @@ window.__ModuleLoader__.load({
         chatInitialScrollRef.current = false
         chatPreserveScrollRef.current = null
         setChatHistoryLimit(24)
+        setChatHistoryNotice('')
+        setChatHistoryLoading(false)
+        setChatHistoryRevision(0)
       }, [mainConversation.sessionId])
       useEffect(() => {
         const stream = chatStreamRef.current
@@ -2020,7 +2128,7 @@ window.__ModuleLoader__.load({
         })
         chatPreserveScrollRef.current = null
         setChatUnread(false)
-      }, [chatHistoryLimit])
+      }, [chatHistoryLimit, chatHistoryRevision])
       useEffect(() => {
         const stream = chatStreamRef.current
         if (!stream) return
@@ -2046,9 +2154,9 @@ window.__ModuleLoader__.load({
       const editorChatView = React.createElement(
         'aside',
         { className: 'cj-editorChat', 'aria-label': '简历 AI 助手' },
-        React.createElement('div', { className: 'cj-editorChatHead' }, React.createElement('div', { className: 'cj-editorChatTitle' }, 'AI 助手'), React.createElement('div', { className: 'cj-editorChatHint' }, '就在当前工作台继续主对话，不自动覆盖文件。')),
+        React.createElement('div', { className: 'cj-editorChatHead' }, React.createElement('div', { className: 'cj-editorChatTitle' }, 'AI 助手'), React.createElement('div', { className: 'cj-editorChatHint' }, '镜像当前主对话，Think、Tool call、Read、Edit 会按真实顺序出现。')),
         React.createElement('div', { className: 'cj-chatContext', 'data-state': mainContextState }, React.createElement('strong', null, mainContextLabel), React.createElement('span', { className: 'cj-chatContextText' }, mainContextMessage || (mainConversation.sessionId ? `Session ${mainConversation.sessionId}` : '打开主对话后，AI 会自动同步上下文。'))),
-        React.createElement('div', { className: 'cj-chatMessages', ref: chatStreamRef, onScroll: onChatStreamScroll }, hasEarlierFeed ? React.createElement('button', { type: 'button', className: 'cj-chatLoadEarlier', onClick: loadEarlier }, '加载更早') : null, React.createElement(AssistantFeed, { items: feedItems }), chatMessagesView, editorCandidate ? React.createElement('div', { className: 'cj-chatMessage' }, React.createElement('strong', null, '可应用修改'), React.createElement(AssistantMarkdown, { text: editorCandidate.summary }), React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => { setEditorDraft(editorCandidate.content); setEditorCandidate(null); setEditorMessage('已把 AI 修改放入草稿，确认后再保存。') } }, '应用到编辑器')) : null, chatUnread ? React.createElement('button', { type: 'button', className: 'cj-chatUnread', onClick: () => { scrollChatToBottom(); setChatUnread(false) } }, '↓ 有新进度，回到底部') : null),
+        React.createElement('div', { className: 'cj-chatMessages', ref: chatStreamRef, onScroll: onChatStreamScroll }, hasEarlierFeed ? React.createElement('button', { type: 'button', className: 'cj-chatLoadEarlier', onClick: loadEarlier, disabled: chatHistoryLoading }, chatHistoryLoading ? '正在加载更早…' : '加载更早') : null, chatHistoryNotice ? React.createElement('div', { className: 'cj-chatHistoryNotice' }, chatHistoryNotice) : null, React.createElement(AssistantFeed, { items: feedItems }), chatMessagesView, editorCandidate ? React.createElement('div', { className: 'cj-chatMessage' }, React.createElement('strong', null, '可应用修改'), React.createElement(AssistantMarkdown, { text: editorCandidate.summary }), React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => { setEditorDraft(editorCandidate.content); setEditorCandidate(null); setEditorMessage('已把 AI 修改放入草稿，确认后再保存。') } }, '应用到编辑器')) : null, chatUnread ? React.createElement('button', { type: 'button', className: 'cj-chatUnread', onClick: () => { scrollChatToBottom(); setChatUnread(false) } }, '↓ 有新进度，回到底部') : null),
         mainContext.pendingQuestion ? React.createElement(AssistantQuestionCard, { pending: mainContext.pendingQuestion }) : null,
         React.createElement('div', { className: 'cj-chatComposer' },
           React.createElement('textarea', { className: 'cj-chatInput', value: chatInput, onChange: (event) => setChatInput(event.target.value), placeholder: '例如：把项目经历压缩两行，保留技术成果', 'aria-label': '发送给简历 AI 助手' }),
@@ -2103,6 +2211,8 @@ window.__ModuleLoader__.load({
             React.createElement('button', { type: 'button', className: 'cj-toolButton', onClick: () => { setTuningOpen((value) => !value); setTemplatePickerOpen(false) }, 'aria-expanded': tuningOpen }, '手动调整'),
             React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setEditorChatOpen((value) => !value), disabled: !editorSource }, editorChatOpen ? '收起 AI' : 'AI 助手'),
             React.createElement('button', { type: 'button', className: 'cj-iconAction', onClick: onRefresh, title: '重新读取磁盘上的最新预览', 'aria-label': '刷新预览' }, '↻'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction cj-compactExport', onClick: onDownload, disabled: !previewSrc }, '下载 HTML'),
+            React.createElement('button', { type: 'button', className: 'cj-solidAction cj-compactExport', onClick: onPrint, disabled: !previewSrc }, '导出 PDF'),
             React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveEditor, disabled: editorBusy || !editorDraft.trim() }, editorBusy ? '处理中…' : '保存'),
             React.createElement('span', { className: `cj-inlineStatus cj-inlineStatus-${fitState.state}` }, `${statusButtonLabel} · ${statusButtonMeta}`),
           ),

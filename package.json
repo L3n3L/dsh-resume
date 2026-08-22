@@ -25,7 +25,9 @@
     "AI-SESSION-CONTEXT-REVIEW.zh.md",
     "AI-ASSISTANT-PROGRESS-REVIEW.zh.md",
     "AI-ASSISTANT-CHAT-REVIEW.zh.md",
+    "HARNESS-PROTOCOL-INTEGRATION.zh.md",
     "REPLACEMENT-REVIEW.zh.md",
+    "docs",
     "LICENSE",
     "package.json",
     "AUTHORS.md",
@@ -53,6 +55,9 @@
   "license": "MIT",
   "engines": {
     "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test"
   },
   "dsh": {
     "bundle": {
