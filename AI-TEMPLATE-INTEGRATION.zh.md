@@ -116,6 +116,7 @@ DeepSeek 只输出 JSON，不直接输出 CSS：
     "accentColor": "#26334d",
     "textColor": "#1f2937",
     "mutedColor": "#667085",
+    "backgroundColor": "#ffffff",
     "divider": "solid",
     "cornerRadius": 0
   }

@@ -161,6 +161,7 @@ a { color: var(--accent); text-decoration: none; }
   .dsh-resume-page {
     margin: 0 !important;
     box-shadow: none !important;
+    background: var(--bg) !important;
     page-break-after: always;
     break-after: page;
   }

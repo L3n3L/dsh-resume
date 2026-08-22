@@ -6,50 +6,74 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 
     const React = require('react')
-    const { useCallback, useEffect, useMemo, useState } = React
+    const { useCallback, useEffect, useMemo, useRef, useState } = React
 
     const inject = ['slots', 'sessions']
     const CSS_ID = 'dsh-resume/panel.v4.css'
     let clientContext = null
 
+    function textFromValue(value, depth = 0) {
+      if (depth > 3 || value == null) return ''
+      if (typeof value === 'string') return value
+      if (Array.isArray(value)) return value.map((item) => textFromValue(item, depth + 1)).filter(Boolean).join('')
+      if (typeof value !== 'object') return ''
+      const fields = ['text', 'content', 'blocks', 'output', 'result', 'message', 'error', 'value', 'summary']
+      return fields.map((field) => textFromValue(value[field], depth + 1)).filter(Boolean).join('')
+    }
+
     function textFromBlocks(blocks) {
       if (!Array.isArray(blocks)) return ''
-      return blocks.map((block) => {
-        if (!block || typeof block !== 'object') return ''
-        if (block.type === 'text' && typeof block.text === 'string') return block.text
-        if (block.kind === 'text' && typeof block.text === 'string') return block.text
-        return ''
-      }).join('')
+      return blocks.map((block) => textFromValue(block)).filter(Boolean).join('')
     }
 
     function textFromConversationNode(node) {
       if (!node || typeof node !== 'object') return ''
-      return node.kind === 'assistant' ? textFromBlocks(node.blocks) : textFromBlocks(node.content)
+      return [
+        Array.isArray(node.blocks) ? textFromBlocks(node.blocks) : textFromValue(node.blocks),
+        Array.isArray(node.content) ? textFromBlocks(node.content) : textFromValue(node.content),
+        textFromValue(node.text),
+        textFromValue(node.output),
+        textFromValue(node.result),
+        textFromValue(node.error),
+      ].filter(Boolean).join('').trim()
     }
 
     function getCurrentSessionSource() {
-      const info = clientContext?.sessions?.currentProvideInfo?.getSnapshot?.()
-      const sessionId = info?.sessionId
-      const session = sessionId ? clientContext?.sessions?.binding?.(sessionId)?.session : null
-      const source = session || info?.hooks?.session
-      return { info, source, session }
+      try {
+        const info = clientContext?.sessions?.currentProvideInfo?.getSnapshot?.()
+        const sessionId = info?.sessionId
+        const session = sessionId ? clientContext?.sessions?.binding?.(sessionId)?.session : null
+        const source = session || info?.hooks?.session
+        return { info, source, session }
+      } catch {
+        return { info: null, source: null, session: null }
+      }
     }
 
     function summarizeConversation(snapshot) {
       const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []
       const messages = nodes
-        .filter((node) => node?.kind === 'user' || node?.kind === 'assistant' || node?.kind === 'steering')
         .map((node) => ({
-          role: node.kind === 'assistant' ? 'assistant' : 'user',
+          role: node?.kind === 'assistant' ? 'assistant' : node?.kind === 'user' || node?.kind === 'steering' ? 'user' : 'system',
+          kind: String(node?.kind || 'unknown'),
           text: textFromConversationNode(node).trim().slice(0, 1800),
-          seq: Number(node.seq) || 0,
+          seq: Number(node?.seq) || 0,
         }))
         .filter((item) => item.text)
-        .slice(-6)
+        .slice(-10)
+      const sessionFacts = [
+        snapshot?.summary,
+        snapshot?.context?.summary,
+        snapshot?.goal,
+        snapshot?.task,
+        snapshot?.title,
+      ].map((value) => textFromValue(value).trim()).filter(Boolean).join('\n').slice(0, 2400)
       return {
         sessionId: snapshot?.sessionId || null,
         running: Boolean(snapshot?.running),
         messages,
+        sessionFacts,
+        pending: Array.isArray(snapshot?.pending) ? snapshot.pending : [],
         pendingQuestion: snapshot?.pending?.find?.((item) => item?.kind === 'question') || null,
       }
     }
@@ -92,7 +116,9 @@ window.__ModuleLoader__.load({
     }
 
     function buildResumePrompt(message, context, mainSummary) {
-      const recent = (mainSummary?.messages || []).map((item) => `${item.role === 'assistant' ? '主对话 AI' : '用户'}：${item.text}`).join('\n')
+      const recent = (mainSummary?.messages || [])
+        .map((item) => `${item.role === 'assistant' ? '主对话 AI' : item.role === 'user' ? '用户' : `主对话 ${item.kind}`}：${item.text}`)
+        .join('\n')
       return [
         '[DSH_RESUME_WORKBENCH]',
         `请处理当前简历工作台请求：${message}`,
@@ -102,9 +128,11 @@ window.__ModuleLoader__.load({
         `当前模板：${context.templateId || '未选择'}`,
         `当前排版：${context.metrics ? `${context.metrics.pageCount || '?'} 页，留白 ${Math.round(Number(context.metrics.pages?.[0]?.blankRatio || 0) * 100)}%，溢出 ${context.metrics.overflow ? '是' : '否'}` : '指标尚未回传'}`,
         context.selectedText ? `当前 Markdown：\n${String(context.selectedText).slice(0, 12000)}` : '',
-        recent ? `最近主对话上下文：\n${recent}` : '',
+        mainSummary?.sessionFacts ? `主对话已有摘要/目标：\n${mainSummary.sessionFacts}` : '',
+        recent ? `主对话时间线（含工具/系统节点）：\n${recent}` : '',
+        mainSummary?.pending?.length ? `主对话当前有 ${mainSummary.pending.length} 个待处理交互，请先完成它们，不要并行开启另一个请求。` : '',
         '',
-        '规则：不编造经历；优先使用当前主对话上下文和 jobhunt 工具；需要用户决定时使用结构化提问；涉及 Markdown 时先给出修改建议或候选内容，不要替用户保存文件。',
+        '规则：主对话是唯一真实上下文；不编造经历；优先使用主对话已有上下文和 jobhunt 工具；需要用户决定时使用结构化提问；涉及 Markdown 时先给出修改建议或候选内容，不要替用户保存文件。',
         '[/DSH_RESUME_WORKBENCH]',
       ].filter(Boolean).join('\n')
     }
@@ -844,6 +872,15 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function layoutSettingsFromTemplate(template) {
+      return {
+        fontSize: Number(template?.typography?.fontSize) || 14,
+        lineHeight: Number(template?.typography?.lineHeight) || 1.55,
+        sectionGap: Number(template?.spacing?.sectionGap) || 20,
+        pageMargin: Number(template?.spacing?.pageMargin) || 48,
+      }
+    }
+
     function PreviewWorkbench({ compact, onClose }) {
       ensureCss()
       const [tick, setTick] = useState(0)
@@ -884,11 +921,30 @@ window.__ModuleLoader__.load({
       const [chatRequest, setChatRequest] = useState(null)
       const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
       const [tuningOpen, setTuningOpen] = useState(false)
+      const chatRequestRef = useRef(null)
 
       const mainContext = mainConversation.summary
 
       useEffect(() => {
-        if (!chatRequest || !mainConversation.snapshot) return
+        chatRequestRef.current = chatRequest
+      }, [chatRequest])
+
+      const failChatRequest = (requestId, message) => {
+        if (chatRequestRef.current?.requestId !== requestId) return
+        chatRequestRef.current = null
+        setChatRequest(null)
+        setChatBridgeState('fallback')
+        setChatBridgeError(message)
+        setChatMessages((messages) => [...messages, { role: 'assistant', text: `${message} 可以复制任务到主对话。` }])
+      }
+
+      useEffect(() => {
+        if (!chatRequest) return
+        if (chatRequest.transport === 'session' && mainConversation.sessionId !== chatRequest.sessionId) {
+          failChatRequest(chatRequest.requestId, '当前主对话已切换，原请求已停止等待。')
+          return
+        }
+        if (!mainConversation.snapshot) return
         const assistant = (mainConversation.snapshot.nodes || [])
           .filter((node) => node?.kind === 'assistant' && Number(node.seq) > chatRequest.baselineSeq)
           .map((node) => ({ node, text: textFromConversationNode(node).trim() }))
@@ -899,13 +955,31 @@ window.__ModuleLoader__.load({
         setChatMessages((messages) => [...messages, { role: 'assistant', text: assistant.text }])
         if (candidate) setEditorCandidate(candidate)
         setChatBridgeState('connected')
+        chatRequestRef.current = null
         setChatRequest(null)
-      }, [chatRequest, mainConversation.snapshot, mainContext.pendingQuestion])
+      }, [chatRequest, mainConversation.snapshot, mainConversation.sessionId, mainContext.pendingQuestion])
+
+      useEffect(() => {
+        if (!chatRequest) return undefined
+        const requestId = chatRequest.requestId
+        const timeout = chatRequest.transport === 'session' ? 45000 : 3200
+        const timer = setTimeout(() => {
+          failChatRequest(requestId, chatRequest.transport === 'session' ? '主对话在规定时间内没有返回可显示的结果。' : '没有收到主对话桥接响应。')
+        }, timeout)
+        return () => clearTimeout(timer)
+      }, [chatRequest])
 
       useEffect(() => {
         const onAssistantResponse = (event) => {
           const data = event.data?.type === 'dsh-resume:assistant-response' ? event.data : event.detail
           if (!data || data.type !== 'dsh-resume:assistant-response') return
+          if (event.type === 'message' && event.source && event.source !== window) return
+          if (event.origin && event.origin !== window.location.origin) return
+          if (chatRequestRef.current?.requestId && data.requestId && data.requestId !== chatRequestRef.current.requestId) return
+          if (chatRequestRef.current?.transport === 'session' && !data.requestId) return
+          if (!chatRequestRef.current || !['pending'].includes(chatBridgeState)) return
+          chatRequestRef.current = null
+          setChatRequest(null)
           setChatBridgeState('connected')
           setChatBridgeError('')
           if (data.text) setChatMessages((messages) => [...messages, { role: 'assistant', text: String(data.text) }])
@@ -919,7 +993,7 @@ window.__ModuleLoader__.load({
           window.removeEventListener('message', onAssistantResponse)
           window.removeEventListener('dsh-resume:assistant-response', onAssistantResponse)
         }
-      }, [])
+      }, [chatBridgeState])
 
       const openEditor = async () => {
         if (!selected) return
@@ -936,6 +1010,9 @@ window.__ModuleLoader__.load({
           setEditorChatOpen(false)
           setChatMessages([])
           setChatBridgeState('idle')
+          chatRequestRef.current = null
+          setChatRequest(null)
+          setChatBridgeError('')
           setEditorCandidate(null)
           setEditorMessage('修改左侧 Markdown，右侧会实时更新预览。')
         } catch (err) {
@@ -969,7 +1046,8 @@ window.__ModuleLoader__.load({
             })
             const result = await readJsonResponse(res, '实时预览')
             if (active) {
-              setEditorPreviewUrl(`${result.previewUrl}&t=${Date.now()}`)
+              const tuningQuery = new URLSearchParams(Object.entries(layoutSettings).map(([key, value]) => [key, String(value)]))
+              setEditorPreviewUrl(`${result.previewUrl}&${tuningQuery.toString()}&t=${Date.now()}`)
               setEditorMessage('未保存草稿 · 右侧预览已更新')
             }
           } catch (err) {
@@ -982,7 +1060,7 @@ window.__ModuleLoader__.load({
           active = false
           clearTimeout(timer)
         }
-      }, [editorOpen, editorSource, editorDraft, templateId])
+      }, [editorOpen, editorSource, editorDraft, templateId, layoutSettings])
 
       const saveEditor = async () => {
         if (!editorSource || !editorDraft.trim()) return
@@ -1026,7 +1104,10 @@ window.__ModuleLoader__.load({
       const sendChatMessage = () => {
         const message = chatInput.trim()
         if (!message) return
-        if (chatBridgeState === 'pending') return
+        if (chatBridgeState === 'pending' || mainContext.pending?.length) {
+          setChatBridgeError('请先完成当前主对话的确认，再发送新的请求。')
+          return
+        }
         const requestId = `resume-${Date.now()}-${Math.random().toString(16).slice(2)}`
         const payload = {
           requestId,
@@ -1047,33 +1128,33 @@ window.__ModuleLoader__.load({
         setChatBridgeError('')
         if (mainConversation.session?.prompt) {
           const baselineSeq = Math.max(...(mainConversation.snapshot?.nodes || []).filter((node) => node?.kind === 'assistant').map((node) => Number(node.seq) || 0), 0)
-          setChatRequest({ requestId, baselineSeq })
+          chatRequestRef.current = { requestId, sessionId: mainConversation.sessionId, baselineSeq, transport: 'session' }
+          setChatRequest(chatRequestRef.current)
           void mainConversation.session.prompt([{ type: 'text', text: buildResumePrompt(message, payload.context, mainContext) }], 'queue').then((result) => {
             if (result?.ok) return
-            setChatRequest(null)
-            setChatBridgeState('fallback')
-            setChatBridgeError(result?.error?.message || result?.error?.code || '主会话拒绝了请求')
-            setChatMessages((messages) => [...messages, { role: 'assistant', text: `主对话未接受请求：${result?.error?.message || '未知原因'}。可以复制任务到主对话。` }])
+            failChatRequest(requestId, `主对话未接受请求：${result?.error?.message || result?.error?.code || '未知原因'}`)
           }).catch((cause) => {
-            setChatRequest(null)
-            setChatBridgeState('fallback')
-            setChatBridgeError(String(cause?.message || cause))
-            setChatMessages((messages) => [...messages, { role: 'assistant', text: `主对话桥接失败：${cause?.message || cause}。可以复制任务到主对话。` }])
+            failChatRequest(requestId, `主对话桥接失败：${String(cause?.message || cause)}`)
           })
           return
         }
         const bridgeMessage = { source: 'dsh-resume', type: 'dsh-resume:assistant-request', payload }
+        chatRequestRef.current = { requestId, sessionId: null, baselineSeq: 0, transport: 'event' }
+        setChatRequest(chatRequestRef.current)
         try {
-          if (typeof window.__DSH_RESUME_BRIDGE__?.request === 'function') window.__DSH_RESUME_BRIDGE__.request(bridgeMessage)
+          if (typeof window.__DSH_RESUME_BRIDGE__?.request === 'function') {
+            void Promise.resolve(window.__DSH_RESUME_BRIDGE__.request(bridgeMessage)).catch((cause) => {
+              failChatRequest(requestId, `桥接请求失败：${String(cause?.message || cause)}`)
+            })
+          }
           else window.postMessage(bridgeMessage, '*')
           window.dispatchEvent(new CustomEvent('dsh-resume:assistant-request', { detail: bridgeMessage }))
         } catch {
+          chatRequestRef.current = null
+          setChatRequest(null)
           void copyChatTask(message)
           return
         }
-        setTimeout(() => {
-          setChatBridgeState((state) => state === 'pending' ? 'fallback' : state)
-        }, 3200)
       }
 
       const reloadTemplates = useCallback(async () => {
@@ -1167,7 +1248,10 @@ window.__ModuleLoader__.load({
 
       const onTemplateChange = (value) => {
         if (value !== templateId) setTemplateHistory((history) => [...history, templateId].slice(-20))
+        const nextTemplate = templateOptions.find((template) => template.id === value)
         setTemplateId(value)
+        setLayoutSettings(layoutSettingsFromTemplate(nextTemplate))
+        setLayoutHistory([])
         setTemplatePickerOpen(false)
         setTuningOpen(false)
         setFitState({ text: '正在应用模板', state: 'pending' })
@@ -1180,6 +1264,9 @@ window.__ModuleLoader__.load({
         const previous = templateHistory[templateHistory.length - 1]
         setTemplateHistory((history) => history.slice(0, -1))
         setTemplateId(previous)
+        const previousTemplate = templateOptions.find((template) => template.id === previous)
+        setLayoutSettings(layoutSettingsFromTemplate(previousTemplate))
+        setLayoutHistory([])
         setTemplateMessage('已撤销模板切换')
         setLayout(null)
       }
@@ -1464,7 +1551,7 @@ window.__ModuleLoader__.load({
       const chatMessagesView = chatMessages.length
         ? chatMessages.map((item, index) => React.createElement('div', { className: 'cj-chatMessage', 'data-role': item.role, key: `${item.role}-${index}` }, React.createElement('strong', null, item.role === 'user' ? '你' : '主对话'), item.text))
         : React.createElement('div', { className: 'cj-chatEmpty' }, '只在需要时打开 AI。它会拿到当前 Markdown、模板和排版指标。')
-      const mainContextMessage = mainContext.messages.at(-1)?.text || ''
+      const mainContextMessage = String(mainContext.messages.at(-1)?.text || '').replace(/\s+/g, ' ').slice(0, 220)
       const mainContextState = mainConversation.session ? (mainContext.running ? 'pending' : 'connected') : 'idle'
       const mainContextLabel = mainConversation.session ? (mainContext.running ? '主对话处理中' : '已同步主对话') : '未找到当前主对话'
       const editorChatView = React.createElement(
@@ -1479,7 +1566,7 @@ window.__ModuleLoader__.load({
           React.createElement('div', { className: 'cj-chatQuick' },
             ...['压缩两行', '改得更专业', '匹配前端岗位'].map((prompt) => React.createElement('button', { key: prompt, type: 'button', onClick: () => setChatInput(prompt) }, prompt)),
           ),
-          React.createElement('div', { className: 'cj-chatActions' }, React.createElement('span', { className: 'cj-chatBridge', 'data-state': chatBridgeState }, chatBridgeState === 'connected' ? '主对话已响应' : chatBridgeState === 'pending' ? (mainConversation.session ? '正在等待主对话…' : '正在等待桥接…') : chatBridgeState === 'fallback' ? `桥接失败${chatBridgeError ? `：${chatBridgeError}` : ''}` : mainConversation.session ? '已同步当前主对话' : '上下文仅随本次发送'), React.createElement('button', { type: 'button', className: 'cj-chatSend', onClick: sendChatMessage, disabled: !chatInput.trim() || chatBridgeState === 'pending' }, '发送')),
+          React.createElement('div', { className: 'cj-chatActions' }, React.createElement('span', { className: 'cj-chatBridge', 'data-state': chatBridgeState }, mainContext.pending?.length ? '请先完成主对话确认' : chatBridgeState === 'connected' ? '主对话已响应' : chatBridgeState === 'pending' ? (mainConversation.session ? '正在等待主对话…' : '正在等待桥接…') : chatBridgeState === 'fallback' ? `桥接失败${chatBridgeError ? `：${chatBridgeError}` : ''}` : mainConversation.session ? '已同步当前主对话' : '上下文仅随本次发送'), React.createElement('button', { type: 'button', className: 'cj-chatSend', onClick: sendChatMessage, disabled: !chatInput.trim() || chatBridgeState === 'pending' || Boolean(mainContext.pending?.length) }, '发送')),
           chatBridgeState === 'fallback' && lastUserPrompt ? React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => copyChatTask(lastUserPrompt) }, '复制任务到主对话') : null,
         ),
       )
