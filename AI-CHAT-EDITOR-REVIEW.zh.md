@@ -117,9 +117,9 @@ Markdown 编辑器
 
 ## 下一步
 
-当前代码已经完成编辑工作台、内存草稿预览、确认式保存和桥接协议。下一步需要在 Harness Web 主会话侧接入 `dsh-resume:assistant-request`，让请求真正进入当前会话的 Agent，而不是仅复制到主对话。
+编辑工作台、内存草稿预览、确认式保存和主 Session 桥接已经接入。插件优先通过 `ctx.sessions.currentProvideInfo` 获取当前会话，并用当前 Session 的 `prompt()` 发送请求；主会话的 assistant 输出和 pending question 会在工作台内镜像。旧的 `dsh-resume:assistant-request` 事件只作为没有 Session 能力时的兼容兜底。
 
-接入完成后，再增加 CodeMirror 6 的 Markdown 语法体验、选区级 AI 修改和修改前后 diff；这些属于编辑器增强，不应阻塞第一版用户流程。
+下一阶段再增加 CodeMirror 6 的 Markdown 语法体验、选区级 AI 修改和修改前后 diff；这些属于编辑器增强，不应阻塞当前用户流程。
 
 ## 本地调试验收
 

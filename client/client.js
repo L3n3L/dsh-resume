@@ -8,8 +8,106 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const { useCallback, useEffect, useMemo, useState } = React
 
-    const inject = ['slots']
+    const inject = ['slots', 'sessions']
     const CSS_ID = 'dsh-resume/panel.v4.css'
+    let clientContext = null
+
+    function textFromBlocks(blocks) {
+      if (!Array.isArray(blocks)) return ''
+      return blocks.map((block) => {
+        if (!block || typeof block !== 'object') return ''
+        if (block.type === 'text' && typeof block.text === 'string') return block.text
+        if (block.kind === 'text' && typeof block.text === 'string') return block.text
+        return ''
+      }).join('')
+    }
+
+    function textFromConversationNode(node) {
+      if (!node || typeof node !== 'object') return ''
+      return node.kind === 'assistant' ? textFromBlocks(node.blocks) : textFromBlocks(node.content)
+    }
+
+    function getCurrentSessionSource() {
+      const info = clientContext?.sessions?.currentProvideInfo?.getSnapshot?.()
+      const sessionId = info?.sessionId
+      const session = sessionId ? clientContext?.sessions?.binding?.(sessionId)?.session : null
+      const source = session || info?.hooks?.session
+      return { info, source, session }
+    }
+
+    function summarizeConversation(snapshot) {
+      const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []
+      const messages = nodes
+        .filter((node) => node?.kind === 'user' || node?.kind === 'assistant' || node?.kind === 'steering')
+        .map((node) => ({
+          role: node.kind === 'assistant' ? 'assistant' : 'user',
+          text: textFromConversationNode(node).trim().slice(0, 1800),
+          seq: Number(node.seq) || 0,
+        }))
+        .filter((item) => item.text)
+        .slice(-6)
+      return {
+        sessionId: snapshot?.sessionId || null,
+        running: Boolean(snapshot?.running),
+        messages,
+        pendingQuestion: snapshot?.pending?.find?.((item) => item?.kind === 'question') || null,
+      }
+    }
+
+    function useMainConversation() {
+      const [, refresh] = useState(0)
+      useEffect(() => {
+        const current = clientContext?.sessions?.currentProvideInfo
+        if (!current?.subscribe) return undefined
+        let stopSession = () => {}
+        const subscribeSession = () => {
+          stopSession()
+          const { source } = getCurrentSessionSource()
+          stopSession = source?.subscribe?.(() => refresh((value) => value + 1)) || (() => {})
+          refresh((value) => value + 1)
+        }
+        subscribeSession()
+        const stopCurrent = current.subscribe(subscribeSession)
+        return () => {
+          stopCurrent?.()
+          stopSession()
+        }
+      }, [])
+      const { info, session } = getCurrentSessionSource()
+      const snapshot = session?.getSnapshot?.() || null
+      return {
+        sessionId: info?.sessionId || snapshot?.sessionId || null,
+        session,
+        snapshot,
+        summary: summarizeConversation(snapshot),
+      }
+    }
+
+    function extractMarkdownCandidate(text) {
+      const match = String(text || '').match(/```(?:markdown|md|dsh-resume)?\s*([\s\S]*?)```/i)
+      if (!match || !match[1].trim()) return null
+      const content = match[1].trim()
+      if (!/(^|\n)#{1,3}\s|教育经历|项目经历|实习经历|工作经历|专业技能/.test(content)) return null
+      return { content, summary: '主对话返回了一份可预览的 Markdown 修改建议。' }
+    }
+
+    function buildResumePrompt(message, context, mainSummary) {
+      const recent = (mainSummary?.messages || []).map((item) => `${item.role === 'assistant' ? '主对话 AI' : '用户'}：${item.text}`).join('\n')
+      return [
+        '[DSH_RESUME_WORKBENCH]',
+        `请处理当前简历工作台请求：${message}`,
+        '',
+        `当前简历：${context.resumePath || 'resume.md'}`,
+        `当前预览：${context.previewPath || 'preview.html'}`,
+        `当前模板：${context.templateId || '未选择'}`,
+        `当前排版：${context.metrics ? `${context.metrics.pageCount || '?'} 页，留白 ${Math.round(Number(context.metrics.pages?.[0]?.blankRatio || 0) * 100)}%，溢出 ${context.metrics.overflow ? '是' : '否'}` : '指标尚未回传'}`,
+        context.selectedText ? `当前 Markdown：\n${String(context.selectedText).slice(0, 12000)}` : '',
+        recent ? `最近主对话上下文：\n${recent}` : '',
+        '',
+        '规则：不编造经历；优先使用当前主对话上下文和 jobhunt 工具；需要用户决定时使用结构化提问；涉及 Markdown 时先给出修改建议或候选内容，不要替用户保存文件。',
+        '[/DSH_RESUME_WORKBENCH]',
+      ].filter(Boolean).join('\n')
+    }
 
     const css = `
 .cj-foot {
@@ -494,6 +592,27 @@ window.__ModuleLoader__.load({
 .cj-chatBridge { color: #8b95a7; font-size: 10px; line-height: 15px; }
 .cj-chatBridge[data-state="connected"] { color: #15803d; }
 .cj-chatBridge[data-state="fallback"] { color: #a16207; }
+.cj-chatContext { margin: 9px 10px 0; padding: 8px 9px; border: 1px solid #e3e8f0; border-radius: 9px; background: #fbfcfe; color: #6d7890; font-size: 10px; line-height: 15px; }
+.cj-chatContext strong { color: #3559a8; font-weight: 600; }
+.cj-chatContext[data-state="idle"] strong { color: #7b8496; }
+.cj-chatContextText { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cj-questionCard { margin: 9px 10px; padding: 10px; border: 1px solid #cbd8ee; border-radius: 10px; background: #f7faff; color: #26334d; }
+.cj-questionEyebrow { color: #5472ab; font-size: 10px; font-weight: 600; letter-spacing: .03em; }
+.cj-questionTitle { margin: 3px 0 8px; font-size: 12px; line-height: 17px; font-weight: 600; }
+.cj-questionDetail { margin: -2px 0 8px; color: #6d7890; font-size: 10px; line-height: 15px; }
+.cj-questionOptions { display: grid; gap: 5px; }
+.cj-questionOption { display: flex; align-items: flex-start; gap: 6px; width: 100%; border: 1px solid #dbe3f1; border-radius: 7px; background: #fff; color: #42516d; padding: 7px 8px; text-align: left; font-size: 11px; line-height: 15px; cursor: pointer; }
+.cj-questionOption:hover { border-color: #8da6d4; background: #f1f5fb; }
+.cj-questionOption[data-selected="true"] { border-color: #5475bb; background: #edf3ff; color: #274887; }
+.cj-questionMark { flex: 0 0 auto; width: 15px; height: 15px; border: 1px solid #b9c5d8; border-radius: 50%; color: #5475bb; font-size: 9px; line-height: 13px; text-align: center; }
+.cj-questionOption[data-selected="true"] .cj-questionMark { border-color: #5475bb; background: #5475bb; color: #fff; }
+.cj-questionCustom { box-sizing: border-box; width: 100%; min-height: 30px; resize: vertical; border: 1px solid #dbe3f1; border-radius: 7px; outline: 0; padding: 6px 8px; color: #26334d; font: inherit; font-size: 11px; line-height: 15px; }
+.cj-questionCustom:focus { border-color: #8da6d4; box-shadow: 0 0 0 2px rgba(53,89,168,.10); }
+.cj-questionActions { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px; }
+.cj-questionProgress { color: #8b95a7; font-size: 10px; }
+.cj-questionSubmit { border: 0; border-radius: 7px; background: #14213d; color: #fff; padding: 6px 9px; font-size: 10px; cursor: pointer; }
+.cj-questionSubmit:disabled { opacity: .45; cursor: default; }
+.cj-questionError { margin-top: 5px; color: #b91c1c; font-size: 10px; line-height: 14px; }
 .cj-chatSend { border: 0; border-radius: 8px; background: #14213d; color: #fff; padding: 7px 10px; font-size: 11px; cursor: pointer; }
 .cj-chatSend:disabled { opacity: .45; cursor: default; }
 .cj-chatApply { margin-top: 6px; border: 0; border-radius: 7px; background: #e4f5ed; color: #15803d; padding: 5px 7px; font-size: 10px; cursor: pointer; }
@@ -606,10 +725,130 @@ window.__ModuleLoader__.load({
       return { quality, qualityLoading }
     }
 
+    function AssistantQuestionCard({ pending }) {
+      const questions = pending?.payload?.questions || []
+      const [index, setIndex] = React.useState(0)
+      const [drafts, setDrafts] = React.useState(() => questions.map(() => ({ selected: [], custom: '', skipped: false })))
+      const [busy, setBusy] = React.useState(false)
+      const [error, setError] = React.useState('')
+
+      React.useEffect(() => {
+        setIndex(0)
+        setDrafts(questions.map(() => ({ selected: [], custom: '', skipped: false })))
+        setBusy(false)
+        setError('')
+      }, [pending?.key])
+
+      if (!questions.length) return null
+      const question = questions[index] || questions[0]
+      const draft = drafts[index] || { selected: [], custom: '', skipped: false }
+      const answered = draft.selected.length > 0 || draft.custom.trim() !== ''
+      const updateDraft = (next) => setDrafts((current) => current.map((item, itemIndex) => itemIndex === index ? next(item) : item))
+      const choose = (label) => {
+        updateDraft((current) => {
+          if (question.multiSelect === true) {
+            const selected = current.selected.includes(label)
+              ? current.selected.filter((value) => value !== label)
+              : [...current.selected, label]
+            return { ...current, selected, skipped: false }
+          }
+          return { selected: [label], custom: '', skipped: false }
+        })
+        setError('')
+      }
+      const submit = async (values) => {
+        const incomplete = values.findIndex((value) => !value.skipped && value.selected.length === 0 && value.custom.trim() === '')
+        if (incomplete >= 0) {
+          setIndex(incomplete)
+          setError('请先完成这个问题，或选择跳过。')
+          return
+        }
+        setBusy(true)
+        setError('')
+        try {
+          await pending.respond({
+            ok: true,
+            value: {
+              sessionId: pending.sessionId,
+              answer: {
+                answers: questions.map((item, itemIndex) => {
+                  const value = values[itemIndex]
+                  const custom = value.custom.trim()
+                  return {
+                    id: item.id,
+                    selected: value.skipped || (custom && item.multiSelect !== true) ? [] : value.selected,
+                    ...(custom ? { custom } : {}),
+                  }
+                }),
+              },
+            },
+          })
+        } catch (cause) {
+          setBusy(false)
+          setError(String(cause?.message || cause))
+        }
+      }
+      const continueQuestion = () => {
+        if (!answered) {
+          setError('请选择一个选项或填写自定义答案。')
+          return
+        }
+        if (index < questions.length - 1) {
+          setIndex((value) => value + 1)
+          setError('')
+          return
+        }
+        void submit(drafts)
+      }
+      const skipQuestion = () => {
+        const next = drafts.map((item, itemIndex) => itemIndex === index ? { selected: [], custom: '', skipped: true } : item)
+        setDrafts(next)
+        if (index < questions.length - 1) {
+          setIndex((value) => value + 1)
+          setError('')
+        } else {
+          void submit(next)
+        }
+      }
+      const cancel = async () => {
+        setBusy(true)
+        try {
+          await pending.respond({ ok: false, error: { code: 'cancelled', message: '用户在简历工作台取消了问题', details: {} } })
+        } catch (cause) {
+          setBusy(false)
+          setError(String(cause?.message || cause))
+        }
+      }
+      return React.createElement(
+        'section',
+        { className: 'cj-questionCard', 'aria-label': 'AI 需要确认' },
+        React.createElement('div', { className: 'cj-questionEyebrow' }, 'AI 需要你确认'),
+        React.createElement('div', { className: 'cj-questionTitle' }, question.question),
+        question.detail ? React.createElement('div', { className: 'cj-questionDetail' }, question.detail) : null,
+        React.createElement('div', { className: 'cj-questionOptions', role: question.multiSelect === true ? 'group' : 'radiogroup' },
+          ...(question.options || []).map((option, optionIndex) => {
+            const selected = draft.selected.includes(option.label)
+            return React.createElement('button', { key: `${option.label}-${optionIndex}`, type: 'button', className: 'cj-questionOption', 'data-selected': selected ? 'true' : 'false', role: question.multiSelect === true ? 'checkbox' : 'radio', 'aria-checked': selected, onClick: () => choose(option.label), disabled: busy }, React.createElement('span', { className: 'cj-questionMark' }, selected ? '✓' : String(optionIndex + 1)), React.createElement('span', null, option.label, option.description ? React.createElement('small', { className: 'cj-questionDetail' }, option.description) : null))
+          }),
+          React.createElement('textarea', { className: 'cj-questionCustom', value: draft.custom, onChange: (event) => { updateDraft((current) => ({ ...current, custom: event.target.value, selected: question.multiSelect === true ? current.selected : [], skipped: false })); setError('') }, placeholder: '也可以填写你的答案', rows: 2, disabled: busy }),
+        ),
+        error ? React.createElement('div', { className: 'cj-questionError' }, error) : null,
+        React.createElement('div', { className: 'cj-questionActions' },
+          React.createElement('span', { className: 'cj-questionProgress' }, `${index + 1} / ${questions.length}`),
+          React.createElement('div', null,
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: skipQuestion, disabled: busy }, '跳过'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: cancel, disabled: busy }, '取消'),
+            React.createElement('button', { type: 'button', className: 'cj-questionSubmit', onClick: continueQuestion, disabled: busy || !answered }, index < questions.length - 1 ? '下一题' : '提交'),
+          ),
+        ),
+      )
+    }
+
     function PreviewWorkbench({ compact, onClose }) {
       ensureCss()
       const [tick, setTick] = useState(0)
       const { status, error, loading, reload } = useStatus(tick)
+      const mainConversation = useMainConversation()
       const [selected, setSelected] = useState('')
       const [fitState, setFitState] = useState({ text: '等待排版信息', state: 'pending' })
       const [view, setView] = useState('start')
@@ -640,15 +879,35 @@ window.__ModuleLoader__.load({
       const [chatInput, setChatInput] = useState('')
       const [chatMessages, setChatMessages] = useState([])
       const [chatBridgeState, setChatBridgeState] = useState('idle')
+      const [chatBridgeError, setChatBridgeError] = useState('')
       const [editorCandidate, setEditorCandidate] = useState(null)
+      const [chatRequest, setChatRequest] = useState(null)
       const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
       const [tuningOpen, setTuningOpen] = useState(false)
+
+      const mainContext = mainConversation.summary
+
+      useEffect(() => {
+        if (!chatRequest || !mainConversation.snapshot) return
+        const assistant = (mainConversation.snapshot.nodes || [])
+          .filter((node) => node?.kind === 'assistant' && Number(node.seq) > chatRequest.baselineSeq)
+          .map((node) => ({ node, text: textFromConversationNode(node).trim() }))
+          .filter((item) => item.text)
+          .at(-1)
+        if (!assistant || mainConversation.snapshot.running || mainContext.pendingQuestion) return
+        const candidate = extractMarkdownCandidate(assistant.text)
+        setChatMessages((messages) => [...messages, { role: 'assistant', text: assistant.text }])
+        if (candidate) setEditorCandidate(candidate)
+        setChatBridgeState('connected')
+        setChatRequest(null)
+      }, [chatRequest, mainConversation.snapshot, mainContext.pendingQuestion])
 
       useEffect(() => {
         const onAssistantResponse = (event) => {
           const data = event.data?.type === 'dsh-resume:assistant-response' ? event.data : event.detail
           if (!data || data.type !== 'dsh-resume:assistant-response') return
           setChatBridgeState('connected')
+          setChatBridgeError('')
           if (data.text) setChatMessages((messages) => [...messages, { role: 'assistant', text: String(data.text) }])
           if (typeof data.content === 'string' && data.content.trim()) {
             setEditorCandidate({ content: data.content, summary: data.summary || '收到一份可预览的 Markdown 修改建议。' })
@@ -767,6 +1026,7 @@ window.__ModuleLoader__.load({
       const sendChatMessage = () => {
         const message = chatInput.trim()
         if (!message) return
+        if (chatBridgeState === 'pending') return
         const requestId = `resume-${Date.now()}-${Math.random().toString(16).slice(2)}`
         const payload = {
           requestId,
@@ -777,11 +1037,31 @@ window.__ModuleLoader__.load({
             templateId,
             metrics: layout || null,
             selectedText: editorSelection || editorDraft,
+            mainSessionId: mainConversation.sessionId,
+            recentConversation: mainContext.messages,
           },
         }
         setChatMessages((messages) => [...messages, { role: 'user', text: message }])
         setChatInput('')
         setChatBridgeState('pending')
+        setChatBridgeError('')
+        if (mainConversation.session?.prompt) {
+          const baselineSeq = Math.max(...(mainConversation.snapshot?.nodes || []).filter((node) => node?.kind === 'assistant').map((node) => Number(node.seq) || 0), 0)
+          setChatRequest({ requestId, baselineSeq })
+          void mainConversation.session.prompt([{ type: 'text', text: buildResumePrompt(message, payload.context, mainContext) }], 'queue').then((result) => {
+            if (result?.ok) return
+            setChatRequest(null)
+            setChatBridgeState('fallback')
+            setChatBridgeError(result?.error?.message || result?.error?.code || '主会话拒绝了请求')
+            setChatMessages((messages) => [...messages, { role: 'assistant', text: `主对话未接受请求：${result?.error?.message || '未知原因'}。可以复制任务到主对话。` }])
+          }).catch((cause) => {
+            setChatRequest(null)
+            setChatBridgeState('fallback')
+            setChatBridgeError(String(cause?.message || cause))
+            setChatMessages((messages) => [...messages, { role: 'assistant', text: `主对话桥接失败：${cause?.message || cause}。可以复制任务到主对话。` }])
+          })
+          return
+        }
         const bridgeMessage = { source: 'dsh-resume', type: 'dsh-resume:assistant-request', payload }
         try {
           if (typeof window.__DSH_RESUME_BRIDGE__?.request === 'function') window.__DSH_RESUME_BRIDGE__.request(bridgeMessage)
@@ -793,7 +1073,7 @@ window.__ModuleLoader__.load({
         }
         setTimeout(() => {
           setChatBridgeState((state) => state === 'pending' ? 'fallback' : state)
-        }, 1600)
+        }, 3200)
       }
 
       const reloadTemplates = useCallback(async () => {
@@ -1184,17 +1464,22 @@ window.__ModuleLoader__.load({
       const chatMessagesView = chatMessages.length
         ? chatMessages.map((item, index) => React.createElement('div', { className: 'cj-chatMessage', 'data-role': item.role, key: `${item.role}-${index}` }, React.createElement('strong', null, item.role === 'user' ? '你' : '主对话'), item.text))
         : React.createElement('div', { className: 'cj-chatEmpty' }, '只在需要时打开 AI。它会拿到当前 Markdown、模板和排版指标。')
+      const mainContextMessage = mainContext.messages.at(-1)?.text || ''
+      const mainContextState = mainConversation.session ? (mainContext.running ? 'pending' : 'connected') : 'idle'
+      const mainContextLabel = mainConversation.session ? (mainContext.running ? '主对话处理中' : '已同步主对话') : '未找到当前主对话'
       const editorChatView = React.createElement(
         'aside',
         { className: 'cj-editorChat', 'aria-label': '简历 AI 助手' },
-        React.createElement('div', { className: 'cj-editorChatHead' }, React.createElement('div', { className: 'cj-editorChatTitle' }, 'AI 助手'), React.createElement('div', { className: 'cj-editorChatHint' }, '发送到 Harness 主对话，不自动覆盖文件。')),
+        React.createElement('div', { className: 'cj-editorChatHead' }, React.createElement('div', { className: 'cj-editorChatTitle' }, 'AI 助手'), React.createElement('div', { className: 'cj-editorChatHint' }, '就在当前工作台继续主对话，不自动覆盖文件。')),
+        React.createElement('div', { className: 'cj-chatContext', 'data-state': mainContextState }, React.createElement('strong', null, mainContextLabel), React.createElement('span', { className: 'cj-chatContextText' }, mainContextMessage || (mainConversation.sessionId ? `Session ${mainConversation.sessionId}` : '打开主对话后，AI 会自动同步上下文。'))),
         React.createElement('div', { className: 'cj-chatMessages' }, chatMessagesView, editorCandidate ? React.createElement('div', { className: 'cj-chatMessage' }, React.createElement('strong', null, '可应用修改'), editorCandidate.summary, React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => { setEditorDraft(editorCandidate.content); setEditorCandidate(null); setEditorMessage('已把 AI 修改放入草稿，确认后再保存。') } }, '应用到编辑器')) : null),
+        mainContext.pendingQuestion ? React.createElement(AssistantQuestionCard, { pending: mainContext.pendingQuestion }) : null,
         React.createElement('div', { className: 'cj-chatComposer' },
           React.createElement('textarea', { className: 'cj-chatInput', value: chatInput, onChange: (event) => setChatInput(event.target.value), placeholder: '例如：把项目经历压缩两行，保留技术成果', 'aria-label': '发送给简历 AI 助手' }),
           React.createElement('div', { className: 'cj-chatQuick' },
             ...['压缩两行', '改得更专业', '匹配前端岗位'].map((prompt) => React.createElement('button', { key: prompt, type: 'button', onClick: () => setChatInput(prompt) }, prompt)),
           ),
-          React.createElement('div', { className: 'cj-chatActions' }, React.createElement('span', { className: 'cj-chatBridge', 'data-state': chatBridgeState }, chatBridgeState === 'connected' ? '主对话已响应' : chatBridgeState === 'pending' ? '正在等待主对话…' : chatBridgeState === 'fallback' ? '未接入监听，可复制任务' : '上下文仅随本次发送'), React.createElement('button', { type: 'button', className: 'cj-chatSend', onClick: sendChatMessage, disabled: !chatInput.trim() }, '发送')),
+          React.createElement('div', { className: 'cj-chatActions' }, React.createElement('span', { className: 'cj-chatBridge', 'data-state': chatBridgeState }, chatBridgeState === 'connected' ? '主对话已响应' : chatBridgeState === 'pending' ? (mainConversation.session ? '正在等待主对话…' : '正在等待桥接…') : chatBridgeState === 'fallback' ? `桥接失败${chatBridgeError ? `：${chatBridgeError}` : ''}` : mainConversation.session ? '已同步当前主对话' : '上下文仅随本次发送'), React.createElement('button', { type: 'button', className: 'cj-chatSend', onClick: sendChatMessage, disabled: !chatInput.trim() || chatBridgeState === 'pending' }, '发送')),
           chatBridgeState === 'fallback' && lastUserPrompt ? React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => copyChatTask(lastUserPrompt) }, '复制任务到主对话') : null,
         ),
       )
@@ -1319,6 +1604,7 @@ window.__ModuleLoader__.load({
 
     function apply(ctx) {
       ensureCss()
+      clientContext = ctx
 
       ctx.slots.inject('sidebar.footer.action', () =>
         ctx.slots.register(
