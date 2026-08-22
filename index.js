@@ -174,7 +174,7 @@ export function apply(ctx) {
     name: 'jobhunt_template_generate',
     description: 'Generate a safe visual resume template candidate from a compact DesignBrief. Returns a validated TemplateSpec and rationale; when the user explicitly asks to create or apply the template, continue with validation, jobhunt_template_save, rendering, and A4 measurement without waiting for a redundant confirmation.',
     parameters: {
-      briefJson: { type: 'string', required: true, description: 'JSON DesignBrief: name, family, audience, optional layout/density/tone overrides, moduleOrder, palette, bestFor, and tags.' },
+      briefJson: { type: 'string', required: true, description: 'JSON DesignBrief: name, family, audience, optional layout/density/tone overrides, moduleOrder, palette, customCss, bestFor, and tags.' },
     },
     output: textResult(),
     async execute(args) {
@@ -371,7 +371,7 @@ export function apply(ctx) {
         outPath: args.outPath,
         templateSpec: args.templateId ? await loadTemplate(root, args.templateId) : undefined,
       })
-      rememberPreview(root, rendered.previewPath)
+      rememberPreview(root, rendered.previewPath, rendered)
       return {
         ...rendered,
         latestMetrics: getLatestMetrics(),

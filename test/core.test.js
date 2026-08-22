@@ -5,13 +5,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { assembleResumeSections, buildPreviewDocument, markdownToHtml } from '../lib/renderer.js'
-import { TEMPLATE_DEFAULTS } from '../lib/template-schema.js'
+import { TEMPLATE_DEFAULTS, validateTemplateSpec } from '../lib/template-schema.js'
 import { generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { validateLayoutSpec } from '../lib/layout-schema.js'
 import { listTemplatePresets } from '../lib/template-presets.js'
 import { listRendererIds } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
+import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview } from '../lib/preview-api.js'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -20,6 +21,64 @@ test('Markdown renderer keeps resume structure and inline emphasis', () => {
   assert.match(html, /<h1>张三<\/h1>/)
   assert.match(html, /<h2>项目经历<\/h2>/)
   assert.match(html, /<strong>性能<\/strong>/)
+})
+
+test('Markdown renderer keeps block structure and escapes raw HTML', () => {
+  const html = markdownToHtml('## 技能\n\n| 技能 | 熟练度 |\n| --- | --- |\n| TypeScript | 熟练 |\n\n- 前端\n  - React\n\n<script>alert(1)</script>')
+  assert.match(html, /<table>/)
+  assert.match(html, /<ul>[\s\S]*<ul>[\s\S]*React/)
+  assert.doesNotMatch(html, /<script>/)
+  assert.match(html, /&lt;script&gt;/)
+})
+
+test('preview state is isolated by root and preview path', () => {
+  previewState.clear()
+  const first = rememberPreview('E:/resume-a', 'companies/a/preview.html', { renderId: 'render-a', contentHash: 'hash-a' })
+  const second = rememberPreview('E:/resume-b', 'companies/b/preview.html', { renderId: 'render-b', contentHash: 'hash-b' })
+  assert.equal(previewState.size, 2)
+  assert.notEqual(first.renderId, second.renderId)
+  assert.equal([...previewState.values()][0].contentHash, 'hash-a')
+  assert.equal([...previewState.values()][1].contentHash, 'hash-b')
+  previewState.clear()
+})
+
+test('metrics rejects stale render identities and status does not select an old file', async () => {
+  previewState.clear()
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-metrics-test-'))
+  try {
+    await initJobhunt(root)
+    const routes = []
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
+    const metricsRoute = routes.find((route) => route.path === '/dsh-resume/api/metrics')
+    const statusRoute = routes.find((route) => route.path === '/dsh-resume/api/status')
+    rememberPreview(root, 'preview.html', { renderId: 'render-current', contentHash: 'hash-current' })
+    const response = () => {
+      let result = null
+      return {
+        writeHead(status) { this.status = status },
+        end(body) { result = JSON.parse(body) },
+        get result() { return result },
+      }
+    }
+    const request = (body) => ({
+      method: 'POST',
+      url: '/dsh-resume/api/metrics',
+      async *[Symbol.asyncIterator]() { yield Buffer.from(JSON.stringify(body)) },
+    })
+    const stale = response()
+    await metricsRoute.handler(request({ previewRoot: root, previewPath: 'preview.html', renderId: 'render-old', contentHash: 'hash-old', metrics: { pageCount: 1 } }), stale)
+    assert.equal(stale.status, 409)
+    const current = response()
+    await metricsRoute.handler(request({ previewRoot: root, previewPath: 'preview.html', renderId: 'render-current', contentHash: 'hash-current', metrics: { pageCount: 1 } }), current)
+    assert.equal(current.status, 200)
+    assert.equal(getLatestMetrics(root, 'preview.html').metrics.pageCount, 1)
+    const status = response()
+    await statusRoute.handler({ method: 'GET', url: `/dsh-resume/api/status?root=${encodeURIComponent(root)}&preview=missing/preview.html` }, status)
+    assert.equal(status.result.previewRel, null)
+  } finally {
+    previewState.clear()
+    await fs.rm(root, { recursive: true, force: true })
+  }
 })
 
 test('preview document carries an explicit preview path for metrics association', () => {
@@ -45,6 +104,38 @@ test('preview document carries an explicit preview path for metrics association'
   assert.match(html, /layoutScale/)
   assert.match(html, /renderer-clean-single/)
   assert.match(html, /data-template-family="campus-clear"/)
+})
+
+test('template customCss is scoped, bounded, and carried into preview', () => {
+  const customCss = '.dsh-resume-section { box-shadow: 0 4px 12px #0002; }'
+  const valid = validateTemplateSpec({ ...TEMPLATE_DEFAULTS, id: 'custom-template', customCss })
+  assert.equal(valid.valid, true)
+  const html = buildPreviewDocument({
+    title: '自定义模板',
+    bodyHtml: '<div class="dsh-resume-root"><h1>林知远</h1></div>',
+    cssText: '',
+    sourcePath: 'resume.md',
+    templatePath: 'templates/default.css',
+    previewPath: 'preview.html',
+    previewRoot: 'E:/jobhunt',
+    renderId: 'render-custom',
+    contentHash: 'hash-custom',
+    templateSpec: valid.value,
+  })
+  assert.match(html, /data-render-id="render-custom"/)
+  assert.match(html, /data-content-hash="hash-custom"/)
+  assert.match(html, /@scope \(\.resume-document\[data-template-id="custom-template"\]\)/)
+  assert.match(html, /box-shadow: 0 4px 12px/)
+  assert.equal(validateTemplateSpec({ ...TEMPLATE_DEFAULTS, customCss: '<script>alert(1)<\/script>' }).valid, false)
+})
+
+test('AI template candidates can carry validated customCss', () => {
+  const result = generateTemplateCandidate({
+    name: '卡片视觉候选',
+    customCss: '.dsh-portfolio-card { box-shadow: 0 4px 12px #0002; }',
+  })
+  assert.equal(result.valid, true)
+  assert.match(result.template.customCss, /box-shadow/)
 })
 
 test('preview links preserve the selected workspace root across reloads', async () => {
