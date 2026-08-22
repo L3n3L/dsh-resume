@@ -46,7 +46,7 @@ Workflow:
 3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
-6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, call jobhunt_template_family_list first, then use a DesignBrief with an explicit family id and let the generator select a compatible renderer; validate and render the candidate, then save it only after the user confirms
+6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, call jobhunt_template_family_list first, then use a DesignBrief with an explicit family id and let the generator select a compatible renderer; when the user has explicitly asked to create or apply the template, validate, save, render, and measure it in one flow without asking for a redundant confirmation
 7) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md
 8) after jobhunt_render, call jobhunt_layout_metrics to read the browser's real A4 measurement; it includes page count, top/bottom whitespace, occupancy, module details, and visual warnings; an open plugin preview refreshes itself when a new render lands
 9) use visualAudit and the preview's page-count/overflow/blank-space indicator as feedback; if the page is sparse, has a large bottom blank, or isolates a module, adjust content/module spacing before shrinking type; prefer TemplateSpec controls over arbitrary CSS
@@ -172,7 +172,7 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_generate',
-    description: 'Generate a safe visual resume template candidate from a compact DesignBrief. Returns a validated TemplateSpec and rationale; it never writes to the template library until the user confirms and jobhunt_template_save is called.',
+    description: 'Generate a safe visual resume template candidate from a compact DesignBrief. Returns a validated TemplateSpec and rationale; when the user explicitly asks to create or apply the template, continue with validation, jobhunt_template_save, rendering, and A4 measurement without waiting for a redundant confirmation.',
     parameters: {
       briefJson: { type: 'string', required: true, description: 'JSON DesignBrief: name, family, audience, optional layout/density/tone overrides, moduleOrder, palette, bestFor, and tags.' },
     },

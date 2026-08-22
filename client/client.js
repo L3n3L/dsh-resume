@@ -1630,6 +1630,12 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const onChatInputKeyDown = (event) => {
+        if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.nativeEvent?.isComposing || event.keyCode === 229) return
+        event.preventDefault()
+        sendChatMessage()
+      }
+
       const reloadTemplates = useCallback(async (preferredId = '') => {
         try {
           const res = await fetch('/dsh-resume/api/templates', { cache: 'no-store' })
@@ -2361,7 +2367,7 @@ window.__ModuleLoader__.load({
         React.createElement('div', { className: 'cj-chatMessages', ref: chatStreamRef, onScroll: onChatStreamScroll }, hasEarlierFeed ? React.createElement('button', { type: 'button', className: 'cj-chatLoadEarlier', onClick: loadEarlier, disabled: chatHistoryLoading }, chatHistoryLoading ? '正在加载更早…' : '加载更早') : null, chatHistoryNotice ? React.createElement('div', { className: 'cj-chatHistoryNotice' }, chatHistoryNotice) : null, React.createElement(AssistantFeed, { items: feedItems }), chatMessagesView, editorCandidate ? React.createElement('div', { className: 'cj-chatMessage' }, React.createElement('strong', null, '可应用修改'), React.createElement(AssistantMarkdown, { text: editorCandidate.summary }), React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => { setEditorDraft(editorCandidate.content); setEditorCandidate(null); setEditorMessage('已把 AI 修改放入草稿，确认后再保存。') } }, '应用到编辑器')) : null, chatUnread ? React.createElement('button', { type: 'button', className: 'cj-chatUnread', onClick: () => { scrollChatToBottom(); setChatUnread(false) } }, '↓ 有新进度，回到底部') : null),
         mainContext.pendingQuestion ? React.createElement(AssistantQuestionCard, { pending: mainContext.pendingQuestion }) : null,
         React.createElement('div', { className: 'cj-chatComposer' },
-          React.createElement('textarea', { className: 'cj-chatInput', value: chatInput, onChange: (event) => setChatInput(event.target.value), placeholder: '例如：把项目经历压缩两行，保留技术成果', 'aria-label': '发送给简历 AI 助手' }),
+          React.createElement('textarea', { className: 'cj-chatInput', value: chatInput, onChange: (event) => setChatInput(event.target.value), onKeyDown: onChatInputKeyDown, placeholder: 'Enter 发送 · Shift+Enter 换行', 'aria-label': '发送给简历 AI 助手' }),
           React.createElement('div', { className: 'cj-chatQuick' },
             ...['压缩两行', '让这一页更饱满', '减少底部留白', '改得更专业', '匹配前端岗位'].map((prompt) => React.createElement('button', { key: prompt, type: 'button', onClick: () => setChatInput(prompt) }, prompt)),
           ),
