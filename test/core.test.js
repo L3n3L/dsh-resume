@@ -115,6 +115,7 @@ test('business timeline renderer keeps the header and timeline structure distinc
   assert.match(html, /dsh-business-timeline/)
   assert.match(html, /dsh-business-marker/)
   assert.match(html, /dsh-renderer-item-projects/)
+  assert.match(html, /<div class="dsh-resume-root dsh-renderer-business-timeline dsh-business-timeline">[\s\S]*<header[\s\S]*<\/header>[\s\S]*<article/)
 })
 
 test('new visual directions are selected from design briefs', () => {
