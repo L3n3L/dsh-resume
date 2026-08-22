@@ -6,7 +6,9 @@ import test from 'node:test'
 import { assembleResumeSections, buildPreviewDocument, markdownToHtml } from '../lib/renderer.js'
 import { TEMPLATE_DEFAULTS } from '../lib/template-schema.js'
 import { generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
+import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { validateLayoutSpec } from '../lib/layout-schema.js'
+import { listTemplatePresets } from '../lib/template-presets.js'
 import { initJobhunt } from '../lib/workspace.js'
 
 test('Markdown renderer keeps resume structure and inline emphasis', () => {
@@ -28,6 +30,11 @@ test('preview document carries an explicit preview path for metrics association'
   })
   assert.match(html, /data-preview-path="companies\/frontend\/preview\.html"/)
   assert.match(html, /previewPath: document\.querySelector\('\.resume-document'\)/)
+  assert.match(html, /safeColor = \(value, fallback\)/)
+  assert.match(html, /query\.get\('backgroundColor'\)/)
+  assert.match(html, /dsh-resume-token-preview/)
+  assert.match(html, /isThumbnail = query\.get\('thumbnail'\)/)
+  assert.match(html, /--resume-corner-radius/)
 })
 
 test('new workspaces receive a substantive demo resume', async () => {
@@ -35,11 +42,20 @@ test('new workspaces receive a substantive demo resume', async () => {
   try {
     await initJobhunt(root)
     const content = await fs.readFile(path.join(root, 'resume.md'), 'utf8')
-    assert.ok(content.length > 700)
-    assert.match(content, /个人优势/)
+    assert.ok(content.length > 1400)
+    assert.match(content, /校园服务平台/)
     assert.match(content, /数据看板/)
+    assert.match(content, /获奖与补充/)
   } finally {
     await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('built-in template gallery includes representative visual directions', () => {
+  const templates = listTemplatePresets()
+  assert.ok(templates.length >= 9)
+  for (const id of ['campus-standard', 'tech-compact', 'split-sidebar', 'engineering-timeline', 'portfolio-grid', 'product-signal', 'academic-research']) {
+    assert.ok(templates.some((template) => template.id === id), `missing built-in template: ${id}`)
   }
 })
 
@@ -67,11 +83,13 @@ test('DesignBrief generates a validated candidate without saving it', () => {
 test('module renderer gives skill tags a real visual semantic', () => {
   const layout = validateLayoutSpec({
     mode: 'single-column',
-    blocks: [{ id: 'skills', type: 'skill-tags', source: '技能' }],
+    blocks: [{ id: 'skills', type: 'skill-tags', source: '技能', options: { preset: 'tags', family: 'engineering-dense' } }],
     regions: { main: ['skills'] },
   }).value
   const html = assembleResumeSections(markdownToHtml('## 技能\n\n- JavaScript\n- TypeScript'), layout)
   assert.match(html, /dsh-module-skill-tags/)
+  assert.match(html, /dsh-preset-tags/)
+  assert.match(html, /data-theme-family="engineering-dense"/)
   assert.match(html, /dsh-skill-tags/)
   assert.match(html, /dsh-skill-tag.*JavaScript/)
 })
@@ -82,4 +100,25 @@ test('DesignBrief normalization keeps module order inside the safe registry', ()
     moduleOrder: ['skills', 'unknown', 'projects', 'skills'],
   })
   assert.deepEqual(brief.moduleOrder, ['skills', 'projects'])
+})
+
+test('theme families provide stable visual and module defaults', () => {
+  const family = resolveThemeFamily('engineering-dense')
+  assert.equal(family.layout.density, 'compact')
+  assert.equal(family.moduleTypes.experience, 'timeline')
+  assert.equal(blockPreset('timeline').preset, 'timeline')
+  assert.equal(listThemeFamilies().length, 6)
+})
+
+test('DesignBrief can generate a family-driven portfolio layout', () => {
+  const result = generateTemplateCandidate({
+    name: '项目作品集',
+    family: 'portfolio-grid',
+    moduleOrder: ['profile', 'skills', 'projects', 'experience'],
+  })
+  assert.equal(result.valid, true)
+  assert.equal(result.template.metadata.family, 'portfolio-grid')
+  assert.equal(result.template.layout.mode, 'two-column')
+  assert.equal(result.layoutSpec.blocks.find((block) => block.id === 'projects').options.preset, 'portfolio-card')
+  assert.equal(result.layoutSpec.blocks.find((block) => block.id === 'projects').options.family, 'portfolio-grid')
 })

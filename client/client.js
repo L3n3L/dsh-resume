@@ -380,41 +380,6 @@ window.__ModuleLoader__.load({
   box-shadow: none;
 }
 .cj-panel[data-wide="true"] { left: 0; }
-.cj-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 20px 22px 16px;
-  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.18));
-}
-.cj-title {
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 24px;
-  letter-spacing: -0.01em;
-}
-.cj-subtitle {
-  margin-top: 2px;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-secondary, #6b7280);
-}
-.cj-textBtn {
-  all: unset;
-  box-sizing: border-box;
-  cursor: pointer;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  line-height: 32px;
-  color: var(--dsw-alias-label-secondary, #6b7280);
-}
-.cj-textBtn:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.12));
-  color: var(--dsw-alias-label-primary, #111);
-}
 .cj-body {
   flex: 1;
   min-height: 0;
@@ -597,6 +562,8 @@ window.__ModuleLoader__.load({
 .cj-workbenchBody[data-view="preview"] { grid-template-columns: 120px minmax(0, 1fr); }
 .cj-workbenchBody[data-view="start"], .cj-workbenchBody[data-view="templates"], .cj-workbenchBody[data-view="workshop"], .cj-workbenchBody[data-view="files"], .cj-workbenchBody[data-view="guide"] { grid-template-columns: 120px minmax(0, 1fr); }
 .cj-nav {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow-y: auto;
   padding: 16px 10px;
@@ -621,7 +588,10 @@ window.__ModuleLoader__.load({
 .cj-navItem:hover { background: #e7eaf0; color: #14213d; }
 .cj-navItem[data-active="true"] { background: #fff; color: #14213d; font-weight: 700; box-shadow: 0 2px 7px rgba(15,23,42,.07); }
 .cj-navIcon { width: 18px; text-align: center; font-size: 14px; }
-.cj-navFoot { margin-top: 18px; padding: 12px 10px 0; border-top: 1px solid rgba(15,23,42,.07); color: #99a2b3; font-size: 11px; line-height: 17px; }
+.cj-navFoot { display: flex; flex-direction: column; gap: 12px; margin-top: auto; padding: 12px 10px 0; border-top: 1px solid rgba(15,23,42,.07); color: #99a2b3; font-size: 11px; line-height: 17px; }
+.cj-closeAction { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 9px; border: 1px solid rgba(15,23,42,.14); border-radius: 9px; background: #f3f4f6; color: #26334d; font-size: 12px; font-weight: 650; line-height: 18px; }
+.cj-closeAction:hover { border-color: rgba(15,23,42,.24); background: #e7eaf0; color: #14213d; }
+.cj-closeAction:focus-visible { outline: 2px solid rgba(20,33,61,.28); outline-offset: 2px; }
 .cj-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; padding: 16px; gap: 11px; }
 .cj-main-preview { overflow: hidden; }
 .cj-mainBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
@@ -630,26 +600,38 @@ window.__ModuleLoader__.load({
 .cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
 .cj-templateGallery { display: flex; gap: 8px; min-height: 104px; overflow-x: auto; padding: 1px 1px 4px; }
 .cj-templateGallery[data-library="true"] { flex-wrap: wrap; align-content: flex-start; min-height: 0; overflow: visible; gap: 12px; }
-.cj-templateCard { all: unset; box-sizing: border-box; flex: 0 0 176px; cursor: pointer; padding: 7px; border: 1px solid #e1e6ee; border-radius: 12px; background: #fff; }
+.cj-templateCard { all: unset; box-sizing: border-box; display: block; flex: 0 0 190px; cursor: pointer; padding: 8px; border: 1px solid #e1e6ee; border-radius: 12px; background: #fff; }
 .cj-templateCard:hover { border-color: #9db5e8; box-shadow: 0 3px 12px rgba(45,80,150,.08); }
 .cj-templateCard[data-active="true"] { border-color: #3559a8; box-shadow: 0 0 0 2px rgba(53,89,168,.12); }
-.cj-templatePaper { position: relative; height: 88px; overflow: hidden; padding: 10px 11px; border: 1px solid #e7eaf0; border-radius: 4px; background: #fff; color: #26334d; }
+.cj-templateCard[data-compared="true"] { border-color: #9a78dd; box-shadow: 0 0 0 2px rgba(154,120,221,.14); }
+.cj-templatePaper { position: relative; height: 96px; overflow: hidden; padding: 10px 11px; border: 1px solid #e7eaf0; border-radius: 4px; background: var(--thumb-bg, #fff); color: var(--thumb-accent, #26334d); }
 .cj-thumbTop { display: flex; align-items: flex-end; gap: 5px; height: 12px; }
 .cj-thumbTop:before { content: ''; display: block; width: 26px; height: 5px; border-radius: 1px; background: currentColor; }
 .cj-thumbTop:after { content: ''; display: block; width: 42px; height: 3px; border-radius: 1px; background: #cbd3df; }
-.cj-thumbRule { height: 2px; margin-top: 5px; background: #3559a8; }
+.cj-thumbRule { height: 2px; margin-top: 5px; background: var(--thumb-accent, #3559a8); }
 .cj-thumbSection { width: 42px; height: 4px; margin-top: 8px; background: currentColor; box-shadow: 0 10px 0 #d7dde7, 28px 10px 0 #d7dde7, 0 20px 0 #d7dde7, 34px 20px 0 #d7dde7; }
 .cj-thumbLines { position: absolute; left: 56px; right: 9px; top: 29px; height: 3px; background: #cbd3df; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
-.cj-templatePaper-technical { color: #1f3a5f; border-left: 5px solid #1f3a5f; }
-.cj-templatePaper-technical .cj-thumbRule { background: #1f3a5f; }
-.cj-templatePaper-editorial { color: #0f766e; background: linear-gradient(135deg, #effcf9, #fff 60%); }
-.cj-templatePaper-editorial .cj-thumbRule { height: 7px; background: #0f766e22; }
+.cj-templatePaper-technical { border-left: 5px solid var(--thumb-accent, #1f3a5f); }
+.cj-templatePaper-technical .cj-thumbRule { background: var(--thumb-accent, #1f3a5f); }
+.cj-templatePaper-editorial { background: linear-gradient(135deg, color-mix(in srgb, var(--thumb-accent, #0f766e) 10%, #fff), var(--thumb-bg, #fff) 60%); }
+.cj-templatePaper-editorial .cj-thumbRule { height: 7px; background: color-mix(in srgb, var(--thumb-accent, #0f766e) 16%, transparent); }
 .cj-templatePaper-editorial .cj-thumbSection { border-radius: 8px; }
-.cj-templatePaper-terminal { color: #c2410c; background: linear-gradient(90deg, #fff 0, #fff 88%, #f1f5f9 88%); }
-.cj-templatePaper-terminal .cj-thumbRule { background: #c2410c; }
+.cj-templatePaper-terminal { background: linear-gradient(90deg, var(--thumb-bg, #fff) 0, var(--thumb-bg, #fff) 88%, #f1f5f9 88%); }
+.cj-templatePaper-terminal .cj-thumbRule { background: var(--thumb-accent, #c2410c); }
 .cj-templatePaper-two-column .cj-thumbLines { left: 64px; right: 28px; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
 .cj-templatePaper-two-column:after { content: ''; position: absolute; top: 29px; right: 9px; width: 18px; height: 3px; background: currentColor; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
+.cj-templateThumb { position: relative; height: 174px; overflow: hidden; border: 1px solid #e7eaf0; border-radius: 5px; background: #eef1f5; }
+.cj-templateThumb iframe { position: absolute; top: 3px; left: 50%; width: 794px; height: 1123px; border: 0; background: #fff; transform: translateX(-50%) scale(.15); transform-origin: top center; pointer-events: none; }
+.cj-templateThumb[data-loading="true"] { background: linear-gradient(90deg, #eef1f5 25%, #f8fafc 40%, #eef1f5 60%); background-size: 300% 100%; animation: cj-thumbLoading 1.2s ease-in-out infinite; }
+.cj-templateThumb[data-loading="true"] iframe { opacity: 0; }
+@keyframes cj-thumbLoading { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.cj-comparePreview .cj-templateThumb { height: 116px; }
+.cj-comparePreview .cj-templateThumb iframe { transform: translateX(-50%) scale(.1); }
 .cj-templateName { margin-top: 7px; overflow: hidden; color: #26334d; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.cj-templateCardFooter { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cj-templateCardFooter .cj-templateName { min-width: 0; flex: 1; }
+.cj-compareButton { all: unset; flex: 0 0 auto; cursor: pointer; padding: 3px 5px; border-radius: 5px; color: #6f5aa5; font-size: 10px; }
+.cj-compareButton:hover, .cj-compareButton[data-active="true"] { background: #f0eafa; color: #6844a6; }
 .cj-templateTags { margin-top: 3px; overflow: hidden; color: #5571aa; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .cj-templateDescription { min-height: 30px; margin-top: 4px; overflow: hidden; color: #8a94a6; font-size: 10px; line-height: 15px; }
 .cj-workshop { padding: 14px; border: 1px solid #e3e7ee; border-radius: 12px; background: #fbfcfe; }
@@ -675,6 +657,35 @@ window.__ModuleLoader__.load({
 .cj-workshopActions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .cj-workshopActions .cj-ghostAction, .cj-workshopActions .cj-solidAction { height: 30px; line-height: 30px; font-size: 11px; }
 .cj-workshopMessage { margin-top: 8px; color: #26734d; font-size: 11px; line-height: 16px; }
+.cj-comparePanel { margin-top: 14px; padding: 11px; border: 1px solid #ded5f3; border-radius: 11px; background: #fbf9ff; }
+.cj-compareHead, .cj-tokenPanelHead, .cj-workshopPreviewHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cj-compareHead strong, .cj-tokenPanelHead strong { display: block; color: #30264b; font-size: 12px; }
+.cj-compareHead span, .cj-tokenPanelHead span { display: block; margin-top: 3px; color: #887ba4; font-size: 10px; }
+.cj-compareGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 9px; }
+.cj-compareCard { min-width: 0; padding: 8px; border: 1px solid #e8e1f6; border-radius: 9px; background: #fff; }
+.cj-comparePreview { overflow: hidden; border-radius: 4px; }
+.cj-comparePreview .cj-templatePaper { height: 68px; transform: scale(.98); transform-origin: top center; }
+.cj-compareCard > strong { display: block; margin-top: 6px; overflow: hidden; color: #3a3154; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.cj-compareCard > span { display: block; margin-top: 3px; color: #8a7ca6; font-size: 9px; }
+.cj-compareCard .cj-solidAction { width: 100%; height: 26px; margin-top: 7px; font-size: 10px; line-height: 26px; }
+.cj-tokenPanel { margin-top: 12px; padding: 11px; border: 1px solid #e3e7ee; border-radius: 11px; background: #fff; }
+.cj-tokenGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.cj-tokenControl { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 6px; min-width: 0; color: #66738a; font-size: 10px; }
+.cj-tokenControl input[type="color"] { width: 28px; height: 22px; padding: 1px; border: 1px solid #dbe0e9; border-radius: 6px; background: #fff; }
+.cj-tokenControl input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: #6d55aa; }
+.cj-tokenControl strong { color: #536078; font-size: 10px; }
+.cj-tokenSelect { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; color: #66738a; font-size: 10px; }
+.cj-tokenSelect select { height: 27px; border: 1px solid #dbe0e9; border-radius: 7px; background: #fff; color: #536078; font-size: 10px; }
+.cj-tokenActions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+.cj-tokenActions button { height: 28px; font-size: 10px; line-height: 28px; }
+.cj-workshopLayout { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(360px, .72fr) minmax(460px, 1.28fr); gap: 10px; }
+.cj-workshopColumn { min-height: 0; overflow: auto; }
+.cj-workshopPreview { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e3e7ee; border-radius: 12px; background: #eef1f5; }
+.cj-workshopPreviewHead { flex: 0 0 auto; min-height: 42px; padding: 0 12px; border-bottom: 1px solid #dfe5ee; background: #fff; }
+.cj-workshopPreviewHead strong { color: #26334d; font-size: 12px; }
+.cj-workshopPreviewHead span { color: #8a94a6; font-size: 10px; }
+.cj-workshopPreviewFrame { min-height: 0; flex: 1; overflow: hidden; }
+.cj-workshopPreviewFrame iframe { display: block; width: 100%; height: 100%; min-height: 560px; border: 0; background: #eef1f5; }
 .cj-versionList { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .cj-versionTag { padding: 3px 6px; border-radius: 6px; background: #edf1f6; color: #6d7890; font-size: 10px; }
 .cj-canvas { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -887,8 +898,8 @@ window.__ModuleLoader__.load({
 .cj-chatStop { border: 0; border-radius: 8px; background: #eef1f6; color: #536078; padding: 7px 10px; font-size: 11px; cursor: pointer; }
 .cj-chatStop:hover { background: #e3e8f1; color: #26334d; }
 .cj-chatApply { margin-top: 6px; border: 0; border-radius: 7px; background: #e4f5ed; color: #15803d; padding: 5px 7px; font-size: 10px; cursor: pointer; }
-@media (max-width: 900px) { .cj-editorBody, .cj-editorBody[data-chat="open"], .cj-previewWorkspace, .cj-previewWorkspace[data-chat="open"] { grid-template-columns: 1fr; overflow: auto; } .cj-editorPane, .cj-previewWorkspace .cj-editorPane { min-height: 360px; } .cj-editorChat { min-height: 300px; } .cj-inlineTuning { min-width: 0; justify-content: flex-start; overflow-x: auto; } }
-@media (max-width: 720px) { .cj-startActions { grid-template-columns: 1fr; } .cj-startCard { padding: 20px; } .cj-workshopFlow { grid-template-columns: 1fr; } .cj-templateCard { flex-basis: 160px; } }
+@media (max-width: 900px) { .cj-editorBody, .cj-editorBody[data-chat="open"], .cj-previewWorkspace, .cj-previewWorkspace[data-chat="open"], .cj-workshopLayout { grid-template-columns: 1fr; overflow: auto; } .cj-editorPane, .cj-previewWorkspace .cj-editorPane, .cj-workshopPreview { min-height: 360px; } .cj-editorChat { min-height: 300px; } .cj-inlineTuning { min-width: 0; justify-content: flex-start; overflow-x: auto; } }
+@media (max-width: 720px) { .cj-startActions { grid-template-columns: 1fr; } .cj-startCard { padding: 20px; } .cj-workshopFlow, .cj-compareGrid, .cj-tokenGrid { grid-template-columns: 1fr; } .cj-templateCard { flex-basis: 160px; } }
 .cj-guideNo { color: #9aabc9; font-weight: 800; }
 .cj-qualityStatus { display: inline-grid; place-items: center; width: 19px; height: 19px; flex: 0 0 auto; border-radius: 50%; background: #eef1f5; color: #7b8496; font-size: 11px; font-weight: 800; }
 .cj-quality-pass { background: #e4f5ed; color: #15803d; }
@@ -897,13 +908,16 @@ window.__ModuleLoader__.load({
 .cj-qualityStatus + span { display: flex; flex-direction: column; gap: 3px; }
 .cj-qualityStatus + span small { color: #8b95a7; font-size: 11px; }
 @media (max-width: 720px) {
-  .cj-header, .cj-body { padding-left: 14px; padding-right: 14px; }
+  .cj-body { padding-left: 14px; padding-right: 14px; }
   .cj-selectWrap { min-width: 100%; }
   .cj-actions { width: 100%; justify-content: space-between; }
   .cj-action { flex: 1; padding-left: 8px; padding-right: 8px; }
   .cj-workbenchBody { display: block; overflow: auto; }
   .cj-nav { display: flex; gap: 4px; overflow-x: auto; border-right: 0; border-bottom: 1px solid rgba(15,23,42,.08); padding: 8px; }
-  .cj-navLabel, .cj-navFoot { display: none; }
+  .cj-navLabel { display: none; }
+  .cj-navFoot { display: flex; flex: 0 0 auto; flex-direction: row; align-items: center; margin: 0; padding: 0 8px; border: 0; }
+  .cj-navFoot > div { display: none; }
+  .cj-closeAction { width: auto; min-height: 34px; padding: 0 12px; }
   .cj-navItem { width: auto; padding: 0 12px; white-space: nowrap; }
   .cj-main { min-height: 560px; }
   .cj-main-preview { overflow: auto; }
@@ -1243,6 +1257,17 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function visualTokensFromTemplate(template) {
+      return {
+        accentColor: template?.visual?.accentColor || '#2563eb',
+        textColor: template?.visual?.textColor || '#1f2937',
+        mutedColor: template?.visual?.mutedColor || '#6b7280',
+        backgroundColor: template?.visual?.backgroundColor || '#ffffff',
+        cornerRadius: Number(template?.visual?.cornerRadius) || 0,
+        divider: template?.visual?.divider || 'solid',
+      }
+    }
+
     function PreviewWorkbench({ compact, onClose }) {
       ensureCss()
       const [tick, setTick] = useState(0)
@@ -1266,6 +1291,9 @@ window.__ModuleLoader__.load({
       const [templateVersions, setTemplateVersions] = useState([])
       const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
       const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
+      const [visualTokens, setVisualTokens] = useState(() => visualTokensFromTemplate(selectedTemplate))
+      const [visualHistory, setVisualHistory] = useState([])
+      const [templateCompareIds, setTemplateCompareIds] = useState([])
       const { quality, qualityLoading } = useQuality(selected, tick)
       const [editorOpen, setEditorOpen] = useState(false)
       const [editorSource, setEditorSource] = useState(null)
@@ -1295,6 +1323,7 @@ window.__ModuleLoader__.load({
       const chatStreamRef = useRef(null)
       const chatInitialScrollRef = useRef(false)
       const chatPreserveScrollRef = useRef(null)
+      const workshopPreviewRef = useRef(null)
 
       const mainContext = mainConversation.summary
 
@@ -1416,7 +1445,7 @@ window.__ModuleLoader__.load({
             })
             const result = await readJsonResponse(res, '实时预览')
             if (active) {
-              const tuningQuery = new URLSearchParams(Object.entries(layoutSettings).map(([key, value]) => [key, String(value)]))
+              const tuningQuery = new URLSearchParams(Object.entries({ ...layoutSettings, ...visualTokens }).map(([key, value]) => [key, String(value)]))
               setEditorPreviewUrl(`${result.previewUrl}&${tuningQuery.toString()}&t=${Date.now()}`)
               setEditorMessage('未保存草稿 · 右侧预览已更新')
             }
@@ -1430,7 +1459,7 @@ window.__ModuleLoader__.load({
           active = false
           clearTimeout(timer)
         }
-      }, [editorOpen, editorSource, editorDraft, templateId, layoutSettings])
+      }, [editorOpen, editorSource, editorDraft, templateId, layoutSettings, visualTokens])
 
       const saveEditor = async () => {
         if (!editorSource || !editorDraft.trim()) return
@@ -1555,6 +1584,8 @@ window.__ModuleLoader__.load({
           if (preferred) {
             setTemplateId(preferred.id)
             setLayoutSettings(layoutSettingsFromTemplate(preferred))
+            setVisualTokens(visualTokensFromTemplate(preferred))
+            setVisualHistory([])
             setLayoutHistory([])
             setFitState({ text: `已同步新模板：${preferred.name}`, state: 'pending' })
             setTemplateMessage(`主对话刚刚生成了「${preferred.name}」，已自动加载。`)
@@ -1678,9 +1709,15 @@ window.__ModuleLoader__.load({
       const previewSrc = useMemo(() => {
         if (!selected) return null
         const params = new URLSearchParams({ path: selected, t: String(tick), template: templateId })
-        for (const [key, value] of Object.entries(layoutSettings)) params.set(key, String(value))
+        for (const [key, value] of Object.entries({ ...layoutSettings, ...visualTokens })) params.set(key, String(value))
         return `/dsh-resume/preview?${params.toString()}`
-      }, [selected, tick, layoutSettings, templateId])
+      }, [selected, tick, layoutSettings, visualTokens, templateId])
+
+      useEffect(() => {
+        const frame = workshopPreviewRef.current
+        if (!frame?.contentWindow) return
+        frame.contentWindow.postMessage({ source: 'dsh-resume-token-preview', tokens: visualTokens }, '*')
+      }, [visualTokens])
 
       const onRefresh = () => {
         setFitState({ text: '正在重新检查', state: 'pending' })
@@ -1736,6 +1773,8 @@ window.__ModuleLoader__.load({
         const nextTemplate = templateOptions.find((template) => template.id === value)
         setTemplateId(value)
         setLayoutSettings(layoutSettingsFromTemplate(nextTemplate))
+        setVisualTokens(visualTokensFromTemplate(nextTemplate))
+        setVisualHistory([])
         setLayoutHistory([])
         setTemplatePickerOpen(false)
         setTuningOpen(false)
@@ -1751,9 +1790,64 @@ window.__ModuleLoader__.load({
         setTemplateId(previous)
         const previousTemplate = templateOptions.find((template) => template.id === previous)
         setLayoutSettings(layoutSettingsFromTemplate(previousTemplate))
+        setVisualTokens(visualTokensFromTemplate(previousTemplate))
+        setVisualHistory([])
         setLayoutHistory([])
         setTemplateMessage('已撤销模板切换')
         setLayout(null)
+      }
+
+      const updateVisualToken = (key, value) => {
+        setVisualHistory((history) => [...history, visualTokens].slice(-20))
+        setVisualTokens((tokens) => ({ ...tokens, [key]: value }))
+        setLayout(null)
+        setFitState({ text: '视觉调整中，正在重新测量 A4…', state: 'pending' })
+      }
+
+      const undoVisualToken = () => {
+        if (!visualHistory.length) return
+        setVisualTokens(visualHistory[visualHistory.length - 1])
+        setVisualHistory((history) => history.slice(0, -1))
+        setLayout(null)
+      }
+
+      const resetVisualTokens = () => {
+        setVisualHistory((history) => [...history, visualTokens].slice(-20))
+        setVisualTokens(visualTokensFromTemplate(selectedTemplate))
+        setLayout(null)
+      }
+
+      const toggleTemplateCompare = (id) => {
+        setTemplateCompareIds((ids) => ids.includes(id)
+          ? ids.filter((item) => item !== id)
+          : ids.length >= 3 ? [...ids.slice(1), id] : [...ids, id])
+      }
+
+      const saveVisualVariant = async () => {
+        if (!selectedTemplate) return
+        const defaultId = `${selectedTemplate.id}-custom`.replace(/[^a-z0-9-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+        const newId = window.prompt('为这套视觉调整设置一个新模板 ID（小写英文和短横线）', defaultId)
+        if (!newId) return
+        const templateJson = JSON.stringify({
+          ...selectedTemplate,
+          id: newId,
+          name: `${selectedTemplate.name || '模板'} · 定制`,
+          visual: { ...(selectedTemplate.visual || {}), ...visualTokens },
+        })
+        setTemplateMessage('正在校验并保存视觉变体…')
+        try {
+          const res = await fetch('/dsh-resume/api/templates/actions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action: 'save', templateJson }),
+          })
+          const result = await res.json()
+          if (!res.ok || !result.saved) throw new Error(result.error || result.errors?.join('；') || '保存视觉变体失败')
+          await reloadTemplates(result.template.id)
+          setTemplateMessage(`已保存「${result.template.name}」，可在模板库继续对比。`)
+        } catch (err) {
+          setTemplateMessage(`保存失败：${err?.message || err}`)
+        }
       }
 
       const saveTemplateDraft = async () => {
@@ -1910,6 +2004,14 @@ window.__ModuleLoader__.load({
         ? `留白 ${Math.round(measuredBlank * 100)}%`
         : fitState.state === 'overflow' ? '有溢出' : fitState.state === 'multi' ? '多页' : '测量中'
       const statusButtonMeta = layout?.pageCount ? `${layout.pageCount} 页` : '排版指标'
+      const templateThumbnail = (template, compare = false) => {
+        const src = selected
+          ? `/dsh-resume/preview?${new URLSearchParams({ path: selected, t: String(tick), template: template.id, thumbnail: '1' }).toString()}`
+          : ''
+        const paperClass = `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}${template.layout?.mode === 'two-column' ? ' cj-templatePaper-two-column' : ''}`
+        if (!src) return React.createElement('div', { className: paperClass, style: { '--thumb-accent': template.visual?.accentColor || '#3559a8', '--thumb-bg': template.visual?.backgroundColor || '#fff' } }, React.createElement('div', { className: 'cj-thumbTop' }), React.createElement('div', { className: 'cj-thumbRule' }), React.createElement('div', { className: 'cj-thumbSection' }), React.createElement('div', { className: 'cj-thumbLines' }))
+        return React.createElement('div', { className: 'cj-templateThumb', 'data-loading': 'true', 'data-compare': compare ? 'true' : 'false' }, React.createElement('iframe', { title: `${template.name}真实预览缩略图`, src, loading: 'lazy', onLoad: (event) => { event.currentTarget.parentElement?.setAttribute('data-loading', 'false') } }))
+      }
       const navItems = [
         ['start', '⌂', '开始'],
         ['preview', '▣', '预览'],
@@ -1922,17 +2024,10 @@ window.__ModuleLoader__.load({
         'div',
         { className: 'cj-templateGallery', 'data-library': 'true', 'aria-label': '视觉模板' },
         ...templateOptions.map((template) => React.createElement(
-          'button',
-          { key: template.id, type: 'button', className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', onClick: () => onTemplateChange(template.id), 'aria-label': `选择模板：${template.name}` },
-          React.createElement(
-            'div',
-            { className: `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}${template.layout?.mode === 'two-column' ? ' cj-templatePaper-two-column' : ''}` },
-            React.createElement('div', { className: 'cj-thumbTop' }),
-            React.createElement('div', { className: 'cj-thumbRule' }),
-            React.createElement('div', { className: 'cj-thumbSection' }),
-            React.createElement('div', { className: 'cj-thumbLines' }),
-          ),
-          React.createElement('div', { className: 'cj-templateName' }, template.name),
+          'div',
+          { key: template.id, className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', 'data-compared': templateCompareIds.includes(template.id) ? 'true' : 'false', role: 'button', tabIndex: 0, onClick: () => onTemplateChange(template.id), onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onTemplateChange(template.id) } }, 'aria-label': `选择模板：${template.name}` },
+          templateThumbnail(template),
+          React.createElement('div', { className: 'cj-templateCardFooter' }, React.createElement('div', { className: 'cj-templateName' }, template.name), React.createElement('button', { type: 'button', className: 'cj-compareButton', 'data-active': templateCompareIds.includes(template.id) ? 'true' : 'false', onClick: (event) => { event.stopPropagation(); toggleTemplateCompare(template.id) } }, templateCompareIds.includes(template.id) ? '已加入' : '＋对比')),
           React.createElement('div', { className: 'cj-templateTags' }, [template.layout?.mode === 'two-column' ? '双栏' : '单栏', ...(template.tags || []).filter((tag) => tag !== '单栏' && tag !== '双栏')].slice(0, 3).join(' · ')),
           React.createElement('div', { className: 'cj-templateDescription' }, template.description || '原创视觉预设，适合投递版简历。'),
         )),
@@ -1964,17 +2059,51 @@ window.__ModuleLoader__.load({
             : [React.createElement('div', { className: 'cj-empty', key: 'empty' }, '还没有投递版预览')]),
         ),
       )
+      const comparedTemplates = templateCompareIds.map((id) => templateOptions.find((template) => template.id === id)).filter(Boolean)
+      const templateCompareView = comparedTemplates.length >= 2
+        ? React.createElement(
+            'section',
+            { className: 'cj-comparePanel', 'aria-label': '模板对比' },
+            React.createElement('div', { className: 'cj-compareHead' }, React.createElement('div', null, React.createElement('strong', null, '候选对比'), React.createElement('span', null, '最多选择 3 个方向，先看差异再应用')), React.createElement('button', { type: 'button', className: 'cj-templatePickerClose', onClick: () => setTemplateCompareIds([]) }, '清空')),
+            React.createElement('div', { className: 'cj-compareGrid' }, ...comparedTemplates.map((template) => React.createElement(
+              'article',
+              { className: 'cj-compareCard', key: template.id },
+              React.createElement('div', { className: 'cj-comparePreview' }, templateThumbnail(template, true)),
+              React.createElement('strong', null, template.name),
+              React.createElement('span', null, `${template.layout?.mode === 'two-column' ? '双栏' : '单栏'} · ${template.layout?.density || '标准'} · ${template.visual?.variant || '标准'}`),
+              React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => { onTemplateChange(template.id); setView('preview') } }, template.id === templateId ? '正在使用' : '应用此模板'),
+            )))
+          )
+        : null
+      const tokenControl = (key, label, type = 'color') => React.createElement(
+        'label',
+        { className: 'cj-tokenControl', key },
+        React.createElement('span', null, label),
+        type === 'color'
+          ? React.createElement('input', { type: 'color', value: visualTokens[key], onChange: (event) => updateVisualToken(key, event.target.value), 'aria-label': label })
+          : React.createElement('strong', null, `${visualTokens[key]}px`),
+        type === 'range' ? React.createElement('input', { type: 'range', min: 0, max: 16, step: 1, value: visualTokens[key], onChange: (event) => updateVisualToken(key, Number(event.target.value)), 'aria-label': label }) : null,
+      )
+      const visualTokenPanel = React.createElement(
+        'section',
+        { className: 'cj-tokenPanel', 'aria-label': '视觉 Token 面板' },
+        React.createElement('div', { className: 'cj-tokenPanelHead' }, React.createElement('div', null, React.createElement('strong', null, '视觉 Token'), React.createElement('span', null, '只影响当前预览，实时生效')), React.createElement('button', { type: 'button', className: 'cj-templatePickerClose', onClick: resetVisualTokens }, '恢复模板默认')),
+        React.createElement('div', { className: 'cj-tokenGrid' }, tokenControl('accentColor', '强调色'), tokenControl('backgroundColor', '页面底色'), tokenControl('textColor', '正文色'), tokenControl('mutedColor', '辅助色'), tokenControl('cornerRadius', '圆角', 'range')),
+        React.createElement('label', { className: 'cj-tokenSelect' }, React.createElement('span', null, '分隔线'), React.createElement('select', { value: visualTokens.divider, onChange: (event) => updateVisualToken('divider', event.target.value) }, React.createElement('option', { value: 'solid' }, '实线'), React.createElement('option', { value: 'dashed' }, '虚线'), React.createElement('option', { value: 'none' }, '不显示'))),
+        React.createElement('div', { className: 'cj-tokenActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoVisualToken, disabled: !visualHistory.length }, '撤销调整'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveVisualVariant }, '另存为模板')),
+      )
       const templateWorkshop = React.createElement(
         'div',
         { className: 'cj-workshop' },
         React.createElement('div', { className: 'cj-workshopTitle' }, '生成或维护模板'),
-        React.createElement('div', { className: 'cj-workshopHint' }, '模板工坊负责生成、复制和维护视觉方案；你不需要手写 CSS，先选择一个方向，再让 DeepSeek 生成或修改模板。'),
+        React.createElement('div', { className: 'cj-workshopHint' }, '模板工坊负责生成、对比和维护视觉方案。先看候选差异，再用 Token 面板微调，最后确认是否另存为模板。'),
         React.createElement('div', { className: 'cj-workshopFlow' },
           React.createElement('div', { className: 'cj-workshopStep' }, React.createElement('span', null, '1'), React.createElement('strong', null, '确定视觉方向'), React.createElement('small', null, '单栏、双栏、黑白或强调色。')),
           React.createElement('div', { className: 'cj-workshopStep' }, React.createElement('span', null, '2'), React.createElement('strong', null, '让 DeepSeek 生成'), React.createElement('small', null, '输出 dsh-resume TemplateSpec JSON。')),
           React.createElement('div', { className: 'cj-workshopStep' }, React.createElement('span', null, '3'), React.createElement('strong', null, '保存并去预览'), React.createElement('small', null, '保存版本，再用 A4 结果确认。')),
         ),
         React.createElement('div', { className: 'cj-workshopCurrent' }, React.createElement('div', { className: 'cj-workshopMiniPaper', 'data-variant': selectedTemplate?.visual?.variant || 'standard' }), React.createElement('span', null, '当前模板'), React.createElement('strong', null, selectedTemplate?.name || '校招标准'), React.createElement('span', null, selectedTemplate?.layout?.mode === 'two-column' ? '双栏' : '单栏')),
+        visualTokenPanel,
         React.createElement('div', { className: 'cj-workshopPrompt' }, '推荐提示：生成一个适合前端实习投递的黑白高密度一页模板，保留项目成果指标，并输出符合 dsh-resume TemplateSpec 的 JSON。'),
         React.createElement('div', { className: 'cj-workshopActions' },
           React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: copySelectedTemplate }, '复制当前模板'),
@@ -2000,8 +2129,9 @@ window.__ModuleLoader__.load({
         React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板库'), React.createElement('div', { className: 'cj-mainHint' }, '选择视觉基线，不会自动离开当前页面。'))),
         React.createElement('div', { className: 'cj-guide' },
           React.createElement('h3', null, '选择一个视觉方向'),
-          React.createElement('p', null, '点击卡片只会选择并应用模板，不会跳转。确认后点击下面的按钮进入 A4 预览。'),
+          React.createElement('p', null, '点击卡片会切换当前候选；点“＋对比”可以同时比较最多 3 个方向。确认后再进入 A4 预览。'),
           templateGallery,
+          templateCompareView,
           React.createElement('div', { className: 'cj-workshopActions' }, React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => setView('preview') }, '应用并查看预览')),
         ),
       )
@@ -2009,7 +2139,7 @@ window.__ModuleLoader__.load({
         React.Fragment,
         null,
         React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板工坊'), React.createElement('div', { className: 'cj-mainHint' }, '生成、保存、复制和恢复视觉模板。'))),
-        React.createElement('div', { className: 'cj-guide' }, templateWorkshop),
+        React.createElement('div', { className: 'cj-workshopLayout' }, React.createElement('div', { className: 'cj-guide cj-workshopColumn' }, templateWorkshop), React.createElement('section', { className: 'cj-workshopPreview' }, React.createElement('div', { className: 'cj-workshopPreviewHead' }, React.createElement('strong', null, '实时 A4 预览'), React.createElement('span', null, previewSrc ? 'Token 调整会立即刷新' : '先创建或选择一份投递版')), React.createElement('div', { className: 'cj-workshopPreviewFrame' }, previewSrc ? React.createElement('iframe', { ref: workshopPreviewRef, title: '模板工坊实时 A4 预览', src: previewSrc, onLoad: (event) => { onFrameLoad(event); event.currentTarget.contentWindow?.postMessage({ source: 'dsh-resume-token-preview', tokens: visualTokens }, '*') } }) : React.createElement('div', { className: 'cj-empty' }, '选择一份投递版后，这里会显示真实内容。')))),
       )
       const guideView = React.createElement(
         React.Fragment,
@@ -2230,7 +2360,7 @@ window.__ModuleLoader__.load({
         React.createElement(
           'div',
           { className: 'cj-workbenchBody', 'data-view': view },
-          React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, 'Agent 负责改稿与排版。\n你负责最终确认。')),
+          React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, React.createElement('div', null, 'Agent 负责改稿与排版。\n你负责最终确认。'), onClose ? React.createElement('button', { type: 'button', className: 'cj-closeAction', onClick: onClose, 'aria-label': '退出求职简历工作台' }, '退出工作台') : null)),
           React.createElement('main', { className: `cj-main cj-main-${view}` }, view === 'start' ? startView : view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : view === 'workshop' ? workshopView : guideView),
         ),
       )
@@ -2251,25 +2381,6 @@ window.__ModuleLoader__.load({
           ? React.createElement(
               'section',
               { className: 'cj-panel', 'data-wide': wide ? 'true' : 'false', 'aria-label': '求职简历预览' },
-              React.createElement(
-                'header',
-                { className: 'cj-header' },
-                React.createElement(
-                  'div',
-                  null,
-                  React.createElement('div', { className: 'cj-title' }, '求职简历'),
-                  React.createElement('div', { className: 'cj-subtitle' }, '预览投递版，确认后再导出'),
-                ),
-                React.createElement(
-                  'button',
-                  {
-                    type: 'button',
-                    className: 'cj-textBtn',
-                    onClick: () => setOpen(false),
-                  },
-                  '关闭',
-                ),
-              ),
               React.createElement(PreviewWorkbench, { compact: true, onClose: () => setOpen(false) }),
             )
           : null,
