@@ -28,14 +28,75 @@ window.__ModuleLoader__.load({
 
     function textFromConversationNode(node) {
       if (!node || typeof node !== 'object') return ''
-      return [
+      const parts = [
         Array.isArray(node.blocks) ? textFromBlocks(node.blocks) : textFromValue(node.blocks),
         Array.isArray(node.content) ? textFromBlocks(node.content) : textFromValue(node.content),
         textFromValue(node.text),
         textFromValue(node.output),
         textFromValue(node.result),
         textFromValue(node.error),
-      ].filter(Boolean).join('').trim()
+      ].filter(Boolean)
+      return parts.sort((left, right) => right.length - left.length)[0]?.trim() || ''
+    }
+
+    function nodeCandidates(node) {
+      return [
+        node,
+        ...(Array.isArray(node?.blocks) ? node.blocks : []),
+        ...(Array.isArray(node?.content) ? node.content : []),
+      ].filter((item) => item && typeof item === 'object')
+    }
+
+    function toolDescriptor(node) {
+      const candidate = nodeCandidates(node).find((item) => item.name || item.toolName || item.tool?.name || item.function?.name)
+      if (!candidate) return { name: '', kind: '' }
+      return {
+        name: String(candidate.name || candidate.toolName || candidate.tool?.name || candidate.function?.name || ''),
+        kind: String(candidate.type || candidate.kind || ''),
+      }
+    }
+
+    function classifyTimelineNode(node) {
+      const rawKind = String(node?.kind || node?.type || '').toLowerCase()
+      const tool = toolDescriptor(node)
+      const raw = `${rawKind} ${tool.kind} ${tool.name}`.toLowerCase()
+      if (raw.includes('question') || raw.includes('pending')) return 'question'
+      if (raw.includes('think') || raw.includes('reason')) return 'think'
+      if (raw.includes('read')) return 'read'
+      if (raw.includes('edit') || raw.includes('write') || raw.includes('patch')) return 'edit'
+      if (raw.includes('grep') || raw.includes('search')) return 'grep'
+      if (raw.includes('shell') || raw.includes('exec') || raw.includes('command')) return 'shell'
+      if (tool.name || raw.includes('tool')) return 'tool'
+      if (rawKind === 'assistant') return 'assistant'
+      if (rawKind === 'user' || rawKind === 'steering') return 'user'
+      return 'system'
+    }
+
+    function timelineLabel(type) {
+      return ({ think: 'Think', read: 'Read', edit: 'Edit', grep: 'Grep', shell: 'Shell', tool: 'Tool call', question: 'Question', assistant: 'Assistant', user: 'User', system: 'System' })[type] || 'Event'
+    }
+
+    function normalizeTimelineNode(node, snapshot, index, nodes) {
+      const type = classifyTimelineNode(node)
+      const tool = toolDescriptor(node)
+      const rawStatus = String(node?.status || node?.state || node?.phase || '').toLowerCase()
+      const status = /error|fail|reject|cancel/.test(rawStatus)
+        ? 'error'
+        : /wait|pending|question/.test(rawStatus) || type === 'question'
+          ? 'waiting'
+          : /run|progress|active/.test(rawStatus) || (Boolean(snapshot?.running) && index === nodes.length - 1)
+            ? 'running'
+            : 'done'
+      const text = textFromConversationNode(node).replace(/\s+/g, ' ').trim()
+      const target = tool.name || (type === 'assistant' ? '' : text.slice(0, 140))
+      return {
+        seq: Number(node?.seq) || index,
+        type,
+        label: timelineLabel(type),
+        target,
+        summary: text.slice(0, 220),
+        status,
+      }
     }
 
     function getCurrentSessionSource() {
@@ -52,6 +113,10 @@ window.__ModuleLoader__.load({
 
     function summarizeConversation(snapshot) {
       const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []
+      const timeline = nodes
+        .map((node, index) => normalizeTimelineNode(node, snapshot, index, nodes))
+        .filter((item) => item.type !== 'user' && (item.target || item.summary))
+        .slice(-16)
       const messages = nodes
         .map((node) => ({
           role: node?.kind === 'assistant' ? 'assistant' : node?.kind === 'user' || node?.kind === 'steering' ? 'user' : 'system',
@@ -72,6 +137,7 @@ window.__ModuleLoader__.load({
         sessionId: snapshot?.sessionId || null,
         running: Boolean(snapshot?.running),
         messages,
+        timeline,
         sessionFacts,
         pending: Array.isArray(snapshot?.pending) ? snapshot.pending : [],
         pendingQuestion: snapshot?.pending?.find?.((item) => item?.kind === 'question') || null,
@@ -624,6 +690,20 @@ window.__ModuleLoader__.load({
 .cj-chatContext strong { color: #3559a8; font-weight: 600; }
 .cj-chatContext[data-state="idle"] strong { color: #7b8496; }
 .cj-chatContextText { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cj-chatTimeline { margin: 8px 10px 0; padding: 8px 9px; border: 1px solid #e3e8f0; border-radius: 9px; background: #fbfcfe; }
+.cj-chatTimelineHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; color: #3559a8; font-size: 10px; }
+.cj-chatTimelineHead span { color: #9aa3b3; font-weight: 400; }
+.cj-chatTimelineList { display: grid; gap: 5px; max-height: 142px; overflow: auto; }
+.cj-chatTimelineItem { display: grid; grid-template-columns: 15px minmax(0, 1fr); gap: 6px; align-items: start; min-width: 0; }
+.cj-chatTimelineDot { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: #e8edf5; color: #70809b; font-size: 9px; font-weight: 800; }
+.cj-chatTimelineItem[data-state="running"] .cj-chatTimelineDot { background: #e8efff; color: #3559a8; }
+.cj-chatTimelineItem[data-state="waiting"] .cj-chatTimelineDot { background: #fff2d8; color: #a16207; }
+.cj-chatTimelineItem[data-state="error"] .cj-chatTimelineDot { background: #fde8e8; color: #b91c1c; }
+.cj-chatTimelineBody { min-width: 0; color: #6d7890; font-size: 10px; line-height: 14px; }
+.cj-chatTimelineMeta { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.cj-chatTimelineMeta strong { flex: 0 0 auto; color: #42516d; font-size: 10px; }
+.cj-chatTimelineMeta span { overflow: hidden; color: #8b95a7; text-overflow: ellipsis; white-space: nowrap; }
+.cj-chatTimelineSummary { overflow: hidden; color: #9aa3b3; text-overflow: ellipsis; white-space: nowrap; }
 .cj-questionCard { margin: 9px 10px; padding: 10px; border: 1px solid #cbd8ee; border-radius: 10px; background: #f7faff; color: #26334d; }
 .cj-questionEyebrow { color: #5472ab; font-size: 10px; font-weight: 600; letter-spacing: .03em; }
 .cj-questionTitle { margin: 3px 0 8px; font-size: 12px; line-height: 17px; font-weight: 600; }
@@ -872,6 +952,24 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function AssistantTimeline({ events }) {
+      if (!Array.isArray(events) || !events.length) return null
+      return React.createElement(
+        'section',
+        { className: 'cj-chatTimeline', 'aria-label': '主对话执行进度' },
+        React.createElement('div', { className: 'cj-chatTimelineHead' }, React.createElement('strong', null, '主对话进度'), React.createElement('span', null, `${events.length} 个事件`)),
+        React.createElement('div', { className: 'cj-chatTimelineList' }, ...events.map((event, index) => React.createElement(
+          'div',
+          { className: 'cj-chatTimelineItem', 'data-state': event.status || 'done', key: `${event.seq}-${event.type}-${index}` },
+          React.createElement('span', { className: 'cj-chatTimelineDot' }, event.status === 'done' ? '✓' : event.status === 'error' ? '!' : event.status === 'waiting' ? '?' : '·'),
+          React.createElement('div', { className: 'cj-chatTimelineBody' },
+            React.createElement('div', { className: 'cj-chatTimelineMeta' }, React.createElement('strong', null, event.label || 'Event'), event.target ? React.createElement('span', null, event.target) : null),
+            event.summary && event.summary !== event.target ? React.createElement('div', { className: 'cj-chatTimelineSummary' }, event.summary) : null,
+          ),
+        )))
+      )
+    }
+
     function layoutSettingsFromTemplate(template) {
       return {
         fontSize: Number(template?.typography?.fontSize) || 14,
@@ -919,6 +1017,7 @@ window.__ModuleLoader__.load({
       const [chatBridgeError, setChatBridgeError] = useState('')
       const [editorCandidate, setEditorCandidate] = useState(null)
       const [chatRequest, setChatRequest] = useState(null)
+      const [chatTask, setChatTask] = useState(null)
       const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
       const [tuningOpen, setTuningOpen] = useState(false)
       const chatRequestRef = useRef(null)
@@ -1012,6 +1111,7 @@ window.__ModuleLoader__.load({
           setChatBridgeState('idle')
           chatRequestRef.current = null
           setChatRequest(null)
+          setChatTask(null)
           setChatBridgeError('')
           setEditorCandidate(null)
           setEditorMessage('修改左侧 Markdown，右侧会实时更新预览。')
@@ -1127,9 +1227,11 @@ window.__ModuleLoader__.load({
         setChatBridgeState('pending')
         setChatBridgeError('')
         if (mainConversation.session?.prompt) {
-          const baselineSeq = Math.max(...(mainConversation.snapshot?.nodes || []).filter((node) => node?.kind === 'assistant').map((node) => Number(node.seq) || 0), 0)
-          chatRequestRef.current = { requestId, sessionId: mainConversation.sessionId, baselineSeq, transport: 'session' }
-          setChatRequest(chatRequestRef.current)
+          const baselineSeq = Math.max(...(mainConversation.snapshot?.nodes || []).map((node) => Number(node.seq) || 0), 0)
+          const task = { requestId, sessionId: mainConversation.sessionId, baselineSeq, transport: 'session' }
+          chatRequestRef.current = task
+          setChatTask(task)
+          setChatRequest(task)
           void mainConversation.session.prompt([{ type: 'text', text: buildResumePrompt(message, payload.context, mainContext) }], 'queue').then((result) => {
             if (result?.ok) return
             failChatRequest(requestId, `主对话未接受请求：${result?.error?.message || result?.error?.code || '未知原因'}`)
@@ -1139,8 +1241,10 @@ window.__ModuleLoader__.load({
           return
         }
         const bridgeMessage = { source: 'dsh-resume', type: 'dsh-resume:assistant-request', payload }
-        chatRequestRef.current = { requestId, sessionId: null, baselineSeq: 0, transport: 'event' }
-        setChatRequest(chatRequestRef.current)
+        const task = { requestId, sessionId: null, baselineSeq: 0, transport: 'event' }
+        chatRequestRef.current = task
+        setChatTask(task)
+        setChatRequest(task)
         try {
           if (typeof window.__DSH_RESUME_BRIDGE__?.request === 'function') {
             void Promise.resolve(window.__DSH_RESUME_BRIDGE__.request(bridgeMessage)).catch((cause) => {
@@ -1548,6 +1652,13 @@ window.__ModuleLoader__.load({
       )
 
       const lastUserPrompt = [...chatMessages].reverse().find((item) => item.role === 'user')?.text || ''
+      const baseTimeline = Array.isArray(mainContext.timeline) ? mainContext.timeline : []
+      const chatTimeline = chatTask?.transport === 'session'
+        ? (chatTask.sessionId === mainConversation.sessionId ? baseTimeline.filter((event) => Number(event.seq) > chatTask.baselineSeq).slice(-12) : [])
+        : baseTimeline.slice(-8)
+      const timelineEvents = mainContext.pendingQuestion && !chatTimeline.some((event) => event.type === 'question')
+        ? [...chatTimeline, { seq: 'pending-question', type: 'question', label: 'Question', target: mainContext.pendingQuestion.payload?.questions?.[0]?.question || '等待用户确认', summary: '', status: 'waiting' }]
+        : chatTimeline
       const chatMessagesView = chatMessages.length
         ? chatMessages.map((item, index) => React.createElement('div', { className: 'cj-chatMessage', 'data-role': item.role, key: `${item.role}-${index}` }, React.createElement('strong', null, item.role === 'user' ? '你' : '主对话'), item.text))
         : React.createElement('div', { className: 'cj-chatEmpty' }, '只在需要时打开 AI。它会拿到当前 Markdown、模板和排版指标。')
@@ -1559,6 +1670,7 @@ window.__ModuleLoader__.load({
         { className: 'cj-editorChat', 'aria-label': '简历 AI 助手' },
         React.createElement('div', { className: 'cj-editorChatHead' }, React.createElement('div', { className: 'cj-editorChatTitle' }, 'AI 助手'), React.createElement('div', { className: 'cj-editorChatHint' }, '就在当前工作台继续主对话，不自动覆盖文件。')),
         React.createElement('div', { className: 'cj-chatContext', 'data-state': mainContextState }, React.createElement('strong', null, mainContextLabel), React.createElement('span', { className: 'cj-chatContextText' }, mainContextMessage || (mainConversation.sessionId ? `Session ${mainConversation.sessionId}` : '打开主对话后，AI 会自动同步上下文。'))),
+        React.createElement(AssistantTimeline, { events: timelineEvents }),
         React.createElement('div', { className: 'cj-chatMessages' }, chatMessagesView, editorCandidate ? React.createElement('div', { className: 'cj-chatMessage' }, React.createElement('strong', null, '可应用修改'), editorCandidate.summary, React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => { setEditorDraft(editorCandidate.content); setEditorCandidate(null); setEditorMessage('已把 AI 修改放入草稿，确认后再保存。') } }, '应用到编辑器')) : null),
         mainContext.pendingQuestion ? React.createElement(AssistantQuestionCard, { pending: mainContext.pendingQuestion }) : null,
         React.createElement('div', { className: 'cj-chatComposer' },
