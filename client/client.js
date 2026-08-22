@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const { useCallback, useEffect, useMemo, useState } = React
 
     const inject = ['slots']
-    const CSS_ID = 'dsh-resume/panel.v3.css'
+    const CSS_ID = 'dsh-resume/panel.v4.css'
 
     const css = `
 .cj-foot {
@@ -49,21 +49,20 @@ window.__ModuleLoader__.load({
 }
 .cj-panel {
   position: fixed;
-  left: 72px;
-  bottom: 20px;
+  inset: 0;
   z-index: 80;
-  width: min(960px, calc(100vw - 96px));
-  height: min(900px, calc(100vh - 40px));
+  width: 100vw;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 22px;
-  border: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22));
+  border: 0;
+  border-radius: 0;
   background: var(--dsw-alias-bg-module-platform, #fff);
   color: var(--dsw-alias-label-primary, #111);
-  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.22);
+  box-shadow: none;
 }
-.cj-panel[data-wide="true"] { left: 268px; }
+.cj-panel[data-wide="true"] { left: 0; }
 .cj-header {
   display: flex;
   align-items: flex-start;
@@ -416,6 +415,45 @@ window.__ModuleLoader__.load({
 .cj-inspectorDetails summary { cursor: pointer; color: #66738a; font-size: 11px; font-weight: 700; }
 .cj-inspectorDetails .cj-inspectorCard { margin-top: 8px; }
 .cj-inspectorCard[data-priority="primary"] { border-color: #cfdbf2; background: linear-gradient(155deg, #f7f9fe, #fff); }
+.cj-previewActions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cj-editorOverlay { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; overflow: hidden; background: #f7f8fb; }
+.cj-editorTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 10px 16px; border-bottom: 1px solid rgba(15,23,42,.09); background: #fff; }
+.cj-editorTopTitle { min-width: 0; color: #26334d; font-size: 13px; font-weight: 800; }
+.cj-editorTopMeta { margin-top: 2px; overflow: hidden; color: #8b95a7; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.cj-editorTopActions { display: flex; align-items: center; gap: 6px; }
+.cj-editorBody { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr); gap: 10px; padding: 10px; }
+.cj-editorBody[data-chat="open"] { grid-template-columns: minmax(0, .78fr) minmax(0, .92fr) 292px; }
+.cj-editorPane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dfe5ee; border-radius: 12px; background: #fff; }
+.cj-editorPaneHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 11px; border-bottom: 1px solid #edf0f4; color: #59667d; font-size: 11px; font-weight: 700; }
+.cj-editorPaneHead small { color: #9aa3b3; font-size: 10px; font-weight: 400; }
+.cj-editorText { min-height: 0; flex: 1; width: 100%; resize: none; border: 0; outline: 0; padding: 14px; color: #26334d; background: #fff; font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace; tab-size: 2; }
+.cj-editorText:focus { box-shadow: inset 0 0 0 2px rgba(53,89,168,.12); }
+.cj-editorStatus { padding: 7px 11px; border-top: 1px solid #edf0f4; color: #8b95a7; font-size: 10px; line-height: 15px; }
+.cj-editorPreviewFrame { min-height: 0; flex: 1; overflow: hidden; background: #eef1f5; }
+.cj-editorPreviewFrame iframe { width: 100%; height: 100%; border: 0; background: #eef1f5; }
+.cj-editorChat { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dfe5ee; border-radius: 12px; background: #fff; }
+.cj-editorChatHead { padding: 12px 12px 9px; border-bottom: 1px solid #edf0f4; }
+.cj-editorChatTitle { color: #26334d; font-size: 12px; font-weight: 800; }
+.cj-editorChatHint { margin-top: 3px; color: #8b95a7; font-size: 10px; line-height: 15px; }
+.cj-chatMessages { min-height: 0; flex: 1; overflow: auto; padding: 10px; }
+.cj-chatEmpty { padding: 10px; border-radius: 9px; background: #f5f7fa; color: #7b8496; font-size: 11px; line-height: 17px; }
+.cj-chatMessage { margin-bottom: 9px; padding: 8px 9px; border-radius: 9px; color: #59667d; background: #f5f7fa; font-size: 11px; line-height: 17px; white-space: pre-wrap; }
+.cj-chatMessage[data-role="user"] { background: #eef3fb; color: #3559a8; }
+.cj-chatMessage strong { display: block; margin-bottom: 3px; color: #26334d; font-size: 10px; }
+.cj-chatComposer { padding: 9px; border-top: 1px solid #edf0f4; }
+.cj-chatInput { display: block; width: 100%; min-height: 66px; resize: vertical; border: 1px solid #dbe0e9; border-radius: 9px; outline: 0; padding: 8px; color: #26334d; font-family: inherit; font-size: 11px; line-height: 17px; }
+.cj-chatInput:focus { border-color: #8da6d4; box-shadow: 0 0 0 2px rgba(53,89,168,.10); }
+.cj-chatQuick { display: flex; gap: 5px; margin-top: 6px; overflow-x: auto; }
+.cj-chatQuick button { flex: 0 0 auto; border: 0; border-radius: 999px; background: #f0f3f8; color: #59667d; padding: 5px 7px; font-size: 10px; cursor: pointer; }
+.cj-chatQuick button:hover { background: #e5ebf5; color: #3559a8; }
+.cj-chatActions { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-top: 7px; }
+.cj-chatBridge { color: #8b95a7; font-size: 10px; line-height: 15px; }
+.cj-chatBridge[data-state="connected"] { color: #15803d; }
+.cj-chatBridge[data-state="fallback"] { color: #a16207; }
+.cj-chatSend { border: 0; border-radius: 8px; background: #14213d; color: #fff; padding: 7px 10px; font-size: 11px; cursor: pointer; }
+.cj-chatSend:disabled { opacity: .45; cursor: default; }
+.cj-chatApply { margin-top: 6px; border: 0; border-radius: 7px; background: #e4f5ed; color: #15803d; padding: 5px 7px; font-size: 10px; cursor: pointer; }
+@media (max-width: 900px) { .cj-editorBody, .cj-editorBody[data-chat="open"] { grid-template-columns: 1fr; overflow: auto; } .cj-editorPane { min-height: 360px; } .cj-editorChat { min-height: 300px; } }
 @media (max-width: 720px) { .cj-startActions { grid-template-columns: 1fr; } .cj-startCard { padding: 20px; } .cj-workshopFlow { grid-template-columns: 1fr; } .cj-templateCard { flex-basis: 160px; } }
 .cj-guideNo { color: #9aabc9; font-weight: 800; }
 .cj-qualityStatus { display: inline-grid; place-items: center; width: 19px; height: 19px; flex: 0 0 auto; border-radius: 50%; background: #eef1f5; color: #7b8496; font-size: 11px; font-weight: 800; }
@@ -425,7 +463,6 @@ window.__ModuleLoader__.load({
 .cj-qualityStatus + span { display: flex; flex-direction: column; gap: 3px; }
 .cj-qualityStatus + span small { color: #8b95a7; font-size: 11px; }
 @media (max-width: 720px) {
-  .cj-panel, .cj-panel[data-wide="true"] { left: 12px; bottom: 12px; width: calc(100vw - 24px); height: calc(100vh - 24px); }
   .cj-header, .cj-body { padding-left: 14px; padding-right: 14px; }
   .cj-selectWrap { min-width: 100%; }
   .cj-actions { width: 100%; justify-content: space-between; }
@@ -519,7 +556,7 @@ window.__ModuleLoader__.load({
       return { quality, qualityLoading }
     }
 
-    function PreviewWorkbench({ compact }) {
+    function PreviewWorkbench({ compact, onClose }) {
       ensureCss()
       const [tick, setTick] = useState(0)
       const { status, error, loading, reload } = useStatus(tick)
@@ -542,6 +579,166 @@ window.__ModuleLoader__.load({
       const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
       const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
       const { quality, qualityLoading } = useQuality(selected, tick)
+      const [editorOpen, setEditorOpen] = useState(false)
+      const [editorSource, setEditorSource] = useState(null)
+      const [editorDraft, setEditorDraft] = useState('')
+      const [editorSelection, setEditorSelection] = useState('')
+      const [editorPreviewUrl, setEditorPreviewUrl] = useState('')
+      const [editorBusy, setEditorBusy] = useState(false)
+      const [editorMessage, setEditorMessage] = useState('')
+      const [editorChatOpen, setEditorChatOpen] = useState(false)
+      const [chatInput, setChatInput] = useState('')
+      const [chatMessages, setChatMessages] = useState([])
+      const [chatBridgeState, setChatBridgeState] = useState('idle')
+      const [editorCandidate, setEditorCandidate] = useState(null)
+
+      useEffect(() => {
+        const onAssistantResponse = (event) => {
+          const data = event.data?.type === 'dsh-resume:assistant-response' ? event.data : event.detail
+          if (!data || data.type !== 'dsh-resume:assistant-response') return
+          setChatBridgeState('connected')
+          if (data.text) setChatMessages((messages) => [...messages, { role: 'assistant', text: String(data.text) }])
+          if (typeof data.content === 'string' && data.content.trim()) {
+            setEditorCandidate({ content: data.content, summary: data.summary || '收到一份可预览的 Markdown 修改建议。' })
+          }
+        }
+        window.addEventListener('message', onAssistantResponse)
+        window.addEventListener('dsh-resume:assistant-response', onAssistantResponse)
+        return () => {
+          window.removeEventListener('message', onAssistantResponse)
+          window.removeEventListener('dsh-resume:assistant-response', onAssistantResponse)
+        }
+      }, [])
+
+      const openEditor = async () => {
+        if (!selected) return
+        setEditorBusy(true)
+        setEditorMessage('正在读取 Markdown…')
+        try {
+          const res = await fetch(`/dsh-resume/api/editor/source?preview=${encodeURIComponent(selected)}`, { cache: 'no-store' })
+          const source = await readJsonResponse(res, 'Markdown 编辑器')
+          setEditorSource(source)
+          setEditorDraft(source.content || '')
+          setEditorSelection('')
+          setEditorPreviewUrl('')
+          setEditorOpen(true)
+          setEditorChatOpen(false)
+          setChatMessages([])
+          setChatBridgeState('idle')
+          setEditorCandidate(null)
+          setEditorMessage('修改左侧 Markdown，右侧会实时更新预览。')
+        } catch (err) {
+          setEditorMessage(`打开失败：${err?.message || err}`)
+        } finally {
+          setEditorBusy(false)
+        }
+      }
+
+      useEffect(() => {
+        if (!editorOpen || !editorSource || !editorDraft.trim()) return undefined
+        let active = true
+        const timer = setTimeout(async () => {
+          setEditorBusy(true)
+          try {
+            const res = await fetch('/dsh-resume/api/editor/preview', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                root: editorSource.root,
+                resume: editorSource.resumePath,
+                preview: editorSource.previewPath,
+                templateId,
+                content: editorDraft,
+              }),
+            })
+            const result = await readJsonResponse(res, '实时预览')
+            if (active) {
+              setEditorPreviewUrl(`${result.previewUrl}&t=${Date.now()}`)
+              setEditorMessage('未保存草稿 · 右侧预览已更新')
+            }
+          } catch (err) {
+            if (active) setEditorMessage(`预览失败：${err?.message || err}`)
+          } finally {
+            if (active) setEditorBusy(false)
+          }
+        }, 350)
+        return () => {
+          active = false
+          clearTimeout(timer)
+        }
+      }, [editorOpen, editorSource, editorDraft, templateId])
+
+      const saveEditor = async () => {
+        if (!editorSource || !editorDraft.trim()) return
+        setEditorBusy(true)
+        setEditorMessage('正在保存 Markdown…')
+        try {
+          const res = await fetch('/dsh-resume/api/editor/save', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ root: editorSource.root, resume: editorSource.resumePath, preview: editorSource.previewPath, templateId, content: editorDraft }),
+          })
+          const result = await readJsonResponse(res, '保存 Markdown')
+          setEditorMessage('已保存，并重新生成预览。')
+          setEditorOpen(false)
+          setTick((n) => n + 1)
+          void reload()
+          if (result.rendered?.previewPath) setSelected(result.rendered.previewPath)
+        } catch (err) {
+          setEditorMessage(`保存失败：${err?.message || err}`)
+        } finally {
+          setEditorBusy(false)
+        }
+      }
+
+      const copyChatTask = async (message) => {
+        const context = [
+          `请在 dsh-resume 中处理简历：${message}`,
+          `简历文件：${editorSource?.resumePath || selected || 'resume.md'}`,
+          '请先读取当前 Markdown，只修改真实内容，不编造经历。',
+          layout ? `当前排版：${layout.pageCount || '?'} 页，留白 ${Math.round(Number(layout.pages?.[0]?.blankRatio || 0) * 100)}%，溢出 ${layout.overflow ? '是' : '否'}` : '当前排版指标尚未回传。',
+          '完成后调用 jobhunt_render 和 jobhunt_layout_metrics，并返回修改前后摘要。',
+        ].join('\n')
+        try {
+          await navigator.clipboard.writeText(context)
+          setChatBridgeState('fallback')
+          setChatMessages((messages) => [...messages, { role: 'assistant', text: '当前环境没有主对话桥接监听，任务上下文已复制。请粘贴到主对话发送。' }])
+        } catch {
+          setChatMessages((messages) => [...messages, { role: 'assistant', text: context }])
+        }
+      }
+
+      const sendChatMessage = () => {
+        const message = chatInput.trim()
+        if (!message) return
+        const requestId = `resume-${Date.now()}-${Math.random().toString(16).slice(2)}`
+        const payload = {
+          requestId,
+          message,
+          context: {
+            resumePath: editorSource?.resumePath || selected,
+            previewPath: editorSource?.previewPath || selected,
+            templateId,
+            metrics: layout || null,
+            selectedText: editorSelection || editorDraft,
+          },
+        }
+        setChatMessages((messages) => [...messages, { role: 'user', text: message }])
+        setChatInput('')
+        setChatBridgeState('pending')
+        const bridgeMessage = { source: 'dsh-resume', type: 'dsh-resume:assistant-request', payload }
+        try {
+          if (typeof window.__DSH_RESUME_BRIDGE__?.request === 'function') window.__DSH_RESUME_BRIDGE__.request(bridgeMessage)
+          else window.postMessage(bridgeMessage, '*')
+          window.dispatchEvent(new CustomEvent('dsh-resume:assistant-request', { detail: bridgeMessage }))
+        } catch {
+          void copyChatTask(message)
+          return
+        }
+        setTimeout(() => {
+          setChatBridgeState((state) => state === 'pending' ? 'fallback' : state)
+        }, 1600)
+      }
 
       const reloadTemplates = useCallback(async () => {
         try {
@@ -827,9 +1024,14 @@ window.__ModuleLoader__.load({
             React.createElement('div', { className: 'cj-mainHint' }, '先确认内容与版式，再导出 PDF'),
           ),
           React.createElement(
-            'select',
-            { className: 'cj-fileSelect', value: selected, onChange: (e) => setSelected(e.target.value) },
-            ...previewOptions,
+            'div',
+            { className: 'cj-previewActions' },
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: openEditor, disabled: editorBusy || !selected }, '编辑 Markdown'),
+            React.createElement(
+              'select',
+              { className: 'cj-fileSelect', value: selected, onChange: (e) => setSelected(e.target.value) },
+              ...previewOptions,
+            ),
           ),
         ),
         error ? React.createElement('div', { className: 'cj-error' }, error) : null,
@@ -988,9 +1190,41 @@ window.__ModuleLoader__.load({
         ),
       )
 
+      const lastUserPrompt = [...chatMessages].reverse().find((item) => item.role === 'user')?.text || ''
+      const chatMessagesView = chatMessages.length
+        ? chatMessages.map((item, index) => React.createElement('div', { className: 'cj-chatMessage', 'data-role': item.role, key: `${item.role}-${index}` }, React.createElement('strong', null, item.role === 'user' ? '你' : '主对话'), item.text))
+        : React.createElement('div', { className: 'cj-chatEmpty' }, '只在需要时打开 AI。它会拿到当前 Markdown、模板和排版指标。')
+      const editorChatView = React.createElement(
+        'aside',
+        { className: 'cj-editorChat', 'aria-label': '简历 AI 助手' },
+        React.createElement('div', { className: 'cj-editorChatHead' }, React.createElement('div', { className: 'cj-editorChatTitle' }, 'AI 助手'), React.createElement('div', { className: 'cj-editorChatHint' }, '发送到 Harness 主对话，不自动覆盖文件。')),
+        React.createElement('div', { className: 'cj-chatMessages' }, chatMessagesView, editorCandidate ? React.createElement('div', { className: 'cj-chatMessage' }, React.createElement('strong', null, '可应用修改'), editorCandidate.summary, React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => { setEditorDraft(editorCandidate.content); setEditorCandidate(null); setEditorMessage('已把 AI 修改放入草稿，确认后再保存。') } }, '应用到编辑器')) : null),
+        React.createElement('div', { className: 'cj-chatComposer' },
+          React.createElement('textarea', { className: 'cj-chatInput', value: chatInput, onChange: (event) => setChatInput(event.target.value), placeholder: '例如：把项目经历压缩两行，保留技术成果', 'aria-label': '发送给简历 AI 助手' }),
+          React.createElement('div', { className: 'cj-chatQuick' },
+            ...['压缩两行', '改得更专业', '匹配前端岗位'].map((prompt) => React.createElement('button', { key: prompt, type: 'button', onClick: () => setChatInput(prompt) }, prompt)),
+          ),
+          React.createElement('div', { className: 'cj-chatActions' }, React.createElement('span', { className: 'cj-chatBridge', 'data-state': chatBridgeState }, chatBridgeState === 'connected' ? '主对话已响应' : chatBridgeState === 'pending' ? '正在等待主对话…' : chatBridgeState === 'fallback' ? '未接入监听，可复制任务' : '上下文仅随本次发送'), React.createElement('button', { type: 'button', className: 'cj-chatSend', onClick: sendChatMessage, disabled: !chatInput.trim() }, '发送')),
+          chatBridgeState === 'fallback' && lastUserPrompt ? React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => copyChatTask(lastUserPrompt) }, '复制任务到主对话') : null,
+        ),
+      )
+      const editorOverlay = editorOpen ? React.createElement(
+        'section',
+        { className: 'cj-editorOverlay', 'aria-label': 'Markdown 编辑工作台' },
+        React.createElement('header', { className: 'cj-editorTop' },
+          React.createElement('div', { style: { minWidth: 0 } }, React.createElement('div', { className: 'cj-editorTopTitle' }, '编辑 Markdown'), React.createElement('div', { className: 'cj-editorTopMeta' }, editorSource?.resumePath || 'resume.md')),
+          React.createElement('div', { className: 'cj-editorTopActions' }, onClose ? React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onClose }, '关闭') : null, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setEditorOpen(false) }, '返回预览'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setEditorChatOpen((value) => !value) }, editorChatOpen ? '收起 AI' : '打开 AI'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveEditor, disabled: editorBusy || !editorDraft.trim() }, editorBusy ? '处理中…' : '保存')),
+        ),
+        React.createElement('div', { className: 'cj-editorBody', 'data-chat': editorChatOpen ? 'open' : 'closed' },
+          React.createElement('section', { className: 'cj-editorPane' }, React.createElement('div', { className: 'cj-editorPaneHead' }, React.createElement('span', null, 'Markdown'), React.createElement('small', null, editorSelection ? '已选中一段内容' : '内容源文件')), React.createElement('textarea', { className: 'cj-editorText', value: editorDraft, onChange: (event) => setEditorDraft(event.target.value), onSelect: (event) => setEditorSelection(event.currentTarget.value.slice(event.currentTarget.selectionStart, event.currentTarget.selectionEnd)), spellCheck: false, 'aria-label': 'Markdown 简历内容' }), React.createElement('div', { className: 'cj-editorStatus' }, editorMessage)),
+          React.createElement('section', { className: 'cj-editorPane' }, React.createElement('div', { className: 'cj-editorPaneHead' }, React.createElement('span', null, 'A4 预览'), React.createElement('small', null, editorPreviewUrl ? '草稿实时渲染' : '等待输入')), React.createElement('div', { className: 'cj-editorPreviewFrame' }, editorPreviewUrl ? React.createElement('iframe', { title: 'Markdown 草稿预览', src: editorPreviewUrl }) : React.createElement('div', { className: 'cj-empty' }, '输入内容后生成预览'))),
+          editorChatOpen ? editorChatView : null,
+        ),
+      ) : null
+
       return React.createElement(
         'div',
-        { className: 'cj-workbench' },
+        { className: 'cj-workbench', style: { position: 'relative' } },
         !compact && React.createElement('div', { className: 'cj-workbenchTop' }, React.createElement('div', { className: 'cj-brand' }, React.createElement('div', { className: 'cj-brandIcon' }, '简'), React.createElement('div', null, React.createElement('div', { className: 'cj-brandTitle' }, '投递版简历工作台'), React.createElement('div', { className: 'cj-brandDesc' }, '真实经历 · JD 匹配 · 一页排版'))), React.createElement('div', { className: 'cj-topActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onRefresh }, '重新检查'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onDownload, disabled: !previewSrc }, '下载 HTML'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: onPrint, disabled: !previewSrc }, '确认并导出'))),
         React.createElement(
           'div',
@@ -999,6 +1233,7 @@ window.__ModuleLoader__.load({
           React.createElement('main', { className: 'cj-main' }, view === 'start' ? startView : view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : view === 'workshop' ? workshopView : guideView),
           view === 'preview' ? inspectorView : null,
         ),
+        editorOverlay,
       )
     }
 
@@ -1036,7 +1271,7 @@ window.__ModuleLoader__.load({
                   '关闭',
                 ),
               ),
-              React.createElement(PreviewWorkbench, { compact: true }),
+              React.createElement(PreviewWorkbench, { compact: true, onClose: () => setOpen(false) }),
             )
           : null,
         React.createElement(
