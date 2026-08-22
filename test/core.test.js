@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { assembleResumeSections, buildPreviewDocument, markdownToHtml } from '../lib/renderer.js'
 import { TEMPLATE_DEFAULTS } from '../lib/template-schema.js'
@@ -11,6 +12,8 @@ import { validateLayoutSpec } from '../lib/layout-schema.js'
 import { listTemplatePresets } from '../lib/template-presets.js'
 import { listRendererIds } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 test('Markdown renderer keeps resume structure and inline emphasis', () => {
   const html = markdownToHtml('# 张三\n\n## 项目经历\n\n- **性能** 提升 30%')
@@ -42,6 +45,13 @@ test('preview document carries an explicit preview path for metrics association'
   assert.match(html, /layoutScale/)
   assert.match(html, /renderer-clean-single/)
   assert.match(html, /data-template-family="campus-clear"/)
+})
+
+test('preview links preserve the selected workspace root across reloads', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'lib/preview-api.js'), 'utf8')
+  assert.match(source, /buildPreviewUrl\(root, currentPreview\)/)
+  const indexSource = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
+  assert.match(indexSource, /previewUrl: `\/dsh-resume\/preview\?root=/)
 })
 
 test('new workspaces receive a substantive demo resume', async () => {

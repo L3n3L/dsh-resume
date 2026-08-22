@@ -376,7 +376,7 @@ export function apply(ctx) {
         ...rendered,
         latestMetrics: getLatestMetrics(),
         uiHint: 'If the resume preview is open, it will refresh automatically. The user owns the final export.',
-        previewUrl: `/dsh-resume/preview?path=${encodeURIComponent(rendered.previewPath)}`,
+        previewUrl: `/dsh-resume/preview?root=${encodeURIComponent(root)}&path=${encodeURIComponent(rendered.previewPath)}`,
       }
     },
   }))

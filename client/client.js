@@ -1769,9 +1769,10 @@ window.__ModuleLoader__.load({
       const previewSrc = useMemo(() => {
         if (!selected) return null
         const params = new URLSearchParams({ path: selected, t: String(tick), template: templateId })
+        if (status?.root) params.set('root', status.root)
         for (const [key, value] of Object.entries({ ...layoutSettings, ...visualTokens })) params.set(key, String(value))
         return `/dsh-resume/preview?${params.toString()}`
-      }, [selected, tick, layoutSettings, visualTokens, templateId])
+      }, [selected, status?.root, tick, layoutSettings, visualTokens, templateId])
 
       useEffect(() => {
         const frame = workshopPreviewRef.current
@@ -2066,7 +2067,7 @@ window.__ModuleLoader__.load({
       const statusButtonMeta = layout?.pageCount ? `${layout.pageCount} 页` : '排版指标'
       const templateThumbnail = (template, compare = false) => {
         const src = selected
-          ? `/dsh-resume/preview?${new URLSearchParams({ path: selected, t: String(tick), template: template.id, thumbnail: '1' }).toString()}`
+          ? `/dsh-resume/preview?${new URLSearchParams({ path: selected, root: status?.root || '', t: String(tick), template: template.id, thumbnail: '1' }).toString()}`
           : ''
         const paperClass = `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}${template.layout?.mode === 'two-column' ? ' cj-templatePaper-two-column' : ''}`
         if (!src) return React.createElement('div', { className: paperClass, style: { '--thumb-accent': template.visual?.accentColor || '#3559a8', '--thumb-bg': template.visual?.backgroundColor || '#fff' } }, React.createElement('div', { className: 'cj-thumbTop' }), React.createElement('div', { className: 'cj-thumbRule' }), React.createElement('div', { className: 'cj-thumbSection' }), React.createElement('div', { className: 'cj-thumbLines' }))
