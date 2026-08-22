@@ -90,9 +90,9 @@ test('legacy placeholder resumes upgrade without touching custom content', async
 test('built-in template gallery includes representative visual directions', () => {
   const templates = listTemplatePresets()
   assert.ok(templates.length >= 15)
-  assert.deepEqual(listRendererIds(), ['clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal'])
-  assert.equal(new Set(templates.map((template) => template.renderer)).size, 9)
-  for (const id of ['campus-standard', 'tech-compact', 'split-sidebar', 'engineering-timeline', 'portfolio-grid', 'product-signal', 'academic-research', 'swiss-grid', 'midnight-terminal', 'editorial-serif', 'portfolio-cards', 'academic-paper', 'sidebar-signal']) {
+  assert.deepEqual(listRendererIds(), ['clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal', 'business-timeline'])
+  assert.equal(new Set(templates.map((template) => template.renderer)).size, 10)
+  for (const id of ['campus-standard', 'tech-compact', 'split-sidebar', 'engineering-timeline', 'portfolio-grid', 'product-signal', 'academic-research', 'swiss-grid', 'midnight-terminal', 'editorial-serif', 'portfolio-cards', 'academic-paper', 'sidebar-signal', 'business-timeline']) {
     assert.ok(templates.some((template) => template.id === id), `missing built-in template: ${id}`)
   }
 })
@@ -105,6 +105,16 @@ test('template renderer registry produces structural variants', () => {
   assert.match(technical, /dsh-renderer-item-projects/)
   assert.match(portfolio, /dsh-renderer-portfolio-grid/)
   assert.match(portfolio, /dsh-renderer-featured/)
+})
+
+test('business timeline renderer keeps the header and timeline structure distinct', () => {
+  const source = '# 林知远\n\n前端工程师 | lin@example.com\n\n## 项目经历\n\n### 项目名称\n\n- 结果指标'
+  const template = listTemplatePresets().find((item) => item.id === 'business-timeline')
+  const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+  assert.match(html, /dsh-renderer-business-timeline/)
+  assert.match(html, /dsh-business-timeline/)
+  assert.match(html, /dsh-business-marker/)
+  assert.match(html, /dsh-renderer-item-projects/)
 })
 
 test('new visual directions are selected from design briefs', () => {
@@ -174,7 +184,7 @@ test('theme families provide stable visual and module defaults', () => {
   assert.equal(family.layout.density, 'compact')
   assert.equal(family.moduleTypes.experience, 'timeline')
   assert.equal(blockPreset('timeline').preset, 'timeline')
-  assert.equal(listThemeFamilies().length, 6)
+  assert.equal(listThemeFamilies().length, 7)
 })
 
 test('DesignBrief can generate a family-driven portfolio layout', () => {
@@ -188,4 +198,17 @@ test('DesignBrief can generate a family-driven portfolio layout', () => {
   assert.equal(result.template.layout.mode, 'two-column')
   assert.equal(result.layoutSpec.blocks.find((block) => block.id === 'projects').options.preset, 'portfolio-card')
   assert.equal(result.layoutSpec.blocks.find((block) => block.id === 'projects').options.family, 'portfolio-grid')
+})
+
+test('DesignBrief can generate the business timeline family', () => {
+  const result = generateTemplateCandidate({
+    name: '商务时间线',
+    family: 'business-timeline',
+    audience: 'general',
+    moduleOrder: ['profile', 'experience', 'projects', 'education'],
+  })
+  assert.equal(result.valid, true)
+  assert.equal(result.template.renderer, 'business-timeline')
+  assert.equal(result.template.metadata.family, 'business-timeline')
+  assert.equal(result.layoutSpec.blocks.find((block) => block.id === 'experience').type, 'timeline')
 })
