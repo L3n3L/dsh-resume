@@ -68,6 +68,25 @@ test('new workspaces receive a substantive demo resume', async () => {
   }
 })
 
+test('legacy placeholder resumes upgrade without touching custom content', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-upgrade-test-'))
+  try {
+    await initJobhunt(root)
+    const resumePath = path.join(root, 'resume.md')
+    const original = await fs.readFile(resumePath, 'utf8')
+    await fs.writeFile(resumePath, '# 张三\n\n前端开发 | 本科 | 138-0000-0000 | demo@example.com | GitHub: your-id\n\n## 教育经历\n\n**某某大学 · 计算机科学与技术 · 本科**  \n2022.09 - 2026.06\n\n- GPA：x.x / 4.0\n- 主修：数据结构、计算机网络、操作系统\n\n## 专业技能\n\n- 语言：JavaScript / TypeScript / Python\n- 框架：React / Vue / Node.js\n- 其他：Git、Linux、基本的工程化与测试\n\n## 项目经历\n\n### 项目名称 · 核心成员\n2025.01 - 2025.06\n\n- 用一句话说明项目目标与你的职责\n- 写可验证结果，例如性能、用户量、上线效果\n- 列出关键技术栈\n\n## 实习经历\n\n### 公司 · 岗位\n2025.07 - 2025.09\n\n- 业务背景与你的产出\n- 量化结果优先\n', 'utf8')
+    const result = await initJobhunt(root)
+    assert.deepEqual(result.upgraded, ['resume.md'])
+    assert.match(await fs.readFile(resumePath, 'utf8'), /^# 林知远/m)
+    await fs.writeFile(resumePath, `${original}\n用户自己的补充\n`, 'utf8')
+    const preserved = await initJobhunt(root)
+    assert.deepEqual(preserved.upgraded, [])
+    assert.match(await fs.readFile(resumePath, 'utf8'), /用户自己的补充/)
+  } finally {
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
 test('built-in template gallery includes representative visual directions', () => {
   const templates = listTemplatePresets()
   assert.ok(templates.length >= 15)
