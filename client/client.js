@@ -6,6 +6,12 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 
     const React = require('react')
+    let dshPrimitives = {}
+    try {
+      dshPrimitives = require('@deepseek-ai/dsh-client-ui-primitives') || {}
+    } catch {
+      // Older hosts may not expose the primitives module; the fallback keeps the panel usable.
+    }
     const { useCallback, useEffect, useMemo, useRef, useState } = React
 
     const inject = ['slots', 'sessions']
@@ -100,14 +106,14 @@ window.__ModuleLoader__.load({
           : /run|progress|active/.test(rawStatus) || (Boolean(snapshot?.running) && index === nodes.length - 1)
             ? 'running'
             : 'done'
-      const text = textFromConversationNode(node).replace(/\s+/g, ' ').trim()
-      const target = tool.name || (type === 'assistant' ? '' : text.slice(0, 140))
+      const text = textFromConversationNode(node).trim()
+      const target = tool.name || (type === 'assistant' || type === 'user' ? '' : text.replace(/\s+/g, ' ').slice(0, 140))
       return {
         seq: Number(node?.seq) || index,
         type,
         label: timelineLabel(type),
         target,
-        summary: text.slice(0, 220),
+        summary: text,
         status,
       }
     }
@@ -126,19 +132,18 @@ window.__ModuleLoader__.load({
 
     function summarizeConversation(snapshot) {
       const nodes = Array.isArray(snapshot?.nodes) ? snapshot.nodes : []
-      const timeline = nodes
-        .map((node, index) => normalizeTimelineNode(node, snapshot, index, nodes))
-        .filter((item) => item.type !== 'user' && (item.target || item.summary))
-        .slice(-16)
       const messages = nodes
         .map((node) => ({
           role: node?.kind === 'assistant' ? 'assistant' : node?.kind === 'user' || node?.kind === 'steering' ? 'user' : 'system',
           kind: String(node?.kind || 'unknown'),
-          text: textFromConversationNode(node).trim().slice(0, 1800),
+          text: textFromConversationNode(node).trim(),
           seq: Number(node?.seq) || 0,
         }))
         .filter((item) => item.text)
         .slice(-10)
+      const feed = nodes
+        .map((node, index) => ({ ...normalizeTimelineNode(node, snapshot, index, nodes), role: node?.kind === 'assistant' ? 'assistant' : node?.kind === 'user' || node?.kind === 'steering' ? 'user' : 'event' }))
+        .filter((item) => item.type !== 'system' && (item.target || item.summary))
       const sessionFacts = [
         snapshot?.summary,
         snapshot?.context?.summary,
@@ -150,7 +155,7 @@ window.__ModuleLoader__.load({
         sessionId: snapshot?.sessionId || null,
         running: Boolean(snapshot?.running),
         messages,
-        timeline,
+        feed,
         sessionFacts,
         pending: Array.isArray(snapshot?.pending) ? snapshot.pending : [],
         pendingQuestion: snapshot?.pending?.find?.((item) => item?.kind === 'question') || null,
@@ -671,7 +676,7 @@ window.__ModuleLoader__.load({
 .cj-editorTopMeta { margin-top: 2px; overflow: hidden; color: #8b95a7; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .cj-editorTopActions { display: flex; align-items: center; gap: 6px; }
 .cj-editorBody { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, .94fr) minmax(0, 1.06fr); gap: 10px; padding: 10px; }
-.cj-editorBody[data-chat="open"] { grid-template-columns: minmax(0, .78fr) minmax(0, .92fr) 292px; }
+.cj-editorBody[data-chat="open"] { grid-template-columns: minmax(0, .76fr) minmax(0, .92fr) 340px; }
 .cj-editorPane { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dfe5ee; border-radius: 12px; background: #fff; }
 .cj-editorPaneHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 11px; border-bottom: 1px solid #edf0f4; color: #59667d; font-size: 11px; font-weight: 700; }
 .cj-editorPaneHead small { color: #9aa3b3; font-size: 10px; font-weight: 400; }
@@ -680,15 +685,33 @@ window.__ModuleLoader__.load({
 .cj-editorStatus { padding: 7px 11px; border-top: 1px solid #edf0f4; color: #8b95a7; font-size: 10px; line-height: 15px; }
 .cj-editorPreviewFrame { min-height: 0; flex: 1; overflow: hidden; background: #eef1f5; }
 .cj-editorPreviewFrame iframe { width: 100%; height: 100%; border: 0; background: #eef1f5; }
-.cj-editorChat { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dfe5ee; border-radius: 12px; background: #fff; }
-.cj-editorChatHead { padding: 12px 12px 9px; border-bottom: 1px solid #edf0f4; }
+.cj-editorChat { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dfe5ee; border-radius: 14px; background: #f8fafc; box-shadow: 0 8px 24px rgba(24,43,78,.06); }
+.cj-editorChatHead { padding: 13px 13px 10px; border-bottom: 1px solid #e8edf3; background: rgba(255,255,255,.92); }
 .cj-editorChatTitle { color: #26334d; font-size: 12px; font-weight: 800; }
 .cj-editorChatHint { margin-top: 3px; color: #8b95a7; font-size: 10px; line-height: 15px; }
-.cj-chatMessages { min-height: 0; flex: 1; overflow: auto; padding: 10px; }
-.cj-chatEmpty { padding: 10px; border-radius: 9px; background: #f5f7fa; color: #7b8496; font-size: 11px; line-height: 17px; }
-.cj-chatMessage { margin-bottom: 9px; padding: 8px 9px; border-radius: 9px; color: #59667d; background: #f5f7fa; font-size: 11px; line-height: 17px; white-space: pre-wrap; }
-.cj-chatMessage[data-role="user"] { background: #eef3fb; color: #3559a8; }
-.cj-chatMessage strong { display: block; margin-bottom: 3px; color: #26334d; font-size: 10px; }
+.cj-chatMessages { min-height: 0; flex: 1; overflow: auto; padding: 11px 10px 6px; scroll-behavior: smooth; }
+.cj-chatLoadEarlier { display: block; margin: 0 auto 8px; border: 1px solid #dfe5ee; border-radius: 999px; background: #fff; color: #6d7890; padding: 5px 10px; font-size: 10px; cursor: pointer; }
+.cj-chatLoadEarlier:hover { border-color: #b9c9e4; background: #f8faff; color: #3559a8; }
+.cj-chatUnread { position: sticky; bottom: 2px; display: block; margin: 2px auto 0; border: 1px solid #cbd8ee; border-radius: 999px; background: #fff; color: #3559a8; padding: 5px 9px; font-size: 10px; box-shadow: 0 5px 14px rgba(24,43,78,.12); cursor: pointer; }
+.cj-chatEmpty { padding: 12px; border: 1px dashed #dbe3ef; border-radius: 11px; background: rgba(255,255,255,.72); color: #7b8496; font-size: 11px; line-height: 17px; }
+.cj-chatMessage { margin: 0 0 9px; padding: 9px 10px; border: 1px solid #e9edf3; border-radius: 11px; color: #59667d; background: #fff; font-size: 11px; line-height: 17px; box-shadow: 0 2px 8px rgba(24,43,78,.03); }
+.cj-chatMessage[data-role="user"] { max-width: 92%; margin-left: auto; border-color: #d8e4fa; background: #edf4ff; color: #3559a8; }
+.cj-chatMessage strong { display: block; margin-bottom: 5px; color: #26334d; font-size: 10px; }
+.cj-chatMessage[data-role="user"] strong { color: #3559a8; }
+.cj-expandableBody { position: relative; }
+.cj-expandableBody[data-expanded="false"] { max-height: 132px; overflow: hidden; }
+.cj-expandableBody[data-expanded="false"]::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 32px; pointer-events: none; background: linear-gradient(transparent, #fff); }
+.cj-chatMessage[data-role="user"] .cj-expandableBody[data-expanded="false"]::after { background: linear-gradient(transparent, #edf4ff); }
+.cj-expandToggle { position: relative; z-index: 1; display: block; margin: 6px 0 0; border: 0; background: transparent; color: #5475bb; padding: 0; font-size: 10px; cursor: pointer; }
+.cj-expandToggle:hover { color: #274887; text-decoration: underline; }
+.cj-assistantMarkdown { color: #44516a; }
+.cj-assistantMarkdown p { margin: 0 0 7px; }
+.cj-assistantMarkdown p:last-child { margin-bottom: 0; }
+.cj-assistantMarkdown h3, .cj-assistantMarkdown h4 { margin: 9px 0 5px; color: #26334d; font-size: 12px; line-height: 17px; }
+.cj-assistantMarkdown ul { margin: 4px 0 7px 16px; padding: 0; }
+.cj-assistantMarkdown li { margin: 2px 0; }
+.cj-assistantMarkdown code { border-radius: 4px; background: #f1f4f8; color: #3559a8; padding: 1px 4px; font: 10px/15px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.cj-assistantMarkdown pre { overflow: auto; margin: 6px 0 2px; padding: 8px; border-radius: 7px; background: #172033; color: #e5edf9; font: 10px/15px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre; }
 .cj-chatComposer { padding: 9px; border-top: 1px solid #edf0f4; }
 .cj-chatInput { display: block; width: 100%; min-height: 66px; resize: vertical; border: 1px solid #dbe0e9; border-radius: 9px; outline: 0; padding: 8px; color: #26334d; font-family: inherit; font-size: 11px; line-height: 17px; }
 .cj-chatInput:focus { border-color: #8da6d4; box-shadow: 0 0 0 2px rgba(53,89,168,.10); }
@@ -703,12 +726,14 @@ window.__ModuleLoader__.load({
 .cj-chatContext strong { color: #3559a8; font-weight: 600; }
 .cj-chatContext[data-state="idle"] strong { color: #7b8496; }
 .cj-chatContextText { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cj-chatTimeline { margin: 8px 10px 0; padding: 8px 9px; border: 1px solid #e3e8f0; border-radius: 9px; background: #fbfcfe; }
-.cj-chatTimelineHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; color: #3559a8; font-size: 10px; }
+.cj-chatTimeline { margin: 2px 0 10px; padding: 0 2px; border: 0; background: transparent; }
+.cj-chatTimelineHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 2px 5px; padding-bottom: 4px; border-bottom: 1px solid #edf0f4; color: #7b8496; font-size: 10px; }
 .cj-chatTimelineHead span { color: #9aa3b3; font-weight: 400; }
-.cj-chatTimelineList { display: grid; gap: 5px; max-height: 142px; overflow: auto; }
-.cj-chatTimelineItem { display: grid; grid-template-columns: 15px minmax(0, 1fr); gap: 6px; align-items: start; min-width: 0; }
-.cj-chatTimelineDot { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: #e8edf5; color: #70809b; font-size: 9px; font-weight: 800; }
+.cj-chatTimelineList { display: grid; gap: 2px; max-height: 190px; overflow: auto; }
+.cj-nativeTaskRow { min-height: 24px; }
+.cj-nativeEventTarget { overflow: hidden; color: #8b95a7; text-overflow: ellipsis; white-space: nowrap; }
+.cj-chatTimelineItem { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 6px; align-items: start; min-width: 0; }
+.cj-chatTimelineDot { display: inline-grid; place-items: center; width: 18px; height: 18px; border: 1px solid #dbe3ef; border-radius: 6px; background: #fff; color: #70809b; font-size: 9px; font-weight: 800; }
 .cj-chatTimelineItem[data-state="running"] .cj-chatTimelineDot { background: #e8efff; color: #3559a8; }
 .cj-chatTimelineItem[data-state="waiting"] .cj-chatTimelineDot { background: #fff2d8; color: #a16207; }
 .cj-chatTimelineItem[data-state="error"] .cj-chatTimelineDot { background: #fde8e8; color: #b91c1c; }
@@ -717,6 +742,15 @@ window.__ModuleLoader__.load({
 .cj-chatTimelineMeta strong { flex: 0 0 auto; color: #42516d; font-size: 10px; }
 .cj-chatTimelineMeta span { overflow: hidden; color: #8b95a7; text-overflow: ellipsis; white-space: nowrap; }
 .cj-chatTimelineSummary { overflow: hidden; color: #9aa3b3; text-overflow: ellipsis; white-space: nowrap; }
+.cj-chatTimelineItem summary { display: block; cursor: pointer; list-style: none; }
+.cj-chatTimelineItem summary::-webkit-details-marker { display: none; }
+.cj-chatTimelineItem summary::before { content: '›'; display: inline-block; width: 10px; color: #9aa3b3; }
+.cj-chatTimelineItem[open] summary::before { content: '⌄'; }
+.cj-chatTimelineItem[data-type="think"] .cj-chatTimelineDot { background: #f4f1fb; color: #7c5aa8; }
+.cj-chatTimelineItem[data-type="read"] .cj-chatTimelineDot { background: #eef7f5; color: #15803d; }
+.cj-chatTimelineItem[data-type="edit"] .cj-chatTimelineDot { background: #fff5e8; color: #a16207; }
+.cj-chatTimelineItem[data-type="grep"] .cj-chatTimelineDot { background: #eef4ff; color: #3559a8; }
+.cj-chatTimelineDetail { grid-column: 2; margin: 4px 0 0 10px; color: #7b8496; font-size: 10px; line-height: 15px; white-space: pre-wrap; }
 .cj-questionCard { margin: 9px 10px; padding: 10px; border: 1px solid #cbd8ee; border-radius: 10px; background: #f7faff; color: #26334d; }
 .cj-questionEyebrow { color: #5472ab; font-size: 10px; font-weight: 600; letter-spacing: .03em; }
 .cj-questionTitle { margin: 3px 0 8px; font-size: 12px; line-height: 17px; font-weight: 600; }
@@ -965,21 +999,122 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function AssistantTimeline({ events }) {
-      if (!Array.isArray(events) || !events.length) return null
+    function renderAssistantInline(text, keyPrefix) {
+      return String(text || '').split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean).map((part, index) => {
+        if (part.startsWith('`') && part.endsWith('`')) return React.createElement('code', { key: `${keyPrefix}-code-${index}` }, part.slice(1, -1))
+        if (part.startsWith('**') && part.endsWith('**')) return React.createElement('strong', { key: `${keyPrefix}-strong-${index}` }, part.slice(2, -2))
+        return React.createElement(React.Fragment, { key: `${keyPrefix}-text-${index}` }, part)
+      })
+    }
+
+    function AssistantMarkdown({ text }) {
+      const lines = String(text || '').replace(/\r/g, '').split('\n')
+      const blocks = []
+      let code = null
+      let list = []
+      const flushList = () => {
+        if (!list.length) return
+        blocks.push(React.createElement('ul', { key: `list-${blocks.length}` }, ...list.map((item, index) => React.createElement('li', { key: `item-${index}` }, renderAssistantInline(item, `li-${blocks.length}-${index}`)))))
+        list = []
+      }
+      lines.forEach((line, index) => {
+        if (line.trim().startsWith('```')) {
+          if (code == null) code = []
+          else {
+            blocks.push(React.createElement('pre', { key: `code-${index}` }, code.join('\n')))
+            code = null
+          }
+          return
+        }
+        if (code != null) {
+          code.push(line)
+          return
+        }
+        const trimmed = line.trim()
+        if (!trimmed) {
+          flushList()
+          return
+        }
+        const heading = trimmed.match(/^(#{2,4})\s+(.+)$/)
+        if (heading) {
+          flushList()
+          blocks.push(React.createElement(heading[1].length === 2 ? 'h3' : 'h4', { key: `heading-${index}` }, renderAssistantInline(heading[2], `heading-${index}`)))
+          return
+        }
+        const bullet = trimmed.match(/^[-*]\s+(.+)$/)
+        if (bullet) {
+          list.push(bullet[1])
+          return
+        }
+        flushList()
+        blocks.push(React.createElement('p', { key: `paragraph-${index}` }, renderAssistantInline(trimmed, `paragraph-${index}`)))
+      })
+      if (code != null) blocks.push(React.createElement('pre', { key: `code-final-${blocks.length}` }, code.join('\n')))
+      flushList()
+      return React.createElement('div', { className: 'cj-assistantMarkdown' }, blocks.length ? blocks : React.createElement('p', null, ''))
+    }
+
+    function AssistantExpandableContent({ text, markdown = false, initialExpanded = false }) {
+      const source = String(text || '')
+      const long = source.length > 520 || source.split('\n').length > 8
+      const [expanded, setExpanded] = React.useState(initialExpanded || !long)
+      React.useEffect(() => {
+        setExpanded(initialExpanded || !long)
+      }, [source, initialExpanded, long])
+      const visible = expanded || !long ? source : `${source.slice(0, 520).trimEnd()}…`
       return React.createElement(
-        'section',
-        { className: 'cj-chatTimeline', 'aria-label': '主对话执行进度' },
-        React.createElement('div', { className: 'cj-chatTimelineHead' }, React.createElement('strong', null, '主对话进度'), React.createElement('span', null, `${events.length} 个事件`)),
-        React.createElement('div', { className: 'cj-chatTimelineList' }, ...events.map((event, index) => React.createElement(
-          'div',
-          { className: 'cj-chatTimelineItem', 'data-state': event.status || 'done', key: `${event.seq}-${event.type}-${index}` },
-          React.createElement('span', { className: 'cj-chatTimelineDot' }, event.status === 'done' ? '✓' : event.status === 'error' ? '!' : event.status === 'waiting' ? '?' : '·'),
-          React.createElement('div', { className: 'cj-chatTimelineBody' },
-            React.createElement('div', { className: 'cj-chatTimelineMeta' }, React.createElement('strong', null, event.label || 'Event'), event.target ? React.createElement('span', null, event.target) : null),
-            event.summary && event.summary !== event.target ? React.createElement('div', { className: 'cj-chatTimelineSummary' }, event.summary) : null,
-          ),
-        )))
+        React.Fragment,
+        null,
+        React.createElement('div', { className: 'cj-expandableBody', 'data-expanded': expanded || !long ? 'true' : 'false' }, markdown ? React.createElement(AssistantMarkdown, { text: visible }) : visible),
+        long ? React.createElement('button', { type: 'button', className: 'cj-expandToggle', onClick: () => setExpanded((value) => !value) }, expanded ? '收起' : '展开全文') : null,
+      )
+    }
+
+    function AssistantFeed({ items }) {
+      if (!Array.isArray(items) || !items.length) return null
+      const NativeDisclosureRow = dshPrimitives.DisclosureRow
+      const NativeIcon = (event) => {
+        const Icon = event.status === 'error'
+          ? dshPrimitives.IconWarningOutline16
+          : event.status === 'waiting'
+            ? dshPrimitives.IconQuestionOutline14
+            : event.status === 'running'
+              ? dshPrimitives.IconLoadingOutline16
+              : dshPrimitives.IconSparkle16
+        return Icon ? React.createElement(Icon, { size: 14 }) : null
+      }
+      const [openRows, setOpenRows] = React.useState({})
+      const toggleRow = (key) => setOpenRows((current) => ({ ...current, [key]: !current[key] }))
+      return React.createElement(
+        'div',
+        { className: 'cj-chatFeed', 'aria-label': '主对话任务流' },
+        ...items.map((item, index) => {
+          if (item.type === 'assistant' || item.type === 'user') {
+            return React.createElement('div', { className: 'cj-chatMessage', 'data-role': item.type, key: `${item.seq}-${item.type}-${index}` }, React.createElement('strong', null, item.type === 'user' ? '你' : '主对话'), React.createElement(AssistantExpandableContent, { text: item.summary, markdown: item.type === 'assistant' }))
+          }
+          const key = `${item.seq}-${item.type}-${index}`
+          const open = openRows[key] ?? (item.status === 'running' || item.status === 'waiting')
+          const icon = NativeIcon(item) || React.createElement('span', { className: 'cj-chatTimelineDot' }, item.status === 'done' ? '✓' : item.status === 'error' ? '!' : item.status === 'waiting' ? '?' : '·')
+          const content = item.summary || item.target
+            ? React.createElement('div', { className: 'cj-chatTimelineDetail' }, React.createElement(AssistantExpandableContent, { text: item.summary || item.target, initialExpanded: true }))
+            : null
+          if (NativeDisclosureRow) {
+            return React.createElement(NativeDisclosureRow, {
+              key,
+              icon,
+              title: item.label || 'Event',
+              open,
+              expandable: Boolean(content),
+              onToggle: () => toggleRow(key),
+              expandOnRowClick: true,
+              previewChevron: true,
+              collapsedContent: item.target ? React.createElement('span', { className: 'cj-nativeEventTarget' }, item.target) : null,
+              children: content,
+              className: 'cj-nativeTaskRow',
+            })
+          }
+          return React.createElement('details', { className: 'cj-chatTimelineItem', 'data-state': item.status || 'done', 'data-type': item.type || 'tool', open, key }, React.createElement('span', { className: 'cj-chatTimelineDot' }, item.status === 'done' ? '✓' : item.status === 'error' ? '!' : item.status === 'waiting' ? '?' : '·'), React.createElement('summary', { className: 'cj-chatTimelineBody' }, React.createElement('div', { className: 'cj-chatTimelineMeta' }, React.createElement('strong', null, item.label || 'Event'), item.target ? React.createElement('span', null, item.target) : null)), content)
+        })
       )
     }
 
@@ -1031,9 +1166,14 @@ window.__ModuleLoader__.load({
       const [editorCandidate, setEditorCandidate] = useState(null)
       const [chatRequest, setChatRequest] = useState(null)
       const [chatTask, setChatTask] = useState(null)
+      const [chatUnread, setChatUnread] = useState(false)
+      const [chatHistoryLimit, setChatHistoryLimit] = useState(24)
       const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
       const [tuningOpen, setTuningOpen] = useState(false)
       const chatRequestRef = useRef(null)
+      const chatStreamRef = useRef(null)
+      const chatInitialScrollRef = useRef(false)
+      const chatPreserveScrollRef = useRef(null)
 
       const mainContext = mainConversation.summary
 
@@ -1121,6 +1261,10 @@ window.__ModuleLoader__.load({
           setEditorOpen(true)
           setEditorChatOpen(false)
           setChatMessages([])
+          setChatUnread(false)
+          setChatHistoryLimit(24)
+          chatInitialScrollRef.current = false
+          chatPreserveScrollRef.current = null
           setChatBridgeState('idle')
           chatRequestRef.current = null
           setChatRequest(null)
@@ -1705,26 +1849,88 @@ window.__ModuleLoader__.load({
       )
 
       const lastUserPrompt = [...chatMessages].reverse().find((item) => item.role === 'user')?.text || ''
-      const baseTimeline = Array.isArray(mainContext.timeline) ? mainContext.timeline : []
-      const chatTimeline = chatTask?.transport === 'session'
-        ? (chatTask.sessionId === mainConversation.sessionId ? baseTimeline.filter((event) => Number(event.seq) > chatTask.baselineSeq).slice(-12) : [])
-        : baseTimeline.slice(-8)
-      const timelineEvents = mainContext.pendingQuestion && !chatTimeline.some((event) => event.type === 'question')
-        ? [...chatTimeline, { seq: 'pending-question', type: 'question', label: 'Question', target: mainContext.pendingQuestion.payload?.questions?.[0]?.question || '等待用户确认', summary: '', status: 'waiting' }]
-        : chatTimeline
-      const chatMessagesView = chatMessages.length
-        ? chatMessages.map((item, index) => React.createElement('div', { className: 'cj-chatMessage', 'data-role': item.role, key: `${item.role}-${index}` }, React.createElement('strong', null, item.role === 'user' ? '你' : '主对话'), item.text))
-        : React.createElement('div', { className: 'cj-chatEmpty' }, '只在需要时打开 AI。它会拿到当前 Markdown、模板和排版指标。')
-      const mainContextMessage = String(mainContext.messages.at(-1)?.text || '').replace(/\s+/g, ' ').slice(0, 220)
+      const baseFeed = Array.isArray(mainContext.feed) ? mainContext.feed : []
+      const visibleFeed = baseFeed.slice(-chatHistoryLimit)
+      const hasEarlierFeed = baseFeed.length > chatHistoryLimit
+      const feedItems = mainContext.pendingQuestion && !visibleFeed.some((item) => item.type === 'question')
+        ? [...visibleFeed, { seq: 'pending-question', type: 'question', label: 'Question', target: mainContext.pendingQuestion.payload?.questions?.[0]?.question || '等待用户确认', summary: '', status: 'waiting', role: 'event' }]
+        : visibleFeed
+      const chatMessagesView = (!mainConversation.session || chatBridgeState === 'fallback') && chatMessages.length
+        ? chatMessages.map((item, index) => React.createElement('div', { className: 'cj-chatMessage', 'data-role': item.role, key: `${item.role}-${index}` }, React.createElement('strong', null, item.role === 'user' ? '你' : '主对话'), React.createElement(AssistantExpandableContent, { text: item.text, markdown: item.role === 'assistant' })))
+        : (!feedItems.length ? React.createElement('div', { className: 'cj-chatEmpty' }, '只在需要时打开 AI。它会拿到当前 Markdown、模板和排版指标。') : null)
+      const latestFeedItem = feedItems.at(-1)
+      const mainContextMessage = latestFeedItem
+        ? `${latestFeedItem.label || (latestFeedItem.role === 'assistant' ? 'Assistant' : '消息')} 已同步，完整内容见下方任务流。`
+        : ''
       const mainContextState = mainConversation.session ? (mainContext.running ? 'pending' : 'connected') : 'idle'
       const mainContextLabel = mainConversation.session ? (mainContext.running ? '主对话处理中' : '已同步主对话') : '未找到当前主对话'
+      const loadEarlier = () => {
+        const stream = chatStreamRef.current
+        if (stream) {
+          chatPreserveScrollRef.current = { top: stream.scrollTop, height: stream.scrollHeight }
+        }
+        setChatHistoryLimit((value) => value + 24)
+      }
+      const scrollChatToBottom = () => {
+        const align = () => {
+          const stream = chatStreamRef.current
+          if (stream) stream.scrollTop = stream.scrollHeight
+        }
+        align()
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => {
+            align()
+            requestAnimationFrame(align)
+          })
+        } else {
+          setTimeout(align, 0)
+        }
+      }
+      useEffect(() => {
+        chatInitialScrollRef.current = false
+        chatPreserveScrollRef.current = null
+        setChatHistoryLimit(24)
+      }, [mainConversation.sessionId])
+      useEffect(() => {
+        const stream = chatStreamRef.current
+        const preserve = chatPreserveScrollRef.current
+        if (!stream || !preserve) return
+        stream.scrollTop = preserve.top + (stream.scrollHeight - preserve.height)
+        requestAnimationFrame(() => {
+          const current = chatStreamRef.current
+          if (current) current.scrollTop = preserve.top + (current.scrollHeight - preserve.height)
+        })
+        chatPreserveScrollRef.current = null
+        setChatUnread(false)
+      }, [chatHistoryLimit])
+      useEffect(() => {
+        const stream = chatStreamRef.current
+        if (!stream) return
+        if (!chatInitialScrollRef.current && (feedItems.length || chatMessages.length)) {
+          scrollChatToBottom()
+          chatInitialScrollRef.current = true
+          setChatUnread(false)
+          return
+        }
+        if (!chatInitialScrollRef.current) return
+        const nearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 90
+        if (nearBottom || !chatMessages.length) {
+          scrollChatToBottom()
+          setChatUnread(false)
+        } else {
+          setChatUnread(true)
+        }
+      }, [editorChatOpen, chatMessages.length, feedItems.length, mainContext.running, chatHistoryLimit])
+      const onChatStreamScroll = (event) => {
+        const stream = event.currentTarget
+        if (stream.scrollHeight - stream.scrollTop - stream.clientHeight < 90) setChatUnread(false)
+      }
       const editorChatView = React.createElement(
         'aside',
         { className: 'cj-editorChat', 'aria-label': '简历 AI 助手' },
         React.createElement('div', { className: 'cj-editorChatHead' }, React.createElement('div', { className: 'cj-editorChatTitle' }, 'AI 助手'), React.createElement('div', { className: 'cj-editorChatHint' }, '就在当前工作台继续主对话，不自动覆盖文件。')),
         React.createElement('div', { className: 'cj-chatContext', 'data-state': mainContextState }, React.createElement('strong', null, mainContextLabel), React.createElement('span', { className: 'cj-chatContextText' }, mainContextMessage || (mainConversation.sessionId ? `Session ${mainConversation.sessionId}` : '打开主对话后，AI 会自动同步上下文。'))),
-        React.createElement(AssistantTimeline, { events: timelineEvents }),
-        React.createElement('div', { className: 'cj-chatMessages' }, chatMessagesView, editorCandidate ? React.createElement('div', { className: 'cj-chatMessage' }, React.createElement('strong', null, '可应用修改'), editorCandidate.summary, React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => { setEditorDraft(editorCandidate.content); setEditorCandidate(null); setEditorMessage('已把 AI 修改放入草稿，确认后再保存。') } }, '应用到编辑器')) : null),
+        React.createElement('div', { className: 'cj-chatMessages', ref: chatStreamRef, onScroll: onChatStreamScroll }, hasEarlierFeed ? React.createElement('button', { type: 'button', className: 'cj-chatLoadEarlier', onClick: loadEarlier }, '加载更早') : null, React.createElement(AssistantFeed, { items: feedItems }), chatMessagesView, editorCandidate ? React.createElement('div', { className: 'cj-chatMessage' }, React.createElement('strong', null, '可应用修改'), React.createElement(AssistantMarkdown, { text: editorCandidate.summary }), React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => { setEditorDraft(editorCandidate.content); setEditorCandidate(null); setEditorMessage('已把 AI 修改放入草稿，确认后再保存。') } }, '应用到编辑器')) : null, chatUnread ? React.createElement('button', { type: 'button', className: 'cj-chatUnread', onClick: () => { scrollChatToBottom(); setChatUnread(false) } }, '↓ 有新进度，回到底部') : null),
         mainContext.pendingQuestion ? React.createElement(AssistantQuestionCard, { pending: mainContext.pendingQuestion }) : null,
         React.createElement('div', { className: 'cj-chatComposer' },
           React.createElement('textarea', { className: 'cj-chatInput', value: chatInput, onChange: (event) => setChatInput(event.target.value), placeholder: '例如：把项目经历压缩两行，保留技术成果', 'aria-label': '发送给简历 AI 助手' }),

@@ -24,6 +24,7 @@
     "AI-BRIDGE-INTEGRATION-REVIEW.zh.md",
     "AI-SESSION-CONTEXT-REVIEW.zh.md",
     "AI-ASSISTANT-PROGRESS-REVIEW.zh.md",
+    "AI-ASSISTANT-CHAT-REVIEW.zh.md",
     "REPLACEMENT-REVIEW.zh.md",
     "LICENSE",
     "package.json",
@@ -60,6 +61,7 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-primitives",
         "@deepseek-ai/dsh-client-ui-sidebar",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-general"
