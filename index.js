@@ -46,10 +46,10 @@ Workflow:
 3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
-6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, call jobhunt_template_family_list first, then use a DesignBrief with an explicit family id; validate and render the candidate, then save it only after the user confirms
+6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, call jobhunt_template_family_list first, then use a DesignBrief with an explicit family id and let the generator select a compatible renderer; validate and render the candidate, then save it only after the user confirms
 7) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md
-8) after jobhunt_render, call jobhunt_layout_metrics to read the browser's real A4 measurement; an open plugin preview refreshes itself when a new render lands
-9) use the preview's page-count/overflow/blank-space indicator as feedback; prefer TemplateSpec controls over arbitrary CSS
+8) after jobhunt_render, call jobhunt_layout_metrics to read the browser's real A4 measurement; it includes page count, top/bottom whitespace, occupancy, module details, and visual warnings; an open plugin preview refreshes itself when a new render lands
+9) use visualAudit and the preview's page-count/overflow/blank-space indicator as feedback; if the page is sparse, has a large bottom blank, or isolates a module, adjust content/module spacing before shrinking type; prefer TemplateSpec controls over arbitrary CSS
 10) jobhunt_render refreshes preview.html and an already-open plugin preview; if metrics are pending, continue the task and let the preview report them when ready rather than asking the user to reopen Settings
 11) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
@@ -155,7 +155,7 @@ export function apply(ctx) {
     name: 'jobhunt_template_validate',
     description: 'Validate a generated resume template JSON against the safe visual template schema before applying it.',
     parameters: {
-      templateJson: { type: 'string', required: true, description: 'JSON object containing schemaVersion, layout, typography, spacing, and visual fields.' },
+      templateJson: { type: 'string', required: true, description: 'JSON object containing schemaVersion, family, renderer, layout, typography, spacing, and visual fields.' },
     },
     output: textResult(),
     async execute(args) {
@@ -307,7 +307,7 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_layout_metrics',
-    description: 'Read the latest browser-measured A4 metrics from the resume preview, including page count, overflow, blank ratio, and module names. If the preview is still refreshing, return a pending status and continue without asking the user to reopen Settings.',
+    description: 'Read the latest browser-measured A4 metrics from the resume preview, including page count, overflow, top/bottom whitespace, occupancy, module details, and visualAudit warnings. If the preview is still refreshing, return a pending status and continue without asking the user to reopen Settings.',
     parameters: {},
     output: textResult(),
     async execute() {

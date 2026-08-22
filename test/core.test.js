@@ -9,6 +9,7 @@ import { generateTemplateCandidate, normalizeDesignBrief } from '../lib/template
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { validateLayoutSpec } from '../lib/layout-schema.js'
 import { listTemplatePresets } from '../lib/template-presets.js'
+import { listRendererIds } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
 
 test('Markdown renderer keeps resume structure and inline emphasis', () => {
@@ -35,6 +36,12 @@ test('preview document carries an explicit preview path for metrics association'
   assert.match(html, /dsh-resume-token-preview/)
   assert.match(html, /isThumbnail = query\.get\('thumbnail'\)/)
   assert.match(html, /--resume-corner-radius/)
+  assert.match(html, /moduleDetails/)
+  assert.match(html, /visualAudit/)
+  assert.match(html, /bottomWhitespace/)
+  assert.match(html, /layoutScale/)
+  assert.match(html, /renderer-clean-single/)
+  assert.match(html, /data-template-family="campus-clear"/)
 })
 
 test('new workspaces receive a substantive demo resume', async () => {
@@ -53,9 +60,39 @@ test('new workspaces receive a substantive demo resume', async () => {
 
 test('built-in template gallery includes representative visual directions', () => {
   const templates = listTemplatePresets()
-  assert.ok(templates.length >= 9)
-  for (const id of ['campus-standard', 'tech-compact', 'split-sidebar', 'engineering-timeline', 'portfolio-grid', 'product-signal', 'academic-research']) {
+  assert.ok(templates.length >= 15)
+  assert.deepEqual(listRendererIds(), ['clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal'])
+  assert.equal(new Set(templates.map((template) => template.renderer)).size, 9)
+  for (const id of ['campus-standard', 'tech-compact', 'split-sidebar', 'engineering-timeline', 'portfolio-grid', 'product-signal', 'academic-research', 'swiss-grid', 'midnight-terminal', 'editorial-serif', 'portfolio-cards', 'academic-paper', 'sidebar-signal']) {
     assert.ok(templates.some((template) => template.id === id), `missing built-in template: ${id}`)
+  }
+})
+
+test('template renderer registry produces structural variants', () => {
+  const source = '# 张三\n\n## 项目经历\n\n- 结果指标'
+  const technical = assembleResumeSections(markdownToHtml(source), null, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'technical-timeline' })
+  const portfolio = assembleResumeSections(markdownToHtml(source), null, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'portfolio-grid' })
+  assert.match(technical, /dsh-renderer-technical-timeline/)
+  assert.match(technical, /dsh-renderer-item-projects/)
+  assert.match(portfolio, /dsh-renderer-portfolio-grid/)
+  assert.match(portfolio, /dsh-renderer-featured/)
+})
+
+test('new visual directions are selected from design briefs', () => {
+  const minimal = generateTemplateCandidate({ name: '极简网格', tone: 'minimal' })
+  const terminal = generateTemplateCandidate({ name: '终端工程', tone: 'terminal', audience: 'engineering' })
+  const sidebar = generateTemplateCandidate({ name: '信息侧栏', layout: 'two-column', audience: 'general' })
+  assert.equal(minimal.template.renderer, 'swiss-grid')
+  assert.equal(terminal.template.renderer, 'midnight-terminal')
+  assert.equal(sidebar.template.renderer, 'split-sidebar')
+})
+
+test('every built-in renderer can render the same resume fixture', () => {
+  const source = '# 张三\n\n前端开发 | demo@example.com\n\n## 教育经历\n\n某某大学 · 计算机科学与技术\n\n## 专业技能\n\n- JavaScript / TypeScript\n\n## 项目经历\n\n- 性能提升 30%\n\n## 实习经历\n\n- 负责前端交付'
+  for (const template of listTemplatePresets()) {
+    const body = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+    const html = buildPreviewDocument({ title: template.name, bodyHtml: body, cssText: '', sourcePath: 'resume.md', templatePath: 'templates/default.css', previewPath: 'preview.html', templateSpec: template })
+    assert.match(html, new RegExp(`renderer-${template.renderer}`), `renderer missing for ${template.id}`)
   }
 })
 
@@ -72,6 +109,7 @@ test('DesignBrief generates a validated candidate without saving it', () => {
   assert.equal(result.valid, true)
   assert.equal(result.template.id, '技术双栏'.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'ai-template')
   assert.equal(result.template.layout.mode, 'two-column')
+  assert.equal(result.template.renderer, 'split-sidebar')
   assert.equal(result.template.layout.density, 'compact')
     assert.equal(result.template.typography.fontFamily, 'modern-sans')
     assert.equal(result.template.metadata.generatedBy, 'dsh-template-design')

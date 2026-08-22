@@ -134,6 +134,47 @@ window.__ModuleLoader__.load({
       return ''
     }
 
+    function summarizeVisualAudit(metrics) {
+      const audit = metrics?.visualAudit || {}
+      const state = String(audit.state || (metrics?.overflow ? 'overflow' : metrics?.pageCount > 1 ? 'multi-page' : metrics?.sparse ? 'sparse' : 'pending'))
+      const labels = {
+        balanced: '版面平衡',
+        'needs-review': '建议复核',
+        sparse: '一页偏空',
+        'multi-page': '多页排版',
+        overflow: '存在溢出',
+        pending: '等待测量',
+      }
+      const firstPage = metrics?.pages?.[0] || {}
+      const blankRatio = Number(firstPage.blankRatio)
+      const occupancyRatio = Number(firstPage.occupancyRatio)
+      const parts = []
+      if (metrics?.pageCount) parts.push(`${metrics.pageCount} 页`)
+      if (Number.isFinite(blankRatio)) parts.push(`首页留白 ${Math.round(blankRatio * 100)}%`)
+      if (Number.isFinite(occupancyRatio)) parts.push(`内容占用 ${Math.round(occupancyRatio * 100)}%`)
+      if (Number.isFinite(audit.moduleCount)) parts.push(`${audit.moduleCount} 个模块`)
+      return {
+        state,
+        label: labels[state] || '等待测量',
+        detail: parts.join(' · ') || '打开 A4 预览后自动采集真实页面指标',
+        warnings: Array.isArray(audit.warnings) ? audit.warnings : [],
+      }
+    }
+
+    function rendererLabel(renderer) {
+      return ({
+        'clean-single': '清晰单栏',
+        'split-sidebar': '侧栏双栏',
+        'technical-timeline': '技术时间线',
+        'portfolio-grid': '作品集卡片',
+        editorial: '编辑风',
+        academic: '学术风',
+        'swiss-grid': '瑞士网格',
+        'midnight-terminal': '午夜终端',
+        'sidebar-signal': '侧栏信号',
+      })[String(renderer || '')] || '基础布局'
+    }
+
     function conversationNodeSegments(node) {
       if (!node || typeof node !== 'object') return []
       const candidates = []
@@ -721,6 +762,19 @@ window.__ModuleLoader__.load({
 .cj-guide h3 { margin: 0; color: #26334d; font-size: 16px; }
 .cj-guide p { margin: 7px 0 16px; color: #7b8496; font-size: 12px; line-height: 19px; }
 .cj-guideRow { display: flex; gap: 10px; padding: 11px 0; border-top: 1px solid #edf0f4; color: #59667d; font-size: 12px; line-height: 18px; }
+.cj-visualAudit { margin-bottom: 18px; padding: 14px; border: 1px solid #e5e8ee; border-radius: 11px; background: #fbfcfe; }
+.cj-visualAudit[data-state="balanced"] { border-color: #cfe8dc; background: #f8fdf9; }
+.cj-visualAudit[data-state="overflow"], .cj-visualAudit[data-state="sparse"], .cj-visualAudit[data-state="needs-review"] { border-color: #f0d8a8; background: #fffdf8; }
+.cj-visualAuditHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.cj-sectionEyebrow { display: block; margin-bottom: 3px; color: #9aa3b3; font-size: 10px; letter-spacing: .08em; }
+.cj-visualAuditHead h3 { font-size: 14px; }
+.cj-visualAuditBadge { flex: 0 0 auto; color: #66738a; font-size: 11px; }
+.cj-visualAudit[data-state="balanced"] .cj-visualAuditBadge { color: #15803d; }
+.cj-visualAudit[data-state="overflow"] .cj-visualAuditBadge, .cj-visualAudit[data-state="sparse"] .cj-visualAuditBadge, .cj-visualAudit[data-state="needs-review"] .cj-visualAuditBadge { color: #a16207; }
+.cj-visualAuditMeta, .cj-visualAuditHint { margin: 7px 0 0 !important; color: #7b8496; font-size: 11px; line-height: 17px; }
+.cj-visualAuditWarnings { margin-top: 8px; color: #a16207; font-size: 11px; line-height: 17px; }
+.cj-visualAuditOkay { margin-top: 8px; color: #15803d; font-size: 11px; line-height: 17px; }
+.cj-visualAuditHint { padding-top: 8px; border-top: 1px solid #edf0f4; color: #8b95a7; }
 .cj-startView { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .cj-startCard { width: min(680px, 100%); padding: 28px; border: 1px solid #e1e6ee; border-radius: 16px; background: linear-gradient(145deg, #fff, #f7f9fc); box-shadow: 0 12px 34px rgba(35,55,95,.07); }
 .cj-startEyebrow { color: #5571aa; font-size: 11px; font-weight: 800; letter-spacing: .1em; }
@@ -761,6 +815,7 @@ window.__ModuleLoader__.load({
 .cj-inlineReset:disabled { cursor: default; opacity: .4; }
 .cj-inlineStatus { flex: 0 0 auto; color: #7b8496; font-size: 10px; white-space: nowrap; }
 .cj-inlineStatus-sparse { color: #a16207; }
+.cj-inlineStatus-review { color: #a16207; }
 .cj-inlineStatus-overflow, .cj-inlineStatus-multi { color: #b42318; }
 .cj-inlineStatus-fit { color: #15803d; }
 .cj-templatePicker { position: absolute; top: 42px; right: 0; z-index: 50; width: min(760px, calc(100vw - 190px)); max-height: 300px; overflow: auto; padding: 12px; border: 1px solid #dfe5ee; border-radius: 13px; background: rgba(255,255,255,.98); box-shadow: 0 16px 40px rgba(24,43,78,.16); }
@@ -1486,11 +1541,13 @@ window.__ModuleLoader__.load({
       }
 
       const copyChatTask = async (message) => {
+        const visualAudit = summarizeVisualAudit(layout)
         const context = [
           `请在 dsh-resume 中处理简历：${message}`,
           `简历文件：${editorSource?.resumePath || selected || 'resume.md'}`,
           '请先读取当前 Markdown，只修改真实内容，不编造经历。',
           layout ? `当前排版：${layout.pageCount || '?'} 页，留白 ${Math.round(Number(layout.pages?.[0]?.blankRatio || 0) * 100)}%，溢出 ${layout.overflow ? '是' : '否'}` : '当前排版指标尚未回传。',
+          `视觉审计：${visualAudit.label}；${visualAudit.detail}${visualAudit.warnings.length ? `；提醒：${visualAudit.warnings.map((item) => item.message).join('、')}` : ''}`,
           '完成后调用 jobhunt_render 和 jobhunt_layout_metrics，并返回修改前后摘要。',
         ].join('\n')
         try {
@@ -1674,15 +1731,18 @@ window.__ModuleLoader__.load({
             const metricPreview = String(event.data.previewPath || selected || '').replace(/\\/g, '/')
             if (selected && metricPreview && metricPreview !== selected.replace(/\\/g, '/')) return
             setLayout(metrics)
+            const visualAudit = summarizeVisualAudit(metrics)
             setFitState({
               text: metrics.overflow
                 ? `内容超出页面：${metrics.pageCount} 页`
                 : metrics.sparse
                   ? `一页但留白偏多：约 ${Math.round((metrics.pages?.[0]?.blankRatio || 0) * 100)}% 空白`
+                  : visualAudit.state === 'needs-review'
+                    ? `建议复核：${visualAudit.warnings[0]?.message || '页面平衡度需要确认'}`
                   : metrics.pageCount === 1
                     ? '一页通过：版面密度合适'
                     : `排版完成：${metrics.pageCount} 页`,
-              state: metrics.overflow ? 'overflow' : metrics.sparse ? 'sparse' : metrics.pageCount === 1 ? 'fit' : 'multi',
+              state: metrics.overflow ? 'overflow' : metrics.sparse ? 'sparse' : visualAudit.state === 'needs-review' ? 'review' : metrics.pageCount === 1 ? 'fit' : 'multi',
             })
             void fetch('/dsh-resume/api/metrics', {
               method: 'POST',
@@ -2028,7 +2088,7 @@ window.__ModuleLoader__.load({
           { key: template.id, className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', 'data-compared': templateCompareIds.includes(template.id) ? 'true' : 'false', role: 'button', tabIndex: 0, onClick: () => onTemplateChange(template.id), onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onTemplateChange(template.id) } }, 'aria-label': `选择模板：${template.name}` },
           templateThumbnail(template),
           React.createElement('div', { className: 'cj-templateCardFooter' }, React.createElement('div', { className: 'cj-templateName' }, template.name), React.createElement('button', { type: 'button', className: 'cj-compareButton', 'data-active': templateCompareIds.includes(template.id) ? 'true' : 'false', onClick: (event) => { event.stopPropagation(); toggleTemplateCompare(template.id) } }, templateCompareIds.includes(template.id) ? '已加入' : '＋对比')),
-          React.createElement('div', { className: 'cj-templateTags' }, [template.layout?.mode === 'two-column' ? '双栏' : '单栏', ...(template.tags || []).filter((tag) => tag !== '单栏' && tag !== '双栏')].slice(0, 3).join(' · ')),
+          React.createElement('div', { className: 'cj-templateTags' }, [rendererLabel(template.renderer), template.layout?.mode === 'two-column' ? '双栏' : '单栏', ...(template.tags || []).filter((tag) => tag !== '单栏' && tag !== '双栏')].slice(0, 3).join(' · ')),
           React.createElement('div', { className: 'cj-templateDescription' }, template.description || '原创视觉预设，适合投递版简历。'),
         )),
       )
@@ -2070,7 +2130,7 @@ window.__ModuleLoader__.load({
               { className: 'cj-compareCard', key: template.id },
               React.createElement('div', { className: 'cj-comparePreview' }, templateThumbnail(template, true)),
               React.createElement('strong', null, template.name),
-              React.createElement('span', null, `${template.layout?.mode === 'two-column' ? '双栏' : '单栏'} · ${template.layout?.density || '标准'} · ${template.visual?.variant || '标准'}`),
+               React.createElement('span', null, `${rendererLabel(template.renderer)} · ${template.layout?.density || '标准'} · ${template.visual?.variant || '标准'}`),
               React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => { onTemplateChange(template.id); setView('preview') } }, template.id === templateId ? '正在使用' : '应用此模板'),
             )))
           )
@@ -2148,6 +2208,17 @@ window.__ModuleLoader__.load({
         React.createElement(
           'div',
           { className: 'cj-guide' },
+          (() => {
+            const visualAudit = summarizeVisualAudit(layout)
+            return React.createElement('section', { className: 'cj-visualAudit', 'data-state': visualAudit.state },
+              React.createElement('div', { className: 'cj-visualAuditHead' }, React.createElement('div', null, React.createElement('span', { className: 'cj-sectionEyebrow' }, '视觉复核'), React.createElement('h3', null, '这页是否真的“刚好”？')), React.createElement('strong', { className: 'cj-visualAuditBadge' }, visualAudit.label)),
+              React.createElement('p', { className: 'cj-visualAuditMeta' }, visualAudit.detail),
+              visualAudit.warnings.length
+                ? React.createElement('div', { className: 'cj-visualAuditWarnings' }, ...visualAudit.warnings.map((item) => React.createElement('div', { key: item.code }, '· ', item.message)))
+                : React.createElement('div', { className: 'cj-visualAuditOkay' }, visualAudit.state === 'balanced' ? '当前没有发现明显的顶部、底部或模块断裂问题。' : '打开投递版预览后，这里会根据真实 A4 页面更新。'),
+              React.createElement('div', { className: 'cj-visualAuditHint' }, '你可以直接对 AI 说“让这一页更饱满，但不要缩小字号”，它会读取这组指标后再调整。'),
+            )
+          })(),
           React.createElement('h3', null, '一页简历检查清单'),
           React.createElement('p', null, qualityLoading ? '正在读取当前投递版并检查…' : quality ? `当前评分 ${quality.score}/100。${quality.next}` : '内容不足时补充真实证据，内容过多时先删重复信息，不用用极小字号硬塞。'),
           ...(quality?.checks || [
@@ -2291,7 +2362,7 @@ window.__ModuleLoader__.load({
         React.createElement('div', { className: 'cj-chatComposer' },
           React.createElement('textarea', { className: 'cj-chatInput', value: chatInput, onChange: (event) => setChatInput(event.target.value), placeholder: '例如：把项目经历压缩两行，保留技术成果', 'aria-label': '发送给简历 AI 助手' }),
           React.createElement('div', { className: 'cj-chatQuick' },
-            ...['压缩两行', '改得更专业', '匹配前端岗位'].map((prompt) => React.createElement('button', { key: prompt, type: 'button', onClick: () => setChatInput(prompt) }, prompt)),
+            ...['压缩两行', '让这一页更饱满', '减少底部留白', '改得更专业', '匹配前端岗位'].map((prompt) => React.createElement('button', { key: prompt, type: 'button', onClick: () => setChatInput(prompt) }, prompt)),
           ),
           React.createElement('div', { className: 'cj-chatActions' }, React.createElement('span', { className: 'cj-chatBridge', 'data-state': chatBridgeState }, mainContext.pending?.length ? '请先完成主对话确认' : chatBridgeState === 'connected' ? '主对话已响应' : chatBridgeState === 'pending' ? (mainConversation.session ? '正在等待主对话…' : '正在等待桥接…') : chatBridgeState === 'fallback' ? `桥接失败${chatBridgeError ? `：${chatBridgeError}` : ''}` : mainConversation.session ? '已同步当前主对话' : '上下文仅随本次发送'), chatBridgeState === 'pending' ? React.createElement('button', { type: 'button', className: 'cj-chatStop', onClick: stopChatWaiting }, '停止等待') : React.createElement('button', { type: 'button', className: 'cj-chatSend', onClick: sendChatMessage, disabled: !chatInput.trim() || Boolean(mainContext.pending?.length) }, '发送')),
           chatBridgeState === 'fallback' && lastUserPrompt ? React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => copyChatTask(lastUserPrompt) }, '复制任务到主对话') : null,
