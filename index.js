@@ -46,9 +46,9 @@ Workflow:
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
 6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, copy a built-in with jobhunt_template_copy or generate a new TemplateSpec JSON, then save it with jobhunt_template_save
 7) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md
-8) after the user opens the preview, call jobhunt_layout_metrics to read the browser's real A4 measurement; if it is not fit, make a bounded adjustment and repeat this check at most 3 rounds
+8) after jobhunt_render, call jobhunt_layout_metrics to read the browser's real A4 measurement; an open plugin preview refreshes itself when a new render lands
 9) use the preview's page-count/overflow/blank-space indicator as feedback; prefer TemplateSpec controls over arbitrary CSS
-10) jobhunt_render to refresh preview.html, then re-render after any fit adjustment
+10) jobhunt_render refreshes preview.html and an already-open plugin preview; if metrics are pending, continue the task and let the preview report them when ready rather than asking the user to reopen Settings
 11) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
 function textResult() {
@@ -275,7 +275,7 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_layout_metrics',
-    description: 'Read the latest browser-measured A4 metrics from the resume preview, including page count, overflow, blank ratio, and module names.',
+    description: 'Read the latest browser-measured A4 metrics from the resume preview, including page count, overflow, blank ratio, and module names. If the preview is still refreshing, return a pending status and continue without asking the user to reopen Settings.',
     parameters: {},
     output: textResult(),
     async execute() {
@@ -343,7 +343,7 @@ export function apply(ctx) {
       return {
         ...rendered,
         latestMetrics: getLatestMetrics(),
-        uiHint: 'Open Settings → 求职简历 to preview. Export is user-owned.',
+        uiHint: 'If the resume preview is open, it will refresh automatically. The user owns the final export.',
         previewUrl: `/dsh-resume/preview?path=${encodeURIComponent(rendered.previewPath)}`,
       }
     },

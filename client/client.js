@@ -96,6 +96,14 @@ window.__ModuleLoader__.load({
       return ''
     }
 
+    function previewPathFromText(text) {
+      const source = String(text || '')
+      const jsonMatch = source.match(/["']previewPath["']\s*:\s*["']([^"']+preview\.html)["']/i)
+      if (jsonMatch?.[1]) return jsonMatch[1].replace(/\\/g, '/')
+      const pathMatch = source.match(/(?:^|[\s"'`])((?:companies\/|[^\s"'`]+\/)?[^\s"'`]*preview\.html)(?:$|[\s"'`])/i)
+      return pathMatch?.[1]?.replace(/\\/g, '/') || ''
+    }
+
     function conversationNodeSegments(node) {
       if (!node || typeof node !== 'object') return []
       const candidates = []
@@ -674,6 +682,8 @@ window.__ModuleLoader__.load({
 .cj-previewShell > .cj-mainBar { flex: 0 0 auto; padding-right: 0; }
 .cj-toolButton { all: unset; box-sizing: border-box; cursor: pointer; max-width: 180px; height: 30px; overflow: hidden; padding: 0 10px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; font-size: 11px; line-height: 30px; text-overflow: ellipsis; white-space: nowrap; }
 .cj-toolButton:hover, .cj-toolButton[aria-expanded="true"] { border-color: #9db5e8; color: #3559a8; background: #f7f9fe; }
+.cj-iconAction { all: unset; box-sizing: border-box; cursor: pointer; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; font-size: 15px; line-height: 30px; }
+.cj-iconAction:hover { border-color: #9db5e8; color: #3559a8; background: #f7f9fe; }
 .cj-inlineTuning { min-width: 300px; flex: 1; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 0 8px; }
 .cj-inlineControl { min-width: 78px; display: grid; grid-template-columns: auto auto; align-items: center; gap: 4px 6px; color: #7b8496; font-size: 9px; white-space: nowrap; }
 .cj-inlineControl strong { color: #536078; font-size: 9px; font-weight: 700; }
@@ -724,7 +734,10 @@ window.__ModuleLoader__.load({
 .cj-editorPaneHead small { color: #9aa3b3; font-size: 10px; font-weight: 400; }
 .cj-editorText { min-height: 0; flex: 1; width: 100%; resize: none; border: 0; outline: 0; padding: 14px; color: #26334d; background: #fff; font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace; tab-size: 2; }
 .cj-editorText:focus { box-shadow: inset 0 0 0 2px rgba(53,89,168,.12); }
-.cj-editorStatus { padding: 7px 11px; border-top: 1px solid #edf0f4; color: #8b95a7; font-size: 10px; line-height: 15px; }
+.cj-editorStatus { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 11px; border-top: 1px solid #edf0f4; color: #8b95a7; font-size: 10px; line-height: 15px; }
+.cj-editorStatus > span { min-width: 0; }
+.cj-editorReload { flex: 0 0 auto; border: 0; border-radius: 6px; background: #eef3fb; color: #3559a8; padding: 4px 7px; font-size: 10px; cursor: pointer; }
+.cj-editorReload:hover { background: #e1eafc; }
 .cj-editorPreviewFrame { min-height: 0; flex: 1; overflow: hidden; background: #fff; }
 .cj-editorPreviewFrame iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 .cj-editorChat { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #dfe5ee; border-radius: 14px; background: #f8fafc; box-shadow: 0 8px 24px rgba(24,43,78,.06); }
@@ -812,6 +825,8 @@ window.__ModuleLoader__.load({
 .cj-questionError { margin-top: 5px; color: #b91c1c; font-size: 10px; line-height: 14px; }
 .cj-chatSend { border: 0; border-radius: 8px; background: #14213d; color: #fff; padding: 7px 10px; font-size: 11px; cursor: pointer; }
 .cj-chatSend:disabled { opacity: .45; cursor: default; }
+.cj-chatStop { border: 0; border-radius: 8px; background: #eef1f6; color: #536078; padding: 7px 10px; font-size: 11px; cursor: pointer; }
+.cj-chatStop:hover { background: #e3e8f1; color: #26334d; }
 .cj-chatApply { margin-top: 6px; border: 0; border-radius: 7px; background: #e4f5ed; color: #15803d; padding: 5px 7px; font-size: 10px; cursor: pointer; }
 @media (max-width: 900px) { .cj-editorBody, .cj-editorBody[data-chat="open"], .cj-previewWorkspace, .cj-previewWorkspace[data-chat="open"] { grid-template-columns: 1fr; overflow: auto; } .cj-editorPane, .cj-previewWorkspace .cj-editorPane { min-height: 360px; } .cj-editorChat { min-height: 300px; } .cj-inlineTuning { min-width: 0; justify-content: flex-start; overflow-x: auto; } }
 @media (max-width: 720px) { .cj-startActions { grid-template-columns: 1fr; } .cj-startCard { padding: 20px; } .cj-workshopFlow { grid-template-columns: 1fr; } .cj-templateCard { flex-basis: 160px; } }
@@ -1200,6 +1215,8 @@ window.__ModuleLoader__.load({
       const [editorPreviewUrl, setEditorPreviewUrl] = useState('')
       const [editorBusy, setEditorBusy] = useState(false)
       const [editorMessage, setEditorMessage] = useState('')
+      const [editorExternalPending, setEditorExternalPending] = useState(false)
+      const editorDiskContentRef = useRef('')
       const [editorChatOpen, setEditorChatOpen] = useState(false)
       const [chatInput, setChatInput] = useState('')
       const [chatMessages, setChatMessages] = useState([])
@@ -1254,16 +1271,6 @@ window.__ModuleLoader__.load({
       }, [chatRequest, mainConversation.snapshot, mainConversation.sessionId, mainContext.pendingQuestion])
 
       useEffect(() => {
-        if (!chatRequest) return undefined
-        const requestId = chatRequest.requestId
-        const timeout = chatRequest.transport === 'session' ? 45000 : 3200
-        const timer = setTimeout(() => {
-          failChatRequest(requestId, chatRequest.transport === 'session' ? '主对话在规定时间内没有返回可显示的结果。' : '没有收到主对话桥接响应。')
-        }, timeout)
-        return () => clearTimeout(timer)
-      }, [chatRequest])
-
-      useEffect(() => {
         const onAssistantResponse = (event) => {
           const data = event.data?.type === 'dsh-resume:assistant-response' ? event.data : event.detail
           if (!data || data.type !== 'dsh-resume:assistant-response') return
@@ -1298,6 +1305,8 @@ window.__ModuleLoader__.load({
           const source = await readJsonResponse(res, 'Markdown 编辑器')
           setEditorSource(source)
           setEditorDraft(source.content || '')
+          editorDiskContentRef.current = source.content || ''
+          setEditorExternalPending(false)
           setEditorSelection('')
           setEditorPreviewUrl('')
           setEditorOpen(true)
@@ -1372,6 +1381,8 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({ root: editorSource.root, resume: editorSource.resumePath, preview: editorSource.previewPath, templateId, content: editorDraft }),
           })
           const result = await readJsonResponse(res, '保存 Markdown')
+          editorDiskContentRef.current = editorDraft
+          setEditorExternalPending(false)
           setEditorMessage('已保存，并重新生成预览。')
           setTick((n) => n + 1)
           void reload()
@@ -1398,6 +1409,16 @@ window.__ModuleLoader__.load({
         } catch {
           setChatMessages((messages) => [...messages, { role: 'assistant', text: context }])
         }
+      }
+
+      const stopChatWaiting = () => {
+        if (!chatRequestRef.current) return
+        chatRequestRef.current = null
+        setChatRequest(null)
+        setChatTask(null)
+        setChatBridgeState('idle')
+        setChatBridgeError('')
+        setChatMessages((messages) => [...messages, { role: 'assistant', text: '已停止在插件内等待。主对话不会被取消，完成后仍会出现在任务流中。' }])
       }
 
       const sendChatMessage = () => {
@@ -1488,7 +1509,7 @@ window.__ModuleLoader__.load({
         if (templatePickerOpen || view === 'templates' || view === 'workshop') void reloadTemplates()
       }, [reloadTemplates, templatePickerOpen, view])
 
-      const templateActivity = useMemo(() => {
+      const previewActivity = useMemo(() => {
         const nodes = Array.isArray(mainConversation.snapshot?.nodes) ? mainConversation.snapshot.nodes : []
         return nodes.map((node) => {
           const tool = toolDescriptor(node)
@@ -1498,22 +1519,57 @@ window.__ModuleLoader__.load({
             toolName: tool.name,
             text,
           }
-        }).filter((item) => /jobhunt_template_(save|validate)|jobhunt_render/i.test(`${item.toolName} ${item.text}`)).at(-1) || null
+        }).filter((item) => {
+          const activity = `${item.toolName} ${item.text}`
+          return /jobhunt_(render|template_(save|validate|copy|restore))/i.test(activity)
+            || /jobhunt_write/i.test(activity) && /templates[\\/]|resume\.md|preview\.html/i.test(activity)
+        }).at(-1) || null
       }, [mainConversation.snapshot])
-      const handledTemplateActivity = useRef('')
+      const handledPreviewActivity = useRef('')
 
       useEffect(() => {
-        if (!templateActivity?.signature) return
-        if (!handledTemplateActivity.current) {
-          handledTemplateActivity.current = templateActivity.signature
+        if (!previewActivity?.signature) return
+        if (!handledPreviewActivity.current) {
+          handledPreviewActivity.current = previewActivity.signature
           return
         }
-        if (handledTemplateActivity.current === templateActivity.signature) return
-        handledTemplateActivity.current = templateActivity.signature
-        const preferredId = templateIdFromText(templateActivity.text)
+        if (handledPreviewActivity.current === previewActivity.signature) return
+        handledPreviewActivity.current = previewActivity.signature
+        const preferredId = templateIdFromText(previewActivity.text)
+        const nextPreviewPath = previewPathFromText(previewActivity.text)
+        const canReadLatestEditorSource = Boolean(nextPreviewPath && editorSource?.previewPath === nextPreviewPath && editorDraft === editorDiskContentRef.current)
+        setLayout(null)
+        setFitState({ text: '检测到新的预览，正在刷新 A4 和排版指标…', state: 'pending' })
+        if (nextPreviewPath) {
+          setSelected(nextPreviewPath)
+          setView('preview')
+          if (editorSource?.previewPath === nextPreviewPath) {
+            if (editorDraft === editorDiskContentRef.current) {
+              fetch(`/dsh-resume/api/editor/source?preview=${encodeURIComponent(nextPreviewPath)}`, { cache: 'no-store' })
+                .then((response) => readJsonResponse(response, '刷新 Markdown'))
+                .then((source) => {
+                  editorDiskContentRef.current = source.content || ''
+                  setEditorSource(source)
+                  setEditorDraft(source.content || '')
+                  setEditorPreviewUrl('')
+                  setEditorExternalPending(false)
+                  setEditorMessage('主对话已落盘，正在加载最新 Markdown 和预览。')
+                })
+                .catch(() => {})
+            } else {
+              setEditorExternalPending(true)
+              setEditorMessage('主对话已生成新预览；当前未保存草稿未被覆盖，请保存或重新打开后读取最新文件。')
+            }
+          }
+        }
+        if (!canReadLatestEditorSource) {
+          setEditorPreviewUrl((url) => url ? `${url}${url.includes('?') ? '&' : '?'}refresh=${Date.now()}` : url)
+        }
+        setTick((value) => value + 1)
+        void reload()
         const timer = setTimeout(() => { void reloadTemplates(preferredId) }, 250)
         return () => clearTimeout(timer)
-      }, [reloadTemplates, templateActivity?.signature])
+      }, [reload, reloadTemplates, previewActivity?.signature])
 
       useEffect(() => {
         const onLayoutMessage = (event) => {
@@ -1564,7 +1620,27 @@ window.__ModuleLoader__.load({
         setFitState({ text: '正在重新检查', state: 'pending' })
         setLayout(null)
         setTick((n) => n + 1)
+        if (editorPreviewUrl) setEditorPreviewUrl(`${editorPreviewUrl}${editorPreviewUrl.includes('?') ? '&' : '?'}refresh=${Date.now()}`)
         void reload()
+      }
+
+      const reloadEditorFromDisk = async () => {
+        if (!editorSource?.previewPath) return
+        setEditorBusy(true)
+        try {
+          const res = await fetch(`/dsh-resume/api/editor/source?preview=${encodeURIComponent(editorSource.previewPath)}`, { cache: 'no-store' })
+          const source = await readJsonResponse(res, '刷新 Markdown')
+          editorDiskContentRef.current = source.content || ''
+          setEditorSource(source)
+          setEditorDraft(source.content || '')
+          setEditorPreviewUrl('')
+          setEditorExternalPending(false)
+          setEditorMessage('已读取磁盘上的最新 Markdown，正在刷新预览。')
+        } catch (err) {
+          setEditorMessage(`读取最新文件失败：${err?.message || err}`)
+        } finally {
+          setEditorBusy(false)
+        }
       }
 
       const startWorkspace = async (mode) => {
@@ -1979,7 +2055,7 @@ window.__ModuleLoader__.load({
           React.createElement('div', { className: 'cj-chatQuick' },
             ...['压缩两行', '改得更专业', '匹配前端岗位'].map((prompt) => React.createElement('button', { key: prompt, type: 'button', onClick: () => setChatInput(prompt) }, prompt)),
           ),
-          React.createElement('div', { className: 'cj-chatActions' }, React.createElement('span', { className: 'cj-chatBridge', 'data-state': chatBridgeState }, mainContext.pending?.length ? '请先完成主对话确认' : chatBridgeState === 'connected' ? '主对话已响应' : chatBridgeState === 'pending' ? (mainConversation.session ? '正在等待主对话…' : '正在等待桥接…') : chatBridgeState === 'fallback' ? `桥接失败${chatBridgeError ? `：${chatBridgeError}` : ''}` : mainConversation.session ? '已同步当前主对话' : '上下文仅随本次发送'), React.createElement('button', { type: 'button', className: 'cj-chatSend', onClick: sendChatMessage, disabled: !chatInput.trim() || chatBridgeState === 'pending' || Boolean(mainContext.pending?.length) }, '发送')),
+          React.createElement('div', { className: 'cj-chatActions' }, React.createElement('span', { className: 'cj-chatBridge', 'data-state': chatBridgeState }, mainContext.pending?.length ? '请先完成主对话确认' : chatBridgeState === 'connected' ? '主对话已响应' : chatBridgeState === 'pending' ? (mainConversation.session ? '正在等待主对话…' : '正在等待桥接…') : chatBridgeState === 'fallback' ? `桥接失败${chatBridgeError ? `：${chatBridgeError}` : ''}` : mainConversation.session ? '已同步当前主对话' : '上下文仅随本次发送'), chatBridgeState === 'pending' ? React.createElement('button', { type: 'button', className: 'cj-chatStop', onClick: stopChatWaiting }, '停止等待') : React.createElement('button', { type: 'button', className: 'cj-chatSend', onClick: sendChatMessage, disabled: !chatInput.trim() || Boolean(mainContext.pending?.length) }, '发送')),
           chatBridgeState === 'fallback' && lastUserPrompt ? React.createElement('button', { type: 'button', className: 'cj-chatApply', onClick: () => copyChatTask(lastUserPrompt) }, '复制任务到主对话') : null,
         ),
       )
@@ -1993,7 +2069,7 @@ window.__ModuleLoader__.load({
           editorSource
             ? React.createElement('textarea', { className: 'cj-editorText', value: editorDraft, onChange: (event) => setEditorDraft(event.target.value), onSelect: (event) => setEditorSelection(event.currentTarget.value.slice(event.currentTarget.selectionStart, event.currentTarget.selectionEnd)), spellCheck: false, 'aria-label': 'Markdown 简历内容' })
             : React.createElement('div', { className: 'cj-editorLoading' }, editorBusy ? '正在读取 Markdown…' : '选择一份投递版本后开始编辑'),
-          React.createElement('div', { className: 'cj-editorStatus' }, editorMessage || '编辑内容后，右侧 A4 预览会自动更新。'),
+          React.createElement('div', { className: 'cj-editorStatus' }, React.createElement('span', null, editorMessage || '编辑内容后，右侧 A4 预览会自动更新。'), editorExternalPending ? React.createElement('button', { type: 'button', className: 'cj-editorReload', onClick: reloadEditorFromDisk }, '读取最新文件') : null),
         ),
         React.createElement(
           'section',
@@ -2026,6 +2102,7 @@ window.__ModuleLoader__.load({
             ),
             React.createElement('button', { type: 'button', className: 'cj-toolButton', onClick: () => { setTuningOpen((value) => !value); setTemplatePickerOpen(false) }, 'aria-expanded': tuningOpen }, '手动调整'),
             React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setEditorChatOpen((value) => !value), disabled: !editorSource }, editorChatOpen ? '收起 AI' : 'AI 助手'),
+            React.createElement('button', { type: 'button', className: 'cj-iconAction', onClick: onRefresh, title: '重新读取磁盘上的最新预览', 'aria-label': '刷新预览' }, '↻'),
             React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveEditor, disabled: editorBusy || !editorDraft.trim() }, editorBusy ? '处理中…' : '保存'),
             React.createElement('span', { className: `cj-inlineStatus cj-inlineStatus-${fitState.state}` }, `${statusButtonLabel} · ${statusButtonMeta}`),
           ),
