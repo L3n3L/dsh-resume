@@ -262,9 +262,9 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_layout_validate',
-    description: 'Validate resume.layout.json structure for extension modules, regions, and content sources. Supported semantic types include photo, summary, contact, and skill-groups.',
+    description: 'Validate resume.layout.json structure for semantic modules and composable Layout IR. Supports legacy mode/regions migration plus stack, split, and grid pagination layouts; semantic types include photo, summary, contact, and skill-groups.',
     parameters: {
-      layoutJson: { type: 'string', required: true, description: 'JSON object containing mode, regions, and blocks.' },
+      layoutJson: { type: 'string', required: true, description: 'JSON object containing legacy mode/regions or ir: stack, split, or grid, plus blocks.' },
     },
     output: textResult(),
     async execute(args) {
@@ -283,7 +283,7 @@ export function apply(ctx) {
     name: 'jobhunt_layout_save',
     description: 'Validate and save resume.layout.json next to a resume so the renderer can apply extension module types and order.',
     parameters: {
-      layoutJson: { type: 'string', required: true, description: 'JSON object containing mode, regions, and blocks.' },
+      layoutJson: { type: 'string', required: true, description: 'JSON object containing legacy mode/regions or ir: stack, split, or grid, plus blocks.' },
       resumePath: { type: 'string', description: 'Resume md relative to jobhunt/. Default: resume.md' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },

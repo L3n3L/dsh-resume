@@ -8,7 +8,7 @@ import { assembleResumeSections, buildPreviewDocument, markdownToHtml } from '..
 import { TEMPLATE_DEFAULTS, validateTemplateSpec } from '../lib/template-schema.js'
 import { generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
-import { validateLayoutSpec } from '../lib/layout-schema.js'
+import { normalizeLayoutSpec, validateLayoutSpec } from '../lib/layout-schema.js'
 import { listTemplatePresets } from '../lib/template-presets.js'
 import { listRendererIds } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
@@ -200,6 +200,46 @@ test('template renderer registry produces structural variants', () => {
   assert.match(sidebar, /dsh-column-main-item/)
   assert.match(sidebar, /dsh-column-side-item/)
   assert.doesNotMatch(sidebar, /dsh-resume-columns/)
+})
+
+test('Layout IR normalizes legacy regions and preserves explicit composition', () => {
+  const legacy = normalizeLayoutSpec({
+    mode: 'two-column',
+    regions: { main: ['projects'], side: ['skills'] },
+    blocks: [
+      { id: 'projects', type: 'projects', source: '项目经历' },
+      { id: 'skills', type: 'skills', source: '专业技能' },
+    ],
+  })
+  assert.equal(legacy.ir.type, 'split')
+  assert.deepEqual(legacy.ir.columns.map((column) => column.items), [['projects'], ['skills']])
+
+  const explicit = normalizeLayoutSpec({
+    mode: 'single-column',
+    ir: { type: 'grid', columns: 3, gap: 18, items: ['skills', 'projects'] },
+    blocks: [
+      { id: 'skills', type: 'skills', source: '技能' },
+      { id: 'projects', type: 'projects', source: '项目' },
+    ],
+  })
+  assert.deepEqual(explicit.ir, { type: 'grid', columns: 3, gap: 18, items: ['skills', 'projects'] })
+  assert.equal(validateLayoutSpec(explicit).valid, true)
+})
+
+test('Layout IR controls module order and renderer wrappers', () => {
+  const source = '# 林知远\n\n## 技能\n\n- TypeScript\n\n## 项目经历\n\n- 结果指标'
+  const layout = validateLayoutSpec({
+    ir: { type: 'grid', columns: 2, items: ['projects', 'skills'] },
+    blocks: [
+      { id: 'skills', type: 'skills', source: '技能' },
+      { id: 'projects', type: 'projects', source: '项目经历' },
+    ],
+  }).value
+  const html = assembleResumeSections(markdownToHtml(source), layout, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'portfolio-grid' })
+  assert.match(html, /dsh-layout-grid/)
+  assert.ok(html.indexOf('data-module-id="projects"') < html.indexOf('data-module-id="skills"'))
+  const generated = generateTemplateCandidate({ name: '作品网格', family: 'portfolio-grid', moduleOrder: ['profile', 'skills', 'projects'] })
+  assert.equal(generated.layoutSpec.ir.type, 'grid')
 })
 
 test('semantic modules render photo, summary, contact, and grouped skills', () => {
