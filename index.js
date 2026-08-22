@@ -47,7 +47,7 @@ Workflow:
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
 6) use jobhunt_template_list to choose a visual baseline; if the user asks for a new visual direction, call jobhunt_template_family_list first, then use a DesignBrief with an explicit family id and let the generator select a compatible renderer; when the user has explicitly asked to create or apply the template, validate, save, render, and measure it in one flow without asking for a redundant confirmation
-7) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md
+7) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md; available semantic types include photo, summary, contact, and skill-groups. Put local images under jobhunt/assets and use HTTPS URLs only when a local asset is unavailable.
 8) after jobhunt_render, call jobhunt_layout_metrics to read the browser's real A4 measurement; it includes page count, top/bottom whitespace, occupancy, module details, and visual warnings; an open plugin preview refreshes itself when a new render lands
 9) use visualAudit and the preview's page-count/overflow/blank-space indicator as feedback; if the page is sparse, has a large bottom blank, or isolates a module, adjust content/module spacing before shrinking type; prefer TemplateSpec controls over arbitrary CSS
 10) jobhunt_render refreshes preview.html and an already-open plugin preview; if metrics are pending, continue the task and let the preview report them when ready rather than asking the user to reopen Settings
@@ -262,7 +262,7 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_layout_validate',
-    description: 'Validate resume.layout.json structure for extension modules, regions, and content sources.',
+    description: 'Validate resume.layout.json structure for extension modules, regions, and content sources. Supported semantic types include photo, summary, contact, and skill-groups.',
     parameters: {
       layoutJson: { type: 'string', required: true, description: 'JSON object containing mode, regions, and blocks.' },
     },

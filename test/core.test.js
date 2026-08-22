@@ -202,6 +202,62 @@ test('template renderer registry produces structural variants', () => {
   assert.doesNotMatch(sidebar, /dsh-resume-columns/)
 })
 
+test('semantic modules render photo, summary, contact, and grouped skills', () => {
+  const source = '# 林知远\n\n## 个人简介\n\n专注前端工程与实时交互。\n\n## 联系方式\n\nlin@example.com | 杭州\n\n## 专业技能\n\n- 前端：React / TypeScript\n- 工程：Vitest / Playwright\n\n## 头像\n\n![林知远](assets/avatar.png)'
+  const layout = validateLayoutSpec({
+    mode: 'single-column',
+    regions: { main: ['summary', 'contact', 'skills', 'photo'] },
+    blocks: [
+      { id: 'summary', type: 'summary', source: '个人简介' },
+      { id: 'contact', type: 'contact', source: '联系方式' },
+      { id: 'skills', type: 'skill-groups', source: '专业技能' },
+      { id: 'photo', type: 'photo', source: '头像', options: { source: 'assets/avatar.png', shape: 'circle', size: 96 } },
+    ],
+  }).value
+  const html = assembleResumeSections(markdownToHtml(source), layout, null, TEMPLATE_DEFAULTS, { root: 'E:/jobhunt' })
+  assert.match(html, /dsh-module-summary[\s\S]*dsh-summary/)
+  assert.match(html, /dsh-module-contact[\s\S]*dsh-contact/)
+  assert.match(html, /dsh-module-skill-groups[\s\S]*dsh-skill-groups/)
+  assert.match(html, /dsh-photo dsh-photo-circle/)
+  assert.match(html, /api\/asset\?root=E%3A%2Fjobhunt(?:&amp;|&)path=assets%2Favatar.png/)
+})
+
+test('local asset route serves safe images and a visible placeholder', async () => {
+  previewState.clear()
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-assets-test-'))
+  try {
+    await initJobhunt(root)
+    await fs.writeFile(path.join(root, 'assets', 'avatar.png'), Buffer.from([137, 80, 78, 71]))
+    const routes = []
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
+    const route = routes.find((item) => item.path === '/dsh-resume/api/asset')
+    const request = (assetPath) => ({ method: 'GET', url: `/dsh-resume/api/asset?root=${encodeURIComponent(root)}&path=${encodeURIComponent(assetPath)}` })
+    const response = () => {
+      let body = null
+      return {
+        writeHead(status, headers) { this.status = status; this.headers = headers },
+        end(value) { body = Buffer.isBuffer(value) ? value : Buffer.from(String(value || '')) },
+        get body() { return body },
+      }
+    }
+    const image = response()
+    await route.handler(request('assets/avatar.png'), image)
+    assert.equal(image.status, 200)
+    assert.equal(image.headers['content-type'], 'image/png')
+    assert.deepEqual(image.body, Buffer.from([137, 80, 78, 71]))
+    const missing = response()
+    await route.handler(request('assets/missing.png'), missing)
+    assert.equal(missing.status, 404)
+    assert.match(missing.body.toString('utf8'), /图片不可用/)
+    const escaped = response()
+    await route.handler(request('../outside.png'), escaped)
+    assert.equal(escaped.status, 404)
+  } finally {
+    previewState.clear()
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
 test('business timeline renderer keeps the header and timeline structure distinct', () => {
   const source = '# 林知远\n\n前端工程师 | lin@example.com\n\n## 项目经历\n\n### 项目名称\n\n- 结果指标'
   const template = listTemplatePresets().find((item) => item.id === 'business-timeline')
