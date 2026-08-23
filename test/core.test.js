@@ -4,12 +4,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
-import { assembleResumeSections, buildPreviewDocument, markdownToHtml } from '../lib/renderer.js'
-import { TEMPLATE_DEFAULTS, validateTemplateSpec } from '../lib/template-schema.js'
+import { assembleResumeSections, buildPreviewDocument, markdownToHtml, renderPreviewHtml } from '../lib/renderer.js'
+import { TEMPLATE_DEFAULTS, validateCssText, validateTemplateSpec } from '../lib/template-schema.js'
 import { generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { normalizeLayoutSpec, validateLayoutSpec } from '../lib/layout-schema.js'
-import { listTemplatePresets } from '../lib/template-presets.js'
+import { getTemplatePreset, listAvailableTemplates, listTemplatePresets, loadTemplate, saveTemplate } from '../lib/template-presets.js'
 import { listRendererIds, resolveRendererId } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
 import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview } from '../lib/preview-api.js'
@@ -106,6 +106,17 @@ test('preview document carries an explicit preview path for metrics association'
   assert.match(html, /data-template-family="campus-clear"/)
 })
 
+test('thumbnail rendering works before a workspace has been initialized', async () => {
+  const rendered = await renderPreviewHtml(path.join(os.tmpdir(), 'dsh-resume-thumbnail-fixture'), {
+    resumePath: 'resume.md',
+    resumeContent: '# 林知远\n\n## 项目经历\n\n- 负责一个完整项目的前端交付',
+    cssText: 'body { color: #111827; }',
+    templateSpec: getTemplatePreset('campus-standard'),
+  })
+  assert.match(rendered.html, /林知远/)
+  assert.match(rendered.html, /body \{ color: #111827; \}/)
+})
+
 test('template customCss is scoped, bounded, and carried into preview', () => {
   const customCss = '.dsh-resume-section { box-shadow: 0 4px 12px #0002; }'
   const valid = validateTemplateSpec({ ...TEMPLATE_DEFAULTS, id: 'custom-template', customCss })
@@ -129,6 +140,26 @@ test('template customCss is scoped, bounded, and carried into preview', () => {
   assert.equal(validateTemplateSpec({ ...TEMPLATE_DEFAULTS, customCss: '<script>alert(1)<\/script>' }).valid, false)
 })
 
+test('template CSS is injected between defaults and custom overrides', () => {
+  const valid = validateTemplateSpec({ ...TEMPLATE_DEFAULTS, id: 'css-order', customCss: '.resume-document{outline:1px solid red;}' })
+  const html = buildPreviewDocument({
+    title: 'CSS order',
+    bodyHtml: '<div class="dsh-resume-root"><h1>林知远</h1></div>',
+    cssText: '/* base */',
+    templateCssText: '.resume-document{background:linear-gradient(90deg,#fff,#f8fafc);}',
+    sourcePath: 'resume.md',
+    templatePath: 'templates/default.css',
+    previewPath: 'preview.html',
+    templateSpec: valid.value,
+  })
+  const base = html.indexOf('data-template-base-css')
+  const template = html.indexOf('data-template-css')
+  const custom = html.indexOf('data-template-custom-css')
+  assert.ok(base >= 0 && base < template && template < custom)
+  assert.match(html, /data-dsh-manual-tokens/)
+  assert.match(html, /data-dsh-layout-contract/)
+})
+
 test('AI template candidates can carry validated customCss', () => {
   const result = generateTemplateCandidate({
     name: '卡片视觉候选',
@@ -136,6 +167,28 @@ test('AI template candidates can carry validated customCss', () => {
   })
   assert.equal(result.valid, true)
   assert.match(result.template.customCss, /box-shadow/)
+})
+
+test('independent template CSS is safe, persisted separately, and restored with versions', async () => {
+  assert.equal(validateCssText('.icon{background-image:url("data:image/svg+xml;base64,AAAA");}').valid, true)
+  assert.equal(validateCssText('.icon{background-image:url("data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E");}').valid, true)
+  assert.equal(validateCssText('.icon{background-image:url(https://example.com/icon.svg);}').valid, false)
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-template-css-'))
+  try {
+    const template = { ...TEMPLATE_DEFAULTS, id: 'independent-style', templateCss: '.dsh-resume-section{outline:2px solid #2563eb;}' }
+    const saved = await saveTemplate(root, template)
+    assert.equal(saved.cssPath, 'templates/independent-style.css')
+    assert.equal(await fs.readFile(path.join(root, 'templates/independent-style.css'), 'utf8'), template.templateCss)
+    assert.doesNotMatch(await fs.readFile(path.join(root, 'templates/independent-style.json'), 'utf8'), /templateCss/)
+    assert.equal((await loadTemplate(root, 'independent-style')).templateCss, template.templateCss)
+
+    await saveTemplate(root, { ...template, templateCss: '.dsh-resume-section{outline:3px solid #db2777;}' })
+    const versions = await fs.readdir(path.join(root, '.dsh-resume/history/templates/independent-style'))
+    assert.equal(versions.length, 1)
+    assert.match(await fs.readFile(path.join(root, '.dsh-resume/history/templates/independent-style', versions[0]), 'utf8'), /outline:2px solid/)
+  } finally {
+    await fs.rm(root, { recursive: true, force: true })
+  }
 })
 
 test('preview links preserve the selected workspace root across reloads', async () => {
@@ -180,11 +233,37 @@ test('legacy placeholder resumes upgrade without touching custom content', async
 
 test('built-in template gallery includes representative visual directions', () => {
   const templates = listTemplatePresets()
-  assert.ok(templates.length >= 15)
-  assert.deepEqual(listRendererIds(), ['clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal', 'business-timeline'])
-  assert.equal(new Set(templates.map((template) => template.renderer)).size, 10)
-  for (const id of ['campus-standard', 'tech-compact', 'split-sidebar', 'engineering-timeline', 'portfolio-grid', 'product-signal', 'academic-research', 'swiss-grid', 'midnight-terminal', 'editorial-serif', 'portfolio-cards', 'academic-paper', 'sidebar-signal', 'business-timeline']) {
+  assert.equal(templates.length, 20)
+  assert.deepEqual(listRendererIds(), ['clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal', 'business-timeline', 'portrait-profile', 'magazine-feature', 'metrics-board', 'color-block', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'case-study', 'social-profile'])
+  assert.equal(new Set(templates.map((template) => template.renderer)).size, 20)
+  for (const id of ['campus-standard', 'two-column-brief', 'rail-engineering', 'project-atlas', 'editorial-spread', 'research-dossier', 'swiss-modular', 'terminal-console', 'signal-sidebar', 'executive-ledger', 'portrait-profile', 'magazine-feature', 'metrics-board', 'color-block', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'case-study', 'social-profile']) {
     assert.ok(templates.some((template) => template.id === id), `missing built-in template: ${id}`)
+  }
+})
+
+test('legacy template ids remain loadable without appearing in the gallery', () => {
+  const templates = listTemplatePresets()
+  assert.equal(templates.some((template) => template.id === 'portfolio-grid'), false)
+  assert.equal(getTemplatePreset('portfolio-grid').id, 'portfolio-grid')
+  assert.equal(getTemplatePreset('portfolio-grid').renderer, 'portfolio-grid')
+})
+
+test('legacy workspace experiments stay hidden from the refreshed gallery', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-gallery-'))
+  try {
+    await fs.mkdir(path.join(root, 'templates'), { recursive: true })
+    for (const id of ['premium-navy', 'quiet-editorial-filled', 'soft-tinted']) {
+      await fs.writeFile(path.join(root, 'templates', `${id}.json`), JSON.stringify({
+        ...getTemplatePreset('campus-standard'),
+        id,
+        name: id,
+      }))
+    }
+    const templates = await listAvailableTemplates(root)
+    assert.equal(templates.length, 20)
+    assert.equal(templates.some((template) => ['premium-navy', 'quiet-editorial-filled', 'soft-tinted'].includes(template.id)), false)
+  } finally {
+    await fs.rm(root, { recursive: true, force: true })
   }
 })
 
@@ -324,7 +403,7 @@ test('local asset route serves safe images and a visible placeholder', async () 
 
 test('business timeline renderer keeps the header and timeline structure distinct', () => {
   const source = '# 林知远\n\n前端工程师 | lin@example.com\n\n## 项目经历\n\n### 项目名称\n\n- 结果指标'
-  const template = listTemplatePresets().find((item) => item.id === 'business-timeline')
+  const template = listTemplatePresets().find((item) => item.id === 'executive-ledger')
   const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
   assert.match(html, /dsh-renderer-business-timeline/)
   assert.match(html, /dsh-business-timeline/)
@@ -340,6 +419,26 @@ test('new visual directions are selected from design briefs', () => {
   assert.equal(minimal.template.renderer, 'swiss-grid')
   assert.equal(terminal.template.renderer, 'midnight-terminal')
   assert.equal(sidebar.template.renderer, 'split-sidebar')
+})
+
+test('new visual families generate their own renderer instead of flattening to a shared layout', () => {
+  const families = [
+    ['avatar-profile', 'portrait-profile'],
+    ['magazine-editorial', 'magazine-feature'],
+    ['impact-board', 'metrics-board'],
+    ['operation-block', 'color-block'],
+    ['career-chronicle', 'chronicle-rail'],
+    ['simple-typographic', 'minimal-typographic'],
+    ['geek-lab', 'geek-lab'],
+    ['heading-stack', 'heading-stack'],
+    ['case-study', 'case-study'],
+    ['social-profile', 'social-profile'],
+  ]
+  for (const [family, renderer] of families) {
+    const result = generateTemplateCandidate({ name: family, family })
+    assert.equal(result.valid, true, family)
+    assert.equal(result.template.renderer, renderer, family)
+  }
 })
 
 test('every built-in renderer can render the same resume fixture', () => {
@@ -400,7 +499,7 @@ test('theme families provide stable visual and module defaults', () => {
   assert.equal(family.layout.density, 'compact')
   assert.equal(family.moduleTypes.experience, 'timeline')
   assert.equal(blockPreset('timeline').preset, 'timeline')
-  assert.equal(listThemeFamilies().length, 7)
+  assert.equal(listThemeFamilies().length, 17)
 })
 
 test('DesignBrief can generate a family-driven portfolio layout', () => {

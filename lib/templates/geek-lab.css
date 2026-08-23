@@ -1,0 +1,8 @@
+/* Independent visual layer for the built-in Geek template. */
+.resume-document[data-template-id="geek-lab"] .header-block {
+  box-shadow: inset 0 -1px rgba(163, 230, 53, .18);
+}
+
+.resume-document[data-template-id="geek-lab"] .dsh-geek-block {
+  border-radius: 4px;
+}

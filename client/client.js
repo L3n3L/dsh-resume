@@ -172,6 +172,17 @@ window.__ModuleLoader__.load({
         'swiss-grid': '瑞士网格',
         'midnight-terminal': '午夜终端',
         'sidebar-signal': '侧栏信号',
+        'business-timeline': '商务履历',
+        'portrait-profile': '肖像侧栏',
+        'magazine-feature': '杂志开篇',
+        'metrics-board': '成果看板',
+        'color-block': '色块分区',
+        'chronicle-rail': '经历编年',
+        'minimal-typographic': '纯字留白',
+        'geek-lab': '极客实验室',
+        'heading-stack': '主标题层叠',
+        'case-study': '重点案例',
+        'social-profile': '社交名片',
       })[String(renderer || '')] || '基础布局'
     }
 
@@ -641,6 +652,11 @@ window.__ModuleLoader__.load({
 .cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
 .cj-templateGallery { display: flex; gap: 8px; min-height: 104px; overflow-x: auto; padding: 1px 1px 4px; }
 .cj-templateGallery[data-library="true"] { flex-wrap: wrap; align-content: flex-start; min-height: 0; overflow: visible; gap: 12px; }
+.cj-templateCategories { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+.cj-templateCategory { all: unset; box-sizing: border-box; cursor: pointer; padding: 5px 10px; border: 1px solid #e2e7ef; border-radius: 999px; color: #66738a; font-size: 11px; line-height: 1; }
+.cj-templateCategory:hover { border-color: #9a78dd; color: #6844b7; }
+.cj-templateCategory[data-active="true"] { border-color: #162442; background: #162442; color: #fff; }
+.cj-templateEmpty { padding: 28px 12px; border: 1px dashed #dbe0e9; border-radius: 10px; color: #8a94a6; text-align: center; font-size: 12px; }
 .cj-templateCard { all: unset; box-sizing: border-box; display: block; flex: 0 0 190px; cursor: pointer; padding: 8px; border: 1px solid #e1e6ee; border-radius: 12px; background: #fff; }
 .cj-templateCard:hover { border-color: #9db5e8; box-shadow: 0 3px 12px rgba(45,80,150,.08); }
 .cj-templateCard[data-active="true"] { border-color: #3559a8; box-shadow: 0 0 0 2px rgba(53,89,168,.12); }
@@ -661,13 +677,13 @@ window.__ModuleLoader__.load({
 .cj-templatePaper-terminal .cj-thumbRule { background: var(--thumb-accent, #c2410c); }
 .cj-templatePaper-two-column .cj-thumbLines { left: 64px; right: 28px; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
 .cj-templatePaper-two-column:after { content: ''; position: absolute; top: 29px; right: 9px; width: 18px; height: 3px; background: currentColor; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
-.cj-templateThumb { position: relative; height: 174px; overflow: hidden; border: 1px solid #e7eaf0; border-radius: 5px; background: #eef1f5; }
-.cj-templateThumb iframe { position: absolute; top: 3px; left: 50%; width: 794px; height: 1123px; border: 0; background: #fff; transform: translateX(-50%) scale(.15); transform-origin: top center; pointer-events: none; }
+.cj-templateThumb { position: relative; height: 184px; overflow: hidden; border: 1px solid #e7eaf0; border-radius: 5px; background: #eef1f5; }
+.cj-templateThumb iframe { position: absolute; top: 0; left: 50%; width: 794px; height: 1123px; border: 0; background: #fff; transform: translateX(-50%) scale(.2); transform-origin: top center; pointer-events: none; }
 .cj-templateThumb[data-loading="true"] { background: linear-gradient(90deg, #eef1f5 25%, #f8fafc 40%, #eef1f5 60%); background-size: 300% 100%; animation: cj-thumbLoading 1.2s ease-in-out infinite; }
-.cj-templateThumb[data-loading="true"] iframe { opacity: 0; }
+.cj-templateThumb[data-loading="true"] iframe { opacity: 1; }
 @keyframes cj-thumbLoading { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 .cj-comparePreview .cj-templateThumb { height: 116px; }
-.cj-comparePreview .cj-templateThumb iframe { transform: translateX(-50%) scale(.1); }
+.cj-comparePreview .cj-templateThumb iframe { transform: translateX(-50%) scale(.12); }
 .cj-templateName { margin-top: 7px; overflow: hidden; color: #26334d; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .cj-templateCardFooter { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .cj-templateCardFooter .cj-templateName { min-width: 0; flex: 1; }
@@ -1339,13 +1355,27 @@ window.__ModuleLoader__.load({
       const [layoutSettings, setLayoutSettings] = useState({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
       const [layoutHistory, setLayoutHistory] = useState([])
       const [templates, setTemplates] = useState([])
+      const [thumbnailEpoch, setThumbnailEpoch] = useState(0)
+      const thumbnailSignatureRef = useRef('')
       const [templateId, setTemplateId] = useState('campus-standard')
+      const [templateCategory, setTemplateCategory] = useState('全部')
       const [templateHistory, setTemplateHistory] = useState([])
       const [templateDraft, setTemplateDraft] = useState('')
       const [templateMessage, setTemplateMessage] = useState('')
       const [templateVersions, setTemplateVersions] = useState([])
       const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
       const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
+      const templateCategories = ['全部', '校招', '社招', 'Geek', '运营 / 产品', '商务', '设计 / 作品集', '暗黑', '学术 / 复试', '双栏']
+      const visibleTemplateOptions = templateOptions.filter((template) => {
+        if (templateCategory === '全部') return true
+        const tags = new Set((template.tags || []).map((tag) => String(tag)))
+        if (templateCategory === '运营 / 产品') return tags.has('产品') || tags.has('运营') || tags.has('编辑')
+        if (templateCategory === '设计 / 作品集') return tags.has('设计') || tags.has('作品集') || tags.has('项目卡片') || tags.has('模块网格')
+        if (templateCategory === '学术 / 复试') return tags.has('学术') || tags.has('研究生复试') || tags.has('教育优先')
+        if (templateCategory === 'Geek') return tags.has('技术') || tags.has('工程') || tags.has('终端') || tags.has('高密度')
+        if (templateCategory === '双栏') return template.layout?.mode === 'two-column' || tags.has('双栏')
+        return tags.has(templateCategory)
+      })
       const [visualTokens, setVisualTokens] = useState(() => visualTokensFromTemplate(selectedTemplate))
       const [visualHistory, setVisualHistory] = useState([])
       const [templateCompareIds, setTemplateCompareIds] = useState([])
@@ -1642,6 +1672,17 @@ window.__ModuleLoader__.load({
           if (!res.ok) throw new Error(`templates ${res.status}`)
           const data = await res.json()
           if (!Array.isArray(data.templates)) return
+          const thumbnailSignature = JSON.stringify(data.templates.map((template) => ({
+            id: template.id,
+            name: template.name,
+            renderer: template.renderer,
+            visual: template.visual,
+            layout: template.layout,
+          })))
+          if (thumbnailSignatureRef.current !== thumbnailSignature) {
+            thumbnailSignatureRef.current = thumbnailSignature
+            setThumbnailEpoch((value) => value + 1)
+          }
           setTemplates(data.templates)
           const preferred = data.templates.find((template) => template.id === preferredId)
           if (preferred) {
@@ -1665,6 +1706,12 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         if (templatePickerOpen || view === 'templates' || view === 'workshop') void reloadTemplates()
       }, [reloadTemplates, templatePickerOpen, view])
+
+      useEffect(() => {
+        if (!['templates', 'workshop'].includes(view)) return undefined
+        const timer = window.setInterval(() => { void reloadTemplates() }, 2000)
+        return () => window.clearInterval(timer)
+      }, [reloadTemplates, view])
 
       const previewActivity = useMemo(() => {
         const nodes = Array.isArray(mainConversation.snapshot?.nodes) ? mainConversation.snapshot.nodes : []
@@ -2072,12 +2119,17 @@ window.__ModuleLoader__.load({
         : fitState.state === 'overflow' ? '有溢出' : fitState.state === 'multi' ? '多页' : '测量中'
       const statusButtonMeta = layout?.pageCount ? `${layout.pageCount} 页` : '排版指标'
       const templateThumbnail = (template, compare = false) => {
-        const src = selected
-          ? `/dsh-resume/preview?${new URLSearchParams({ path: selected, root: status?.root || '', t: String(tick), template: template.id, thumbnail: '1' }).toString()}`
+        // The gallery must work on first launch, before a user has selected a
+        // preview. The API uses the built-in dense specimen for thumbnail=1;
+        // the real resume is never replaced by this sample.
+        const thumbnailPath = selected || 'preview.html'
+        const thumbnailRoot = selected ? (status?.root || '') : ''
+        const src = status || selected
+          ? `/dsh-resume/preview?${new URLSearchParams({ path: thumbnailPath, root: thumbnailRoot, t: String(thumbnailEpoch), template: template.id, thumbnail: '1' }).toString()}`
           : ''
         const paperClass = `cj-templatePaper cj-templatePaper-${template.visual?.variant || 'standard'}${template.layout?.mode === 'two-column' ? ' cj-templatePaper-two-column' : ''}`
         if (!src) return React.createElement('div', { className: paperClass, style: { '--thumb-accent': template.visual?.accentColor || '#3559a8', '--thumb-bg': template.visual?.backgroundColor || '#fff' } }, React.createElement('div', { className: 'cj-thumbTop' }), React.createElement('div', { className: 'cj-thumbRule' }), React.createElement('div', { className: 'cj-thumbSection' }), React.createElement('div', { className: 'cj-thumbLines' }))
-        return React.createElement('div', { className: 'cj-templateThumb', 'data-loading': 'true', 'data-compare': compare ? 'true' : 'false' }, React.createElement('iframe', { title: `${template.name}真实预览缩略图`, src, loading: 'lazy', onLoad: (event) => { event.currentTarget.parentElement?.setAttribute('data-loading', 'false') } }))
+        return React.createElement('div', { className: 'cj-templateThumb', 'data-loading': 'true', 'data-compare': compare ? 'true' : 'false' }, React.createElement('iframe', { title: `${template.name}真实预览缩略图`, src, loading: compare ? 'lazy' : 'eager', onLoad: (event) => { window.requestAnimationFrame(() => event.currentTarget.parentElement?.setAttribute('data-loading', 'false')) } }))
       }
       const navItems = [
         ['start', '⌂', '开始'],
@@ -2087,18 +2139,20 @@ window.__ModuleLoader__.load({
         ['workshop', '✦', '模板工坊'],
         ['guide', '✓', '排版检查'],
       ]
-      const templateGallery = React.createElement(
-        'div',
-        { className: 'cj-templateGallery', 'data-library': 'true', 'aria-label': '视觉模板' },
-        ...templateOptions.map((template) => React.createElement(
+      const renderTemplateCard = (template) => React.createElement(
           'div',
-          { key: template.id, className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', 'data-compared': templateCompareIds.includes(template.id) ? 'true' : 'false', role: 'button', tabIndex: 0, onClick: () => onTemplateChange(template.id), onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onTemplateChange(template.id) } }, 'aria-label': `选择模板：${template.name}` },
+          { key: template.id, className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', 'data-compared': templateCompareIds.includes(template.id) ? 'true' : 'false', role: 'button', tabIndex: 0, onClick: () => { onTemplateChange(template.id); setView('preview') }, onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onTemplateChange(template.id); setView('preview') } }, 'aria-label': `应用模板并预览：${template.name}` },
           templateThumbnail(template),
           React.createElement('div', { className: 'cj-templateCardFooter' }, React.createElement('div', { className: 'cj-templateName' }, template.name), React.createElement('button', { type: 'button', className: 'cj-compareButton', 'data-active': templateCompareIds.includes(template.id) ? 'true' : 'false', onClick: (event) => { event.stopPropagation(); toggleTemplateCompare(template.id) } }, templateCompareIds.includes(template.id) ? '已加入' : '＋对比')),
           React.createElement('div', { className: 'cj-templateTags' }, [rendererLabel(template.renderer), template.layout?.mode === 'two-column' ? '双栏' : '单栏', ...(template.tags || []).filter((tag) => tag !== '单栏' && tag !== '双栏')].slice(0, 3).join(' · ')),
           React.createElement('div', { className: 'cj-templateDescription' }, template.description || '原创视觉预设，适合投递版简历。'),
-        )),
+        )
+      const createTemplateGallery = (options) => React.createElement(
+        'div',
+        { className: 'cj-templateGallery', 'data-library': 'true', 'aria-label': '视觉模板' },
+        ...options.map(renderTemplateCard),
       )
+      const templateGallery = createTemplateGallery(templateOptions)
       const startView = React.createElement(
         'div',
         { className: 'cj-startView' },
@@ -2193,13 +2247,16 @@ window.__ModuleLoader__.load({
       const templatesView = React.createElement(
         React.Fragment,
         null,
-        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板库'), React.createElement('div', { className: 'cj-mainHint' }, '选择视觉基线，不会自动离开当前页面。'))),
+        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板库'), React.createElement('div', { className: 'cj-mainHint' }, '点击卡片直接进入 A4 预览；用“＋对比”同时比较多个方向。'))),
         React.createElement('div', { className: 'cj-guide' },
           React.createElement('h3', null, '选择一个视觉方向'),
-          React.createElement('p', null, '点击卡片会切换当前候选；点“＋对比”可以同时比较最多 3 个方向。确认后再进入 A4 预览。'),
-          templateGallery,
+          React.createElement('p', null, '点击卡片立即应用并进入 A4；点“＋对比”可以同时比较最多 3 个方向。'),
+          React.createElement('div', { className: 'cj-templateCategories', 'aria-label': '模板分类' }, ...templateCategories.map((category) => React.createElement('button', { key: category, type: 'button', className: 'cj-templateCategory', 'data-active': templateCategory === category ? 'true' : 'false', onClick: () => setTemplateCategory(category) }, category))),
+          visibleTemplateOptions.length
+            ? createTemplateGallery(visibleTemplateOptions)
+            : React.createElement('div', { className: 'cj-templateEmpty' }, '这个分类暂时没有模板，换一个方向看看。'),
           templateCompareView,
-          React.createElement('div', { className: 'cj-workshopActions' }, React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => setView('preview') }, '应用并查看预览')),
+          React.createElement('div', { className: 'cj-workshopActions' }, React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => setView('preview') }, '回到 A4 预览')),
         ),
       )
       const workshopView = React.createElement(
@@ -2410,14 +2467,14 @@ window.__ModuleLoader__.load({
           React.createElement(
             'div',
             { className: 'cj-previewActions' },
-            React.createElement('button', { type: 'button', className: 'cj-toolButton', onClick: () => { setTemplatePickerOpen((value) => !value); setTuningOpen(false) }, 'aria-expanded': templatePickerOpen }, `模板 · ${selectedTemplate?.name || '选择模板'}`),
+            React.createElement('button', { type: 'button', className: 'cj-toolButton', onClick: () => { setTemplatePickerOpen((value) => !value); setTuningOpen(false); setEditorChatOpen(false) }, 'aria-expanded': templatePickerOpen }, `模板 · ${selectedTemplate?.name || '选择模板'}`),
             React.createElement(
               'select',
               { className: 'cj-fileSelect', value: selected, onChange: (e) => setSelected(e.target.value) },
               ...previewOptions,
             ),
-            React.createElement('button', { type: 'button', className: 'cj-toolButton', onClick: () => { setTuningOpen((value) => !value); setTemplatePickerOpen(false) }, 'aria-expanded': tuningOpen }, '手动调整'),
-            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setEditorChatOpen((value) => !value), disabled: !editorSource }, editorChatOpen ? '收起 AI' : 'AI 助手'),
+            React.createElement('button', { type: 'button', className: 'cj-toolButton', onClick: () => { setTuningOpen((value) => !value); setTemplatePickerOpen(false); setEditorChatOpen(false) }, 'aria-expanded': tuningOpen }, '手动调整'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => { setEditorChatOpen((value) => !value); setTuningOpen(false); setTemplatePickerOpen(false) }, disabled: !editorSource }, editorChatOpen ? '收起 AI' : 'AI 助手'),
             React.createElement('button', { type: 'button', className: 'cj-iconAction', onClick: onRefresh, title: '重新读取磁盘上的最新预览', 'aria-label': '刷新预览' }, '↻'),
             React.createElement('button', { type: 'button', className: 'cj-ghostAction cj-compactExport', onClick: onDownload, disabled: !previewSrc }, '下载 HTML'),
             React.createElement('button', { type: 'button', className: 'cj-solidAction cj-compactExport', onClick: onPrint, disabled: !previewSrc }, '导出 PDF'),

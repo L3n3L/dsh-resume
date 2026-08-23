@@ -1,0 +1,8 @@
+/* Independent visual layer for the built-in profile template. */
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-frame {
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--resume-accent-color) 16%, transparent);
+}
+
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-copy .header-block h1 {
+  letter-spacing: -.055em;
+}

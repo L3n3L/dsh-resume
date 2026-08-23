@@ -1,0 +1,17 @@
+/* Independent visual layer for the built-in campus template. */
+.resume-document[data-template-id="campus-standard"] .header-block {
+  padding-bottom: 18px;
+  border-bottom-width: 3px;
+}
+
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section > h2 {
+  letter-spacing: .02em;
+  text-transform: none;
+}
+
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section > h2::before {
+  content: "// ";
+  color: var(--resume-muted-color);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: .72em;
+}

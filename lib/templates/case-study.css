@@ -1,0 +1,8 @@
+/* Independent visual layer for the built-in case-study template. */
+.resume-document[data-template-id="case-study"] .dsh-case-feature {
+  box-shadow: 9px 9px 0 color-mix(in srgb, var(--resume-accent-color) 12%, transparent);
+}
+
+.resume-document[data-template-id="case-study"] .dsh-case-label {
+  letter-spacing: .2em;
+}

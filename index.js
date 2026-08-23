@@ -172,9 +172,9 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_generate',
-    description: 'Generate a safe visual resume template candidate from a compact DesignBrief. Returns a validated TemplateSpec and rationale; when the user explicitly asks to create or apply the template, continue with validation, jobhunt_template_save, rendering, and A4 measurement without waiting for a redundant confirmation.',
+    description: 'Generate a safe visual resume template candidate from a compact DesignBrief. Returns a validated TemplateSpec, optional independent templateCss, and rationale; when the user explicitly asks to create or apply the template, continue with validation, jobhunt_template_save, rendering, and A4 measurement without waiting for a redundant confirmation.',
     parameters: {
-      briefJson: { type: 'string', required: true, description: 'JSON DesignBrief: name, family, audience, optional layout/density/tone overrides, moduleOrder, palette, customCss, bestFor, and tags.' },
+      briefJson: { type: 'string', required: true, description: 'JSON DesignBrief: name, family, audience, optional layout/density/tone overrides, moduleOrder, palette, customCss, templateCss, bestFor, and tags.' },
     },
     output: textResult(),
     async execute(args) {
@@ -192,9 +192,9 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_save',
-    description: 'Save an AI-generated, validated visual resume template as jobhunt/templates/<id>.json so it appears in the template library.',
+    description: 'Save an AI-generated, validated visual resume template as jobhunt/templates/<id>.json plus an optional independent jobhunt/templates/<id>.css so it appears in the template library.',
     parameters: {
-      templateJson: { type: 'string', required: true, description: 'Validated TemplateSpec JSON. The id must be lower-kebab-case and must not use a built-in id.' },
+      templateJson: { type: 'string', required: true, description: 'Validated TemplateSpec JSON. The id must be lower-kebab-case and must not use a built-in id. Optional templateCss is written to templates/<id>.css.' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
     output: textResult(),
@@ -209,7 +209,7 @@ export function apply(ctx) {
       if (!validation.valid) return { saved: false, valid: false, errors: validation.errors, template: validation.value }
       try {
         const root = resolveJobhuntRoot(exec, args.rootDir)
-        return { saved: true, valid: true, ...(await saveTemplate(root, validation.value)) }
+        return { saved: true, valid: true, ...(await saveTemplate(root, parsed)) }
       } catch (err) {
         return { saved: false, valid: true, errors: [String(err?.message || err)], template: validation.value }
       }

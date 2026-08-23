@@ -1,0 +1,9 @@
+/* Independent visual layer for the built-in editorial template. */
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-kicker {
+  border-top: 1px solid color-mix(in srgb, var(--resume-accent-color) 42%, transparent);
+  padding-top: 8px;
+}
+
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-entry:first-child {
+  padding-top: 4px;
+}
