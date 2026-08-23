@@ -48,7 +48,6 @@
 .resume-document[data-template-id="portrait-profile"] .dsh-resume-section pre { overflow:auto; margin:10px 0; padding:11px 12px; border-radius:9px; background:#fff1f7; color:#574452; }
 .resume-document[data-template-id="portrait-profile"] .dsh-resume-section pre code { padding:0; background:transparent; color:inherit; }
 .resume-document[data-template-id="portrait-profile"] .dsh-resume-section a:hover { color:#be185d; text-decoration-thickness:2px; }
-.resume-document[data-template-id="portrait-profile"] .dsh-entry-bullets ul { margin:4px 0 0; padding-left:1.25em; }
 .resume-document[data-template-id="portrait-profile"] .dsh-entry-bullets li + li { margin-top:5px; }
 .resume-document[data-template-id="portrait-profile"] .dsh-module-experience .dsh-entry-title,
 .resume-document[data-template-id="portrait-profile"] .dsh-module-projects .dsh-entry-title { padding:7px 10px; border-left:3px solid #e879a9; border-radius:0 7px 7px 0; background:#fff8fb; }

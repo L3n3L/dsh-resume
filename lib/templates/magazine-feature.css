@@ -51,7 +51,6 @@
 .resume-document[data-template-id="magazine-feature"] .dsh-resume-section pre { overflow:auto; margin:11px 0; padding:11px 13px; border-top:1px solid var(--mag-rose); border-bottom:1px solid #eadfe3; background:#fffafb; color:#2f2528; }
 .resume-document[data-template-id="magazine-feature"] .dsh-resume-section pre code { padding:0; background:transparent; color:inherit; }
 .resume-document[data-template-id="magazine-feature"] .dsh-resume-section a:hover { color:#9f1239; text-decoration-thickness:2px; }
-.resume-document[data-template-id="magazine-feature"] .dsh-entry-bullets ul { margin:4px 0 0; padding-left:1.25em; }
 .resume-document[data-template-id="magazine-feature"] .dsh-entry-bullets li + li { margin-top:5px; }
 .resume-document[data-template-id="magazine-feature"] .dsh-module-projects .dsh-entry-title { margin-top:16px; padding-bottom:5px; border-bottom:1px solid #eadfe3; font-family:Georgia,"Noto Serif SC",serif; font-size:17px; }
 .resume-document[data-template-id="magazine-feature"] .dsh-module-experience .dsh-entry-title { padding-left:9px; border-left:2px solid var(--mag-rose); }

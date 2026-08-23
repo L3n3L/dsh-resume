@@ -49,7 +49,6 @@
 .resume-document[data-template-id="geek-lab"] .dsh-resume-section pre { overflow:auto; margin:10px 0; padding:11px 12px; border:1px solid rgba(103,232,249,.24); background:#08110d; color:#eaffef; }
 .resume-document[data-template-id="geek-lab"] .dsh-resume-section pre code { padding:0; border:0; background:transparent; color:inherit; }
 .resume-document[data-template-id="geek-lab"] .dsh-resume-section a:hover { color:var(--geek-green); text-shadow:0 0 10px rgba(183,243,75,.35); }
-.resume-document[data-template-id="geek-lab"] .dsh-entry-bullets ul { margin:4px 0 0; padding-left:1.25em; }
 .resume-document[data-template-id="geek-lab"] .dsh-entry-bullets li + li { margin-top:5px; }
 .resume-document[data-template-id="geek-lab"] .dsh-module-experience .dsh-entry-title::before,
 .resume-document[data-template-id="geek-lab"] .dsh-module-projects .dsh-entry-title::before { content:"> "; color:var(--geek-cyan); }

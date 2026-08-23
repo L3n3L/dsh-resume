@@ -50,7 +50,6 @@
 .resume-document[data-template-id="case-study"] .dsh-resume-section pre { overflow:auto; margin:10px 0; padding:11px 13px; border:1px solid var(--case-rule); border-left:4px solid var(--case-blue); background:#f8fbff; color:var(--case-ink); }
 .resume-document[data-template-id="case-study"] .dsh-resume-section pre code { padding:0; background:transparent; color:inherit; }
 .resume-document[data-template-id="case-study"] .dsh-resume-section a:hover { color:#1e40af; text-decoration-thickness:2px; }
-.resume-document[data-template-id="case-study"] .dsh-entry-bullets ul { margin:4px 0 0; padding-left:1.25em; }
 .resume-document[data-template-id="case-study"] .dsh-entry-bullets li + li { margin-top:5px; }
 .resume-document[data-template-id="case-study"] .dsh-module-projects .dsh-entry-title { padding:9px 11px; border:1px solid #9fbeef; border-radius:6px; background:#fff; box-shadow:4px 4px 0 rgba(37,99,235,.08); }
 .resume-document[data-template-id="case-study"] .dsh-module-experience .dsh-entry-title { padding-left:10px; border-left:4px solid var(--case-blue); }

@@ -47,14 +47,12 @@ Workflow:
 3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
-6) when the resume-template-design Skill is available, load it for template visual decisions; use jobhunt_template_list to choose a visual baseline. The active built-in catalog is composition-only. If the user asks for a new visual direction, call jobhunt_template_family_list first, then use a DesignBrief with an explicit family id. New templates MUST use renderer=composition, an explicit composition object, and scoped templateCss; when the user has explicitly asked to create or apply the template, run generate → validate → save → list (verify the id is present) → render with that exact templateId → measure in one flow without asking for redundant confirmation
-7) template design quality gate: before saving, define the template's target role, density, signature visual language, and content hierarchy. The independent templateCss must be scoped to the template id and intentionally style header, section headings, entry titles, entry metadata, result bullets, skills, tables/quotes/code where relevant, and @media print. A token-only color change is not a new template. Use a substantive real resume fixture; never use an empty page as visual proof
-8) use resume.layout.json and jobhunt_layout_validate to declare extension modules without adding custom syntax to resume.md; available semantic types include photo, summary, contact, and skill-groups. Put local images under jobhunt/assets and use HTTPS URLs only when a local asset is unavailable.
-9) after jobhunt_render, call jobhunt_layout_metrics to read the browser's real A4 measurement; it includes page count, top/bottom whitespace, occupancy, module details, and visual warnings; an open plugin preview refreshes itself when a new render lands
-10) use visualAudit and the preview's page-count/overflow/blank-space indicator as feedback; if the page is sparse, has a large bottom blank, or isolates a module, adjust content/module spacing before shrinking type; prefer TemplateSpec controls over arbitrary CSS
-11) jobhunt_render refreshes preview.html and an already-open plugin preview; if metrics are pending, continue the task and let the preview report them when ready rather than asking the user to reopen Settings
-12) never claim a template is installed because generation only returned a candidate. The save result and a follow-up jobhunt_template_list entry are the source of truth. If a legacy template is encountered, use jobhunt_template_migrate before applying it; do not save a legacy renderer and do not silently leave it out of the library
-13) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
+6) for visual template work, load the resume-template-design Skill and use the template tools. The active built-ins are composition-only. New templates use an explicit DesignBrief, renderer=composition, composition, and scoped templateCss.
+7) when the user asks to create or apply a template, complete generate → validate → save → list (verify the id) → render with that templateId → measure. A generated candidate is not an installed template.
+8) use resume.layout.json and jobhunt_layout_validate for semantic modules such as photo, summary, contact, and skill-groups; keep local images under jobhunt/assets.
+9) after jobhunt_render, call jobhunt_layout_metrics for browser A4 results. If metrics are pending, continue the task and let the open preview report them; do not invent page numbers or ask for redundant confirmation.
+10) if a legacy template is encountered, migrate it before applying it; do not save a legacy renderer.
+11) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
 function textResult() {
   return {

@@ -10,7 +10,7 @@ import { auditTemplateCss, generateTemplateCandidate, normalizeDesignBrief } fro
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { normalizeLayoutSpec, validateLayoutSpec } from '../lib/layout-schema.js'
 import { getTemplatePreset, listAvailableTemplates, listTemplatePresets, loadTemplate, migrateTemplate, saveTemplate } from '../lib/template-presets.js'
-import { listRendererIds, renderTemplateLayout, resolveRendererId } from '../lib/renderers/registry.js'
+import { listLegacyRendererIds, listRendererIds, renderTemplateLayout, resolveRendererId } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
 import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview } from '../lib/preview-api.js'
 
@@ -217,11 +217,13 @@ test('representative built-in templates carry distinct visual asset layers', asy
     'magazine-feature': ['LEAD STORY', 'mag-rose'],
     'case-study': ['OUTCOME FIRST', 'case-blue'],
   }
+  const sharedCss = await fs.readFile(path.join(repoRoot, 'lib/templates/default.css'), 'utf8')
+  assert.match(sharedCss, /\.dsh-entry-bullets ul/)
   for (const [id, markers] of Object.entries(expected)) {
     const template = await loadTemplate(null, id)
     assert.ok(template.templateCss.length >= 1800, `${id} should have a substantive independent CSS layer`)
     for (const marker of markers) assert.match(template.templateCss, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
-    for (const marker of ['table', 'blockquote', 'pre', 'a:hover', 'dsh-entry-bullets ul', 'dsh-icon', '@media print']) {
+    for (const marker of ['table', 'blockquote', 'pre', 'a:hover', 'dsh-icon', '@media print']) {
       assert.match(template.templateCss, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${id} should cover ${marker}`)
     }
   }
@@ -339,7 +341,8 @@ test('legacy placeholder resumes upgrade without touching custom content', async
 test('built-in template gallery includes representative visual directions', () => {
   const templates = listTemplatePresets()
   assert.equal(templates.length, 6)
-  assert.deepEqual(listRendererIds(), ['composition', 'clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal', 'business-timeline', 'portrait-profile', 'magazine-feature', 'metrics-board', 'color-block', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'case-study', 'social-profile'])
+  assert.deepEqual(listRendererIds(), ['composition'])
+  assert.equal(listLegacyRendererIds().length, 20)
   assert.equal(new Set(templates.map((template) => template.renderer)).size, 1)
   assert.equal(templates.filter((template) => template.renderer === 'composition').length, 6)
   for (const id of ['campus-standard', 'portrait-profile', 'magazine-feature', 'geek-lab', 'case-study', 'business-ledger-plus']) {
@@ -771,6 +774,16 @@ test('every built-in renderer can render the same resume fixture', () => {
     const body = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
     const html = buildPreviewDocument({ title: template.name, bodyHtml: body, cssText: '', sourcePath: 'resume.md', templatePath: 'templates/default.css', previewPath: 'preview.html', templateSpec: template })
     assert.match(html, new RegExp(`renderer-${template.renderer}`), `renderer missing for ${template.id}`)
+  }
+})
+
+test('legacy renderer compatibility is explicit and outside the active catalog', () => {
+  const source = '# 张三\n\n前端开发 | demo@example.com\n\n## 项目经历\n\n- 性能提升 30%'
+  for (const renderer of listLegacyRendererIds()) {
+    const template = { ...TEMPLATE_DEFAULTS, id: `legacy-${renderer}`, renderer }
+    const body = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+    const html = buildPreviewDocument({ title: template.name, bodyHtml: body, cssText: '', sourcePath: 'resume.md', templatePath: 'templates/default.css', previewPath: 'preview.html', templateSpec: template })
+    assert.match(html, new RegExp(`renderer-${renderer}`), `legacy renderer missing: ${renderer}`)
   }
 })
 

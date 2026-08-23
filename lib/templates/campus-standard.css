@@ -74,7 +74,6 @@
 .resume-document[data-template-id="campus-standard"] .dsh-resume-section pre { overflow:auto; margin:10px 0; padding:10px 12px; border-left:3px solid var(--campus-blue); background:#f1f6ff; color:var(--campus-ink); }
 .resume-document[data-template-id="campus-standard"] .dsh-resume-section pre code { padding:0; border:0; background:transparent; color:inherit; }
 .resume-document[data-template-id="campus-standard"] .dsh-resume-section a:hover { color:#1e40af; text-decoration-thickness:2px; }
-.resume-document[data-template-id="campus-standard"] .dsh-entry-bullets ul { margin:4px 0 0; padding-left:1.25em; }
 .resume-document[data-template-id="campus-standard"] .dsh-entry-bullets li + li { margin-top:4px; }
 .resume-document[data-template-id="campus-standard"] .dsh-module-experience .dsh-entry-title,
 .resume-document[data-template-id="campus-standard"] .dsh-module-projects .dsh-entry-title { padding-left:9px; border-left:3px solid #93c5fd; }
