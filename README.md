@@ -201,16 +201,19 @@ AI 助手位于当前预览工作台右侧，拿到的是当前简历上下文�
 
 插件提供一组面向求职工作区的工具，Agent 可以组合使用：
 
+模板视觉设计的详细方法由随包提供的 `skills/resume-template-design/SKILL.md` 承载；系统提示词负责触发路由，工具负责最终校验和落盘。
+
 | 工具 | 用途 |
 | --- | --- |
 | `jobhunt_init` | 初始化求职工作区 |
 | `jobhunt_read` / `jobhunt_write` | 读取和写入简历材料 |
 | `jobhunt_check` | 检查内容证据、目录和排版风险 |
-| `jobhunt_template_list` | 查看可用模板 |
+| `jobhunt_template_list` | 查看 6 个内置模板和已保存的 composition 模板；旧模板需先迁移 |
 | `jobhunt_template_copy` | 复制模板并建立独立版本 |
 | `jobhunt_template_generate` | 从 DesignBrief 生成可校验的模板候选，不自动入库 |
 | `jobhunt_template_validate` | 校验模板配置 |
-| `jobhunt_template_save` | 保存模板版本 |
+| `jobhunt_template_save` | 保存 composition 模板版本；拒绝静默失效的旧 renderer |
+| `jobhunt_template_migrate` | 将已有旧模板迁移到 composition 协议 |
 | `jobhunt_layout_validate` | 校验模块布局声明 |
 | `jobhunt_layout_metrics` | 读取真实 A4 测量指标 |
 | `jobhunt_template_autotune` | 根据指标做有限轮次调优 |
@@ -220,9 +223,14 @@ AI 助手位于当前预览工作台右侧，拿到的是当前简历上下文�
 
 ```text
 初始化 → 读取材料和 JD → 检查证据 → 生成投递版
-→ 选择或生成模板候选 → 校验 → 渲染 → 读取 A4 指标
+→ 选择或生成模板候选 → 校验 → 保存并重新列出确认
+→ 用精确模板 ID 渲染 → 读取 A4 指标
 → 有界调优 → 用户确认 → 保存模板版本
 ```
+
+模板生成的完成判定不是“AI 返回了候选 JSON”，而是 `jobhunt_template_save` 成功，随后
+`jobhunt_template_list` 能查到该 ID，并且 `jobhunt_render` 使用同一个 `templateId` 成功刷新预览。
+旧 workspace 模板可以用 `jobhunt_template_migrate` 转换；不会再出现“保存成功但模板库看不到”的静默状态。
 
 ## 文件结构
 

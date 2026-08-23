@@ -1,0 +1,477 @@
+/*
+ * Business Ledger Plus — an independent business-resume skin.
+ *
+ * The visual target is a navy identity header, a gold signal line and a
+ * project-first chronology. It deliberately uses the dsh-resume semantic DOM
+ * rather than copying any third-party stylesheet or asset.
+ */
+
+[data-template-id="business-ledger-plus"] .header-block {
+  position: relative;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  column-gap: 18px;
+  align-items: center;
+  min-height: 162px;
+  margin: calc(-1 * var(--resume-page-margin)) calc(-1 * var(--resume-page-margin)) 28px;
+  padding: 34px var(--resume-page-margin) 28px;
+  overflow: hidden;
+  background: #10263c;
+  color: #f8fafc;
+  border: 0;
+  border-bottom: 5px solid #d6bd25;
+}
+
+[data-template-id="business-ledger-plus"] .header-block::after {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  width: 92px;
+  height: 1px;
+  content: "";
+  background: rgba(242, 212, 141, .38);
+  box-shadow: -16px -7px 0 rgba(242, 212, 141, .18), -32px -14px 0 rgba(242, 212, 141, .1);
+}
+
+/* A neutral fallback keeps the identity block balanced before a portrait is supplied. */
+[data-template-id="business-ledger-plus"] .header-block:not(:has(img))::before {
+  display: grid;
+  grid-row: 1 / span 3;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  content: "CV";
+  color: #10263c;
+  background: #d6d228;
+  border: 4px solid rgba(214, 210, 40, .35);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .28), inset 0 0 0 7px rgba(20, 38, 61, .08);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+[data-template-id="business-ledger-plus"] .header-block:has(img) {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-avatar {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  margin: 0;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-avatar img {
+  display: block;
+  width: 68px;
+  height: 68px;
+  object-fit: cover;
+  border: 3px solid #f2d48d;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(242, 212, 141, .18);
+}
+
+[data-template-id="business-ledger-plus"] .header-block h1,
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-name {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0 0 7px;
+  color: #d6d228;
+  font-size: 30px;
+  line-height: 1.08;
+  letter-spacing: .015em;
+}
+
+[data-template-id="business-ledger-plus"] .header-block p,
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-line {
+  grid-column: 2;
+  margin: 3px 0 0;
+  color: #d7e0ea;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-identity {
+  grid-row: 2;
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 9px;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-contact {
+  grid-row: 3;
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 9px;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-separator {
+  color: rgba(215, 224, 234, .48);
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-contact-item {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-contact-email,
+[data-template-id="business-ledger-plus"] .header-block .dsh-contact-github,
+[data-template-id="business-ledger-plus"] .header-block .dsh-contact-website {
+  color: #f2d48d;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-icon,
+[data-template-id="business-ledger-plus"] .header-block a {
+  color: #d6d228;
+}
+
+/* Only the two experience-bearing modules use the chronology rail. */
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline {
+  position: relative;
+  margin: 0 0 20px 8px;
+  padding: 0 0 4px 28px;
+  border-left: 2px solid rgba(20, 38, 61, .24);
+  break-inside: avoid;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline:not(.dsh-renderer-item-experience):not(.dsh-renderer-item-projects):not(.dsh-renderer-item-project-list) {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline:last-child {
+  margin-bottom: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-marker {
+  position: absolute;
+  left: -9px;
+  top: 1px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #d2a84b;
+  box-shadow: 0 0 0 2px #14263d;
+  display: none;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline:not(.dsh-renderer-item-experience):not(.dsh-renderer-item-projects):not(.dsh-renderer-item-project-list) .dsh-entry-rail-marker {
+  display: none;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content > .dsh-resume-section {
+  min-width: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(120px, .9fr) minmax(150px, .95fr);
+  column-gap: 12px;
+  row-gap: 5px;
+  margin: 12px 0 19px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-main {
+  display: contents;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-main .dsh-entry-title,
+[data-template-id="business-ledger-plus"] .dsh-entry-main > h3 {
+  display: contents;
+  max-width: none;
+  margin: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-main .dsh-entry-role,
+[data-template-id="business-ledger-plus"] .dsh-entry-main .dsh-entry-tech {
+  grid-column: 1 / -1;
+  margin: 3px 0 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-project {
+  display: block;
+  grid-column: 1;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-role-label {
+  display: block;
+  grid-column: 2;
+  align-self: baseline;
+  color: #1c2938;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-meta-slot {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-meta-slot .dsh-entry-meta {
+  display: contents;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-detail {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-date,
+[data-template-id="business-ledger-plus"] .dsh-entry-tech-label {
+  grid-column: 3;
+  display: block;
+  text-align: right;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-tech-label {
+  grid-row: 2;
+  margin-top: 2px;
+  color: #6c7b8d;
+  font-size: 9px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-detail > p:first-child {
+  margin-top: 3px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 0 0 7px;
+  color: #14263d;
+  border: 0;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: .01em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-section-heading::before {
+  display: inline-grid;
+  flex: 0 0 23px;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  content: "▣";
+  color: #fff;
+  background: #14263d;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #14263d;
+  font-size: 10px;
+}
+
+[data-template-id="business-ledger-plus"] [data-module-id="education"] .dsh-section-heading::before {
+  content: "▤";
+}
+
+[data-template-id="business-ledger-plus"] [data-module-id="experience"] .dsh-section-heading::before {
+  content: "↗";
+}
+
+[data-template-id="business-ledger-plus"] [data-module-id="skills"] .dsh-section-heading::before {
+  content: "✦";
+}
+
+[data-template-id="business-ledger-plus"] [data-module-id="awards"] .dsh-section-heading::before {
+  content: "◆";
+}
+
+[data-template-id="business-ledger-plus"] .dsh-section-heading::after {
+  flex: 1;
+  height: 2px;
+  content: "";
+  background: #d2a84b;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-renderer-item-experience .dsh-section-heading,
+[data-template-id="business-ledger-plus"] .dsh-renderer-item-projects .dsh-section-heading,
+[data-template-id="business-ledger-plus"] .dsh-renderer-item-project-list .dsh-section-heading {
+  width: calc(100% + 30px);
+  margin-left: -30px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content > .dsh-resume-section > h3,
+[data-template-id="business-ledger-plus"] .dsh-entry-title {
+  display: inline-block;
+  max-width: 70%;
+  margin: 14px 0 2px;
+  color: #1c2938;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content > .dsh-resume-section > h3:first-of-type,
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content > .dsh-resume-section > h2 + h3 {
+  margin-top: 0;
+}
+
+/* Date and location metadata share the title row without a new renderer wrapper. */
+[data-template-id="business-ledger-plus"] .dsh-entry-meta {
+  display: block;
+  float: right;
+  max-width: 42%;
+  margin: 14px 0 5px;
+  color: #6c7b8d;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+  letter-spacing: .02em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-role {
+  clear: both;
+  margin: 4px 0 7px;
+  color: #536273;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-tech {
+  clear: both;
+  margin: 3px 0 7px;
+  color: #6c7b8d;
+  font-size: 10px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-tech code,
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content code {
+  padding: 2px 6px;
+  color: #14263d;
+  background: #eef2f5;
+  border: 1px solid #dbe3ea;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: .92em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content strong {
+  color: #8a6b24;
+  font-weight: 800;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content p {
+  margin: 5px 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content ul {
+  clear: both;
+  margin: 7px 0 12px;
+  padding-left: 1.12em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content li {
+  margin: 4px 0;
+  padding-left: 3px;
+  color: #334253;
+  line-height: 1.5;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content li::marker {
+  color: #d2a84b;
+  font-size: .85em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content li li {
+  margin: 2px 0;
+  color: #536273;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content a {
+  color: #8a6b24;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content a:hover {
+  color: #14263d;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content blockquote {
+  position: relative;
+  margin: 10px 0;
+  padding: 9px 12px;
+  color: #536273;
+  background: #f7f3e8;
+  border-left: 3px solid #d2a84b;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content table {
+  width: 100%;
+  margin: 9px 0;
+  border-collapse: collapse;
+  color: #334253;
+  font-size: 11px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content th,
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e6e9ed;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content th {
+  color: #14263d;
+  background: #f2eee2;
+  font-weight: 800;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content tr:nth-child(even) td {
+  background: #fbfaf7;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content .dsh-skill-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  clear: both;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content .dsh-skill-group {
+  padding: 7px 9px;
+  color: #334253;
+  border: 1px solid #e1e6eb;
+  border-left: 3px solid #d2a84b;
+  background: #fbfaf7;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-skills-composition-list .dsh-skill-tags {
+  display: grid;
+  gap: 5px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-skills-composition-list .dsh-skill-tag {
+  display: block;
+  margin: 0;
+  padding: 0;
+  color: #334253;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+@media print {
+  [data-template-id="business-ledger-plus"] .header-block {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  [data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline {
+    break-inside: avoid;
+  }
+}

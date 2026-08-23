@@ -6,11 +6,11 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { assembleResumeSections, buildPreviewDocument, markdownToHtml, renderPreviewHtml } from '../lib/renderer.js'
 import { TEMPLATE_DEFAULTS, validateCssText, validateTemplateSpec } from '../lib/template-schema.js'
-import { generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
+import { auditTemplateCss, generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { normalizeLayoutSpec, validateLayoutSpec } from '../lib/layout-schema.js'
-import { getTemplatePreset, listAvailableTemplates, listTemplatePresets, loadTemplate, saveTemplate } from '../lib/template-presets.js'
-import { listRendererIds, resolveRendererId } from '../lib/renderers/registry.js'
+import { getTemplatePreset, listAvailableTemplates, listTemplatePresets, loadTemplate, migrateTemplate, saveTemplate } from '../lib/template-presets.js'
+import { listRendererIds, renderTemplateLayout, resolveRendererId } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
 import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview } from '../lib/preview-api.js'
 
@@ -169,13 +169,31 @@ test('AI template candidates can carry validated customCss', () => {
   assert.match(result.template.customCss, /box-shadow/)
 })
 
+test('template design audit distinguishes a runnable candidate from a visually reviewable template', () => {
+  const incomplete = auditTemplateCss('.resume-document{color:#111827;}', 'new-template')
+  assert.equal(incomplete.status, 'needs-visual-work')
+  assert.ok(incomplete.missing.includes('template scope'))
+  assert.ok(incomplete.missing.includes('header'))
+  const complete = auditTemplateCss(`
+    [data-template-id="new-template"] .header-block{padding:24px;}
+    [data-template-id="new-template"] .dsh-resume-section{margin-top:20px;}
+    [data-template-id="new-template"] .dsh-entry-title{font-weight:700;}
+    [data-template-id="new-template"] .dsh-entry-meta{color:#64748b;}
+    [data-template-id="new-template"] .dsh-entry-bullets{padding-left:18px;}
+    [data-template-id="new-template"] .dsh-skill-tag{border:1px solid #111827;}
+    @media print{[data-template-id="new-template"]{background:#fff;}}
+  `, 'new-template')
+  assert.equal(complete.status, 'ready-for-browser-review')
+  assert.equal(complete.missing.length, 0)
+})
+
 test('independent template CSS is safe, persisted separately, and restored with versions', async () => {
   assert.equal(validateCssText('.icon{background-image:url("data:image/svg+xml;base64,AAAA");}').valid, true)
   assert.equal(validateCssText('.icon{background-image:url("data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E");}').valid, true)
   assert.equal(validateCssText('.icon{background-image:url(https://example.com/icon.svg);}').valid, false)
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-template-css-'))
   try {
-    const template = { ...TEMPLATE_DEFAULTS, id: 'independent-style', templateCss: '.dsh-resume-section{outline:2px solid #2563eb;}' }
+    const template = { ...TEMPLATE_DEFAULTS, id: 'independent-style', renderer: 'composition', composition: { page: 'stack', header: 'standard', section: 'line', entry: 'stack', meta: 'inline', skills: 'chips' }, templateCss: '.dsh-resume-section{outline:2px solid #2563eb;}' }
     const saved = await saveTemplate(root, template)
     assert.equal(saved.cssPath, 'templates/independent-style.css')
     assert.equal(await fs.readFile(path.join(root, 'templates/independent-style.css'), 'utf8'), template.templateCss)
@@ -215,6 +233,67 @@ test('template listings expose CSS metadata so gallery thumbnails invalidate aft
   assert.ok(campus)
   assert.equal(campus.templateCssBytes, Buffer.byteLength((await loadTemplate(null, 'campus-standard')).templateCss, 'utf8'))
   assert.match(campus.templateCssFingerprint, /^[a-f0-9]{16}$/)
+})
+
+test('template workshop exposes CSS detail, validation, and live preview hooks', async () => {
+  const apiSource = await fs.readFile(path.join(repoRoot, 'lib/preview-api.js'), 'utf8')
+  const rendererSource = await fs.readFile(path.join(repoRoot, 'lib/renderer.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(apiSource, /\/dsh-resume\/api\/templates\/detail/)
+  assert.match(apiSource, /body\.action === 'validate'/)
+  assert.match(rendererSource, /data-dsh-workshop-css/)
+  assert.match(clientSource, /className: 'cj-templateCss'/)
+  assert.match(clientSource, /templateCss: templateCssDraft/)
+})
+
+test('template APIs keep gallery reads and mutations bound to the requested workspace root', async () => {
+  const firstRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-template-root-a-'))
+  const secondRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-template-root-b-'))
+  try {
+    await initJobhunt(firstRoot)
+    await initJobhunt(secondRoot)
+    const template = {
+      ...TEMPLATE_DEFAULTS,
+      id: 'workspace-only',
+      name: '工作区模板',
+      renderer: 'composition',
+      composition: { page: 'stack', header: 'standard', section: 'line', entry: 'stack', meta: 'inline', skills: 'chips' },
+      templateCss: '[data-template-id="workspace-only"] .header-block { color: #2563eb; }',
+    }
+    await saveTemplate(secondRoot, template)
+    const routes = []
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
+    const listRoute = routes.find((route) => route.path === '/dsh-resume/api/templates')
+    const actionsRoute = routes.find((route) => route.path === '/dsh-resume/api/templates/actions')
+    const response = () => {
+      let result = null
+      return {
+        writeHead(status) { this.status = status },
+        end(body) { result = JSON.parse(body) },
+        get result() { return result },
+      }
+    }
+    const listed = response()
+    await listRoute.handler({ method: 'GET', url: `/dsh-resume/api/templates?root=${encodeURIComponent(secondRoot)}` }, listed)
+    assert.equal(listed.status, 200)
+    assert.ok(listed.result.templates.some((item) => item.id === 'workspace-only'))
+    const isolated = response()
+    await listRoute.handler({ method: 'GET', url: `/dsh-resume/api/templates?root=${encodeURIComponent(firstRoot)}` }, isolated)
+    assert.equal(isolated.status, 200)
+    assert.equal(isolated.result.templates.some((item) => item.id === 'workspace-only'), false)
+    const copied = response()
+    await actionsRoute.handler({
+      method: 'POST',
+      async *[Symbol.asyncIterator]() { yield Buffer.from(JSON.stringify({ action: 'copy', root: secondRoot, sourceId: 'workspace-only', newId: 'workspace-copy' })) },
+    }, copied)
+    assert.equal(copied.status, 200)
+    assert.equal(copied.result.saved, true)
+    assert.ok(await fs.stat(path.join(secondRoot, 'templates', 'workspace-copy.json')))
+    await assert.rejects(fs.stat(path.join(firstRoot, 'templates', 'workspace-copy.json')))
+  } finally {
+    await fs.rm(firstRoot, { recursive: true, force: true })
+    await fs.rm(secondRoot, { recursive: true, force: true })
+  }
 })
 
 test('preview links preserve the selected workspace root across reloads', async () => {
@@ -259,23 +338,23 @@ test('legacy placeholder resumes upgrade without touching custom content', async
 
 test('built-in template gallery includes representative visual directions', () => {
   const templates = listTemplatePresets()
-  assert.equal(templates.length, 5)
-  assert.deepEqual(listRendererIds(), ['clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal', 'business-timeline', 'portrait-profile', 'magazine-feature', 'metrics-board', 'color-block', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'case-study', 'social-profile'])
-  assert.equal(new Set(templates.map((template) => template.renderer)).size, 5)
-  for (const id of ['campus-standard', 'portrait-profile', 'magazine-feature', 'geek-lab', 'case-study']) {
+  assert.equal(templates.length, 6)
+  assert.deepEqual(listRendererIds(), ['composition', 'clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal', 'business-timeline', 'portrait-profile', 'magazine-feature', 'metrics-board', 'color-block', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'case-study', 'social-profile'])
+  assert.equal(new Set(templates.map((template) => template.renderer)).size, 1)
+  assert.equal(templates.filter((template) => template.renderer === 'composition').length, 6)
+  for (const id of ['campus-standard', 'portrait-profile', 'magazine-feature', 'geek-lab', 'case-study', 'business-ledger-plus']) {
     assert.ok(templates.some((template) => template.id === id), `missing built-in template: ${id}`)
   }
-  for (const id of ['two-column-brief', 'rail-engineering', 'project-atlas', 'research-dossier', 'editorial-spread', 'terminal-console', 'executive-ledger', 'social-profile']) {
-    assert.equal(templates.some((template) => template.id === id), false, `near-duplicate still in gallery: ${id}`)
-    assert.ok(getTemplatePreset(id), `hidden preset must remain loadable: ${id}`)
+  for (const id of ['project-atlas', 'editorial-spread', 'terminal-console', 'two-column-brief', 'rail-engineering', 'research-dossier', 'swiss-modular', 'signal-sidebar', 'executive-ledger', 'metrics-board', 'color-block', 'chronicle-rail', 'minimal-typographic', 'heading-stack', 'social-profile']) {
+    assert.equal(templates.some((template) => template.id === id), false, `similar template still active: ${id}`)
+    assert.equal(getTemplatePreset(id), undefined, `deleted preset still loadable: ${id}`)
   }
 })
 
-test('legacy template ids remain loadable without appearing in the gallery', () => {
+test('legacy template ids are removed from the built-in catalog', () => {
   const templates = listTemplatePresets()
   assert.equal(templates.some((template) => template.id === 'portfolio-grid'), false)
-  assert.equal(getTemplatePreset('portfolio-grid').id, 'portfolio-grid')
-  assert.equal(getTemplatePreset('portfolio-grid').renderer, 'portfolio-grid')
+  assert.equal(getTemplatePreset('portfolio-grid'), undefined)
 })
 
 test('legacy workspace experiments stay hidden from the refreshed gallery', async () => {
@@ -290,8 +369,54 @@ test('legacy workspace experiments stay hidden from the refreshed gallery', asyn
       }))
     }
     const templates = await listAvailableTemplates(root)
-    assert.equal(templates.length, 5)
+    assert.equal(templates.length, 6)
     assert.equal(templates.some((template) => ['premium-navy', 'quiet-editorial-filled', 'soft-tinted'].includes(template.id)), false)
+  } finally {
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('old workspace renderers stay out of the composition-only catalog', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-old-template-'))
+  try {
+    await fs.mkdir(path.join(root, 'templates'), { recursive: true })
+    await fs.writeFile(path.join(root, 'templates', 'old-template.json'), JSON.stringify({
+      ...getTemplatePreset('campus-standard'),
+      id: 'old-template',
+      renderer: 'clean-single',
+      composition: undefined,
+    }))
+    const templates = await listAvailableTemplates(root)
+    assert.equal(templates.length, 6)
+    assert.equal(templates.some((template) => template.id === 'old-template'), false)
+  } finally {
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('legacy workspace templates migrate into the active composition catalog', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-template-migrate-'))
+  try {
+    await fs.mkdir(path.join(root, 'templates'), { recursive: true })
+    const legacy = {
+      ...getTemplatePreset('business-ledger-plus'),
+      id: 'obsidian-exec',
+      name: '墨金 · Obsidian',
+      renderer: 'business-timeline',
+      composition: undefined,
+    }
+    await fs.writeFile(path.join(root, 'templates', 'obsidian-exec.json'), JSON.stringify(legacy), 'utf8')
+    await fs.writeFile(path.join(root, 'templates', 'obsidian-exec.css'), '[data-template-id="obsidian-exec"]{color:#c9a86a;}', 'utf8')
+    await assert.rejects(() => saveTemplate(root, legacy), /renderer must be composition/)
+    const migrated = await migrateTemplate(root, 'obsidian-exec')
+    assert.equal(migrated.migrated, true)
+    const template = await loadTemplate(root, 'obsidian-exec')
+    assert.equal(template.renderer, 'composition')
+    assert.deepEqual(template.composition, { page: 'stack', header: 'hero', section: 'badge', entry: 'timeline', meta: 'split', skills: 'list' })
+    assert.match(template.templateCss, /c9a86a/)
+    const templates = await listAvailableTemplates(root)
+    assert.equal(templates.length, 7)
+    assert.ok(templates.some((item) => item.id === 'obsidian-exec'))
   } finally {
     await fs.rm(root, { recursive: true, force: true })
   }
@@ -311,6 +436,15 @@ test('template renderer registry produces structural variants', () => {
   assert.doesNotMatch(sidebar, /dsh-resume-columns/)
 })
 
+test('rail-like renderers share the reusable entry primitive without losing legacy hooks', () => {
+  const source = '# 林知远\n\n## 项目经历\n\n### 校园服务平台\n\n2025.09 - 2026.01\n\n- 结果指标'
+  for (const renderer of ['technical-timeline', 'academic', 'business-timeline', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'metrics-board', 'color-block']) {
+    const html = assembleResumeSections(markdownToHtml(source), null, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer })
+    assert.match(html, /data-entry-layout="rail"/, `${renderer} should expose the shared entry layout hook`)
+    assert.match(html, /dsh-entry-rail/, `${renderer} should retain the shared entry class`)
+  }
+})
+
 test('entry markup exposes stable title, metadata, and bullet semantics', () => {
   const source = '# 林知远\n\n## 项目经历\n\n### 校园服务平台\n\n2025.09 - 2026.01 | React / TypeScript\n\n- **首屏加载** 降低 42%\n- 支持 20 万条记录查询'
   const template = getTemplatePreset('magazine-feature')
@@ -318,6 +452,50 @@ test('entry markup exposes stable title, metadata, and bullet semantics', () => 
   assert.match(html, /<h3 class="dsh-entry-title">校园服务平台<\/h3>/)
   assert.match(html, /<p class="dsh-entry-meta">2025\.09 - 2026\.01 \| React \/ TypeScript<\/p>/)
   assert.match(html, /<ul class="dsh-entry-bullets">[\s\S]*首屏加载/)
+})
+
+test('HeroHeader and EntryMeta expose reusable semantic hooks', () => {
+  const source = '![头像](assets/avatar.png)\n\n# 林知远\n\n前端开发工程师\n\n## 项目经历\n\n### 校园服务平台\n\n公司 · 前端开发工程师\n\n2025.09 - 2026.01 | **技术栈**：`React` `TypeScript`\n\n- 结果指标'
+  const layout = validateLayoutSpec({
+    mode: 'single-column',
+    ir: { type: 'stack', hero: { type: 'hero', layout: 'inline', avatar: 'left' }, items: ['projects'] },
+    blocks: [{ id: 'projects', type: 'projects', source: '项目经历' }],
+  }).value
+  const html = assembleResumeSections(markdownToHtml(source), layout, { mode: 'single-column' }, TEMPLATE_DEFAULTS)
+  assert.match(html, /class="header-block dsh-hero-header dsh-header-with-image" data-hero-layout="inline" data-hero-avatar="left"/)
+  assert.match(html, /class="dsh-hero-name"/)
+  assert.match(html, /class="dsh-hero-line dsh-hero-avatar"/)
+  assert.match(html, /class="dsh-entry-role"/)
+  assert.match(html, /class="dsh-entry-meta dsh-entry-tech"/)
+})
+
+test('business hero separates identity and contact lines for dense headers', () => {
+  const source = '# 林知远\n\n前端开发工程师（2027 届校招） ｜ 北京 / 杭州 ｜ 158-0000-1234 ｜ lin.zhiyuan@example.com ｜ GitHub: github.com/example/lin-zhiyuan\n\n## 项目经历\n\n### 校园服务平台 · 前端负责人\n\n2025.09 - 2026.01 | React / TypeScript\n\n- 结果指标'
+  const template = getTemplatePreset('business-ledger-plus')
+  const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+  assert.match(html, /class="dsh-hero-line dsh-hero-identity">[\s\S]*dsh-hero-identity-item[\s\S]*前端开发工程师（2027 届校招）[\s\S]*北京 \/ 杭州[\s\S]*<\/p>/)
+  assert.match(html, /class="dsh-hero-line dsh-hero-contact">[\s\S]*dsh-contact-phone[\s\S]*158-0000-1234[\s\S]*dsh-contact-email[\s\S]*lin\.zhiyuan@example\.com[\s\S]*dsh-contact-github[\s\S]*<\/p>/)
+  assert.equal((html.match(/dsh-contact-item/g) || []).length, 3)
+})
+
+test('hero header accepts full-width separators used by Chinese resumes', () => {
+  const source = '# 林知远\n\n前端开发工程师（2027 届校招） ｜ 北京·可接受一线城市 ｜ 15859152182 ｜ lin_nll@qq.com ｜ GitHub: github.com/L3n3L ｜ 个人网站: me.guanfu.chat/resume'
+  const template = getTemplatePreset('business-ledger-plus')
+  const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+  assert.match(html, /dsh-hero-identity/)
+  assert.match(html, /dsh-contact-phone/)
+  assert.match(html, /dsh-contact-email/)
+  assert.match(html, /dsh-contact-github/)
+  assert.match(html, /dsh-contact-website/)
+  assert.doesNotMatch(html, /前端开发工程师（2027 届校招） ｜ 北京·可接受一线城市 ｜ 15859152182/)
+})
+
+test('legacy layouts normalize without adding hero metadata', () => {
+  const legacy = normalizeLayoutSpec({
+    mode: 'single-column',
+    blocks: [{ id: 'projects', type: 'projects', source: '项目经历' }],
+  })
+  assert.equal(Object.hasOwn(legacy.ir, 'hero'), false)
 })
 
 test('safe icon tokens become local semantic markup and unknown tokens stay text', () => {
@@ -459,38 +637,125 @@ test('local asset route serves safe images and a visible placeholder', async () 
   }
 })
 
-test('business timeline renderer keeps the header and timeline structure distinct', () => {
+test('business composition keeps the hero header and timeline structure distinct', () => {
   const source = '# 林知远\n\n前端工程师 | lin@example.com\n\n## 项目经历\n\n### 项目名称\n\n- 结果指标'
-  const template = getTemplatePreset('executive-ledger')
+  const template = getTemplatePreset('business-ledger-plus')
   const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
-  assert.match(html, /dsh-renderer-business-timeline/)
-  assert.match(html, /dsh-business-timeline/)
-  assert.match(html, /dsh-business-marker/)
+  assert.match(html, /dsh-renderer-composition/)
+  assert.match(html, /dsh-composed-layout/)
+  assert.match(html, /dsh-entry-rail-timeline/)
+  assert.match(html, /dsh-entry-rail-marker/)
   assert.match(html, /dsh-renderer-item-projects/)
-  assert.match(html, /<div class="dsh-resume-root dsh-renderer-business-timeline dsh-business-timeline">[\s\S]*<header[\s\S]*<\/header>[\s\S]*<article/)
+  assert.match(html, /<div class="dsh-resume-root dsh-renderer-composition dsh-composed-layout"[^>]*>[\s\S]*<header[\s\S]*<\/header>[\s\S]*<article/)
+})
+
+test('business ledger plus is a selectable built-in with a scoped visual layer', async () => {
+  const preset = getTemplatePreset('business-ledger-plus')
+  assert.equal(preset.name, '商务履历增强')
+  assert.equal(preset.renderer, 'composition')
+  assert.equal(preset.family, 'business-timeline')
+  assert.deepEqual(preset.composition, { page: 'stack', header: 'hero', section: 'badge', entry: 'timeline', meta: 'split', skills: 'list' })
+  assert.ok(listTemplatePresets().some((item) => item.id === 'business-ledger-plus'))
+  const template = await loadTemplate(null, 'business-ledger-plus')
+  assert.match(template.templateCss, /\[data-template-id="business-ledger-plus"\]/)
+  assert.match(template.templateCss, /:has\(img\)/)
+  assert.match(template.templateCss, /dsh-entry-rail-content > \.dsh-resume-section > h3/)
+  assert.match(template.templateCss, /dsh-section-heading::before/)
+})
+
+test('business composition creates reusable entry rows without changing stack templates', () => {
+  const source = '# 林知远\n\n前端工程师 | lin@example.com\n\n## 教育经历\n\n### 东江理工大学\n\n2023.09 - 2027.06\n\n- 计算机科学与技术\n\n## 项目经历\n\n### 项目名称 · 核心成员\n\n2026.01 - 至今\n\n- 结果指标'
+  const business = getTemplatePreset('business-ledger-plus')
+  const legacy = getTemplatePreset('campus-standard')
+  const businessHtml = assembleResumeSections(markdownToHtml(source), null, business.layout, business)
+  const legacyHtml = assembleResumeSections(markdownToHtml(source), null, legacy.layout, legacy)
+  assert.match(businessHtml, /dsh-entry-row/)
+  assert.match(businessHtml, /dsh-entry-meta-slot/)
+  assert.match(businessHtml, /dsh-entry-project/)
+  assert.match(businessHtml, /dsh-entry-role-label/)
+  assert.match(businessHtml, /dsh-header-composition-hero/)
+  assert.match(businessHtml, /dsh-section-composition-badge/)
+  assert.equal((businessHtml.match(/dsh-entry-row/g) || []).length, 1)
+  assert.doesNotMatch(legacyHtml, /dsh-entry-row/)
+})
+
+test('generated composition is explicit and renderer exposes it as a stable contract', () => {
+  const result = generateTemplateCandidate({
+    name: '商务履历候选',
+    family: 'business-timeline',
+    audience: 'general',
+  })
+  assert.equal(result.valid, true)
+  assert.deepEqual(result.template.composition, { page: 'stack', header: 'hero', section: 'badge', entry: 'timeline', meta: 'split', skills: 'list' })
+  const html = renderTemplateLayout({
+    template: result.template,
+    layout: result.layoutSpec,
+    header: '<header></header>',
+    ordered: [{ id: 'projects', sourceId: 'projects', type: 'projects', html: '<section data-module-id="projects"></section>' }],
+  })
+  assert.match(html, /data-composition-header="hero"/)
+  assert.match(html, /data-composition-entry="timeline"/)
+  assert.match(html, /dsh-renderer-composition/)
+  assert.match(html, /dsh-entry-rail-timeline/)
+  const documentHtml = buildPreviewDocument({
+    title: result.template.name,
+    bodyHtml: html,
+    cssText: '',
+    sourcePath: 'resume.md',
+    templatePath: 'templates/business-ledger-plus.json',
+    previewPath: 'preview.html',
+    previewRoot: 'E:/resume',
+    renderId: 'composition-render',
+    contentHash: 'composition-hash',
+    templateSpec: result.template,
+    layoutSpec: result.layoutSpec,
+  })
+  assert.match(documentHtml, /data-composition-meta="split"/)
+})
+
+test('generic composition renderer owns page structure for stack, split, and grid candidates', () => {
+  const cases = [
+    [{ name: '单栏候选', layout: 'single-column' }, 'stack', 'dsh-layout-stack'],
+    [{ name: '双栏候选', layout: 'two-column' }, 'split', 'dsh-layout-split'],
+    [{ name: '网格候选', family: 'portfolio-grid' }, 'grid', 'dsh-layout-grid'],
+  ]
+  for (const [brief, page, marker] of cases) {
+    const result = generateTemplateCandidate(brief)
+    assert.equal(result.valid, true, brief.name)
+    assert.equal(result.template.renderer, 'composition')
+    assert.equal(result.template.composition.page, page)
+    const html = renderTemplateLayout({
+      template: result.template,
+      layout: result.layoutSpec,
+      header: '<header></header>',
+      ordered: [{ id: 'projects', sourceId: 'projects', type: 'projects', html: '<section data-module-id="projects"></section>' }],
+    })
+    assert.match(html, /dsh-composed-layout/, brief.name)
+    assert.match(html, new RegExp(marker), brief.name)
+  }
 })
 
 test('new visual directions are selected from design briefs', () => {
   const minimal = generateTemplateCandidate({ name: '极简网格', tone: 'minimal' })
   const terminal = generateTemplateCandidate({ name: '终端工程', tone: 'terminal', audience: 'engineering' })
   const sidebar = generateTemplateCandidate({ name: '信息侧栏', layout: 'two-column', audience: 'general' })
-  assert.equal(minimal.template.renderer, 'swiss-grid')
-  assert.equal(terminal.template.renderer, 'midnight-terminal')
-  assert.equal(sidebar.template.renderer, 'split-sidebar')
+  assert.equal(minimal.template.renderer, 'composition')
+  assert.equal(terminal.template.renderer, 'composition')
+  assert.equal(sidebar.template.renderer, 'composition')
 })
 
 test('new visual families generate their own renderer instead of flattening to a shared layout', () => {
   const families = [
-    ['avatar-profile', 'portrait-profile'],
-    ['magazine-editorial', 'magazine-feature'],
-    ['impact-board', 'metrics-board'],
-    ['operation-block', 'color-block'],
-    ['career-chronicle', 'chronicle-rail'],
-    ['simple-typographic', 'minimal-typographic'],
-    ['geek-lab', 'geek-lab'],
-    ['heading-stack', 'heading-stack'],
-    ['case-study', 'case-study'],
-    ['social-profile', 'social-profile'],
+    ['avatar-profile', 'composition'],
+    ['magazine-editorial', 'composition'],
+    ['impact-board', 'composition'],
+    ['operation-block', 'composition'],
+    ['career-chronicle', 'composition'],
+    ['simple-typographic', 'composition'],
+    ['geek-lab', 'composition'],
+    ['heading-stack', 'composition'],
+    ['case-study', 'composition'],
+    ['social-profile', 'composition'],
   ]
   for (const [family, renderer] of families) {
     const result = generateTemplateCandidate({ name: family, family })
@@ -522,7 +787,7 @@ test('DesignBrief generates a validated candidate without saving it', () => {
   assert.equal(result.valid, true)
   assert.equal(result.template.id, '技术双栏'.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'ai-template')
   assert.equal(result.template.layout.mode, 'two-column')
-  assert.equal(result.template.renderer, 'split-sidebar')
+  assert.equal(result.template.renderer, 'composition')
   assert.equal(result.template.layout.density, 'compact')
     assert.equal(result.template.typography.fontFamily, 'modern-sans')
     assert.equal(result.template.metadata.generatedBy, 'dsh-template-design')
@@ -582,7 +847,7 @@ test('DesignBrief can generate the business timeline family', () => {
     moduleOrder: ['profile', 'experience', 'projects', 'education'],
   })
   assert.equal(result.valid, true)
-  assert.equal(result.template.renderer, 'business-timeline')
+  assert.equal(result.template.renderer, 'composition')
   assert.equal(result.template.metadata.family, 'business-timeline')
   assert.equal(result.layoutSpec.blocks.find((block) => block.id === 'experience').type, 'timeline')
 })

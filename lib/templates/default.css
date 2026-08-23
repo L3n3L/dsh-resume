@@ -67,6 +67,22 @@ html, body {
 
 .dsh-resume-column { min-width: 0; }
 
+/* Generic template structure contract. New AI templates use these hooks;
+   legacy renderer classes remain available as a compatibility layer. */
+.dsh-composed-layout { min-width: 0; }
+.dsh-composed-modules { min-width: 0; }
+.dsh-composed-modules.dsh-layout-stack { display: grid; gap: var(--resume-section-gap); }
+.dsh-composed-modules.dsh-layout-grid { display: grid; grid-template-columns: repeat(var(--layout-grid-columns, 2), minmax(0, 1fr)); gap: var(--layout-gap, 20px); align-items: start; }
+.dsh-composed-modules.dsh-layout-split { min-width: 0; }
+.dsh-entry-rail { position: relative; min-width: 0; break-inside: avoid; }
+.dsh-entry-rail-timeline { padding-left: 22px; border-left: 2px solid color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.dsh-entry-rail-marker { position: absolute; left: -7px; top: 7px; width: 11px; height: 11px; border: 3px solid var(--bg); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.dsh-entry-rail-content { min-width: 0; }
+[data-composition-header="hero"] .header-block { padding-bottom: 18px; }
+[data-composition-section="badge"] .dsh-resume-section > h2::before { content: "✦"; display: inline-grid; place-items: center; width: 19px; height: 19px; margin-right: 7px; border-radius: 50%; background: var(--accent); color: var(--bg); font-size: 11px; }
+[data-composition-skills="list"] .dsh-skill-tags { display: grid; gap: 4px; }
+[data-composition-skills="list"] .dsh-skill-tag { display: block; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+
 .header-block {
   border-bottom: 2px solid var(--accent);
   padding-bottom: 14px;
@@ -83,6 +99,29 @@ html, body {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.dsh-hero-identity,
+.dsh-hero-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 9px;
+  row-gap: 4px;
+}
+
+.dsh-hero-segment,
+.dsh-hero-separator {
+  display: inline-flex;
+}
+
+.dsh-hero-separator {
+  color: color-mix(in srgb, currentColor 42%, transparent);
+  user-select: none;
+}
+
+.dsh-contact-item {
+  white-space: nowrap;
 }
 
 .dsh-resume-section {

@@ -711,6 +711,14 @@ window.__ModuleLoader__.load({
 .cj-advanced summary { cursor: pointer; color: #59667d; font-size: 11px; font-weight: 700; }
 .cj-workshopPrompt { margin-top: 9px; padding: 9px 10px; border-radius: 8px; background: #f0f3f8; color: #59667d; font-size: 11px; line-height: 17px; }
 .cj-templateJson { display: block; width: 100%; min-height: 150px; margin-top: 10px; resize: vertical; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #26334d; padding: 9px; font: 11px/16px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.cj-templateCss { display: block; width: 100%; min-height: 300px; margin-top: 10px; resize: vertical; border: 1px solid #d8d0ee; border-radius: 9px; background: #171525; color: #e9e3ff; padding: 11px; font: 11px/17px ui-monospace, SFMono-Regular, Consolas, monospace; tab-size: 2; }
+.cj-templateCss:focus { outline: 2px solid rgba(109,85,170,.25); border-color: #8d76c7; }
+.cj-cssMeta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; color: #8a7ca6; font-size: 10px; }
+.cj-cssMeta[data-state="valid"] { color: #26734d; }
+.cj-cssMeta[data-state="error"] { color: #b42318; }
+.cj-cssError { margin-top: 7px; padding: 7px 8px; border-radius: 7px; background: #fff1f0; color: #b42318; font-size: 10px; line-height: 15px; white-space: pre-wrap; }
+.cj-cssDrawer summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cj-cssDrawer summary span { color: #8a7ca6; font-size: 10px; font-weight: 400; }
 .cj-workshopActions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .cj-workshopActions .cj-ghostAction, .cj-workshopActions .cj-solidAction { height: 30px; line-height: 30px; font-size: 11px; }
 .cj-workshopMessage { margin-top: 8px; color: #26734d; font-size: 11px; line-height: 16px; }
@@ -1339,6 +1347,8 @@ window.__ModuleLoader__.load({
       }
     }
 
+    const BUILTIN_TEMPLATE_IDS = new Set(['campus-standard', 'portrait-profile', 'magazine-feature', 'geek-lab', 'case-study', 'business-ledger-plus'])
+
     function PreviewWorkbench({ compact, onClose }) {
       ensureCss()
       const [tick, setTick] = useState(0)
@@ -1363,6 +1373,12 @@ window.__ModuleLoader__.load({
       const [templateDraft, setTemplateDraft] = useState('')
       const [templateMessage, setTemplateMessage] = useState('')
       const [templateVersions, setTemplateVersions] = useState([])
+      const [templateCssDraft, setTemplateCssDraft] = useState('')
+      const [templateCssSaved, setTemplateCssSaved] = useState('')
+      const [templateCssUndo, setTemplateCssUndo] = useState('')
+      const [templateCssValidation, setTemplateCssValidation] = useState({ state: 'idle', message: '编辑后可实时预览，保存前会再次校验。' })
+      const [templateCssLoading, setTemplateCssLoading] = useState(false)
+      const [templateCssOpen, setTemplateCssOpen] = useState(false)
       const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
       const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
       const templateCategories = ['全部', '校招', '社招', 'Geek', '运营 / 产品', '商务', '设计 / 作品集', '暗黑', '学术 / 复试', '双栏']
@@ -1668,7 +1684,9 @@ window.__ModuleLoader__.load({
 
       const reloadTemplates = useCallback(async (preferredId = '') => {
         try {
-          const res = await fetch('/dsh-resume/api/templates', { cache: 'no-store' })
+          const query = new URLSearchParams()
+          if (status?.root) query.set('root', status.root)
+          const res = await fetch(`/dsh-resume/api/templates${query.toString() ? `?${query}` : ''}`, { cache: 'no-store' })
           if (!res.ok) throw new Error(`templates ${res.status}`)
           const data = await res.json()
           if (!Array.isArray(data.templates)) return
@@ -1699,7 +1717,7 @@ window.__ModuleLoader__.load({
         } catch {
           // Keep the last known template list when the preview server is restarting.
         }
-      }, [])
+      }, [status?.root])
 
       useEffect(() => {
         void reloadTemplates()
@@ -1955,7 +1973,7 @@ window.__ModuleLoader__.load({
           const res = await fetch('/dsh-resume/api/templates/actions', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action: 'save', templateJson }),
+            body: JSON.stringify({ action: 'save', root: status?.root, templateJson }),
           })
           const result = await res.json()
           if (!res.ok || !result.saved) throw new Error(result.error || result.errors?.join('；') || '保存视觉变体失败')
@@ -1966,13 +1984,100 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const updateTemplateCss = (value) => {
+        if (value === templateCssDraft) return
+        if (!templateCssUndo) setTemplateCssUndo(templateCssDraft)
+        setTemplateCssDraft(value)
+        setTemplateCssValidation({ state: 'idle', message: `${value.length.toLocaleString()} 字符 · 尚未校验` })
+      }
+
+      const undoTemplateCss = () => {
+        if (!templateCssUndo) return
+        setTemplateCssDraft(templateCssUndo)
+        setTemplateCssUndo('')
+        setTemplateCssValidation({ state: 'idle', message: `${templateCssUndo.length.toLocaleString()} 字符 · 已撤销上次编辑` })
+      }
+
+      const restoreTemplateCssDraft = () => {
+        const savedCss = templateCssSaved
+        setTemplateCssDraft(savedCss)
+        setTemplateCssUndo('')
+        setTemplateCssValidation({ state: 'idle', message: `${savedCss.length.toLocaleString()} 字符 · 已恢复当前版本` })
+      }
+
+      const templateCandidateJson = (id, name) => JSON.stringify({
+        ...selectedTemplate,
+        id,
+        name,
+        templateCss: templateCssDraft,
+      })
+
+      const validateTemplateCssDraft = async (candidateJson = templateCandidateJson(templateId, selectedTemplate?.name || '模板')) => {
+        setTemplateCssValidation({ state: 'pending', message: '正在校验 CSS 和模板结构…' })
+        try {
+          const res = await fetch('/dsh-resume/api/templates/actions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action: 'validate', root: status?.root, templateJson: candidateJson }),
+          })
+          const result = await res.json()
+          if (!res.ok || !result.valid) {
+            const message = (result.errors || ['模板校验失败']).join('；')
+            setTemplateCssValidation({ state: 'error', message })
+            return false
+          }
+          setTemplateCssValidation({ state: 'valid', message: `${templateCssDraft.length.toLocaleString()} 字符 · 校验通过` })
+          return true
+        } catch (err) {
+          setTemplateCssValidation({ state: 'error', message: `校验失败：${err?.message || err}` })
+          return false
+        }
+      }
+
+      const saveTemplateWithCss = async ({ asCopy = false } = {}) => {
+        if (!selectedTemplate) return
+        const isBuiltin = BUILTIN_TEMPLATE_IDS.has(selectedTemplate.id)
+        const defaultId = `${selectedTemplate.id}-custom`.replace(/[^a-z0-9-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+        const targetId = asCopy || isBuiltin ? window.prompt('为这套 CSS 模板设置一个 ID（小写英文和短横线）', defaultId) : selectedTemplate.id
+        if (!targetId) return
+        const targetName = asCopy || isBuiltin ? `${selectedTemplate.name || '模板'} · 定制` : selectedTemplate.name
+        const candidateJson = templateCandidateJson(targetId, targetName)
+        if (!await validateTemplateCssDraft(candidateJson)) return
+        setTemplateMessage(asCopy || isBuiltin ? '正在另存 CSS 模板…' : '正在保存当前 CSS 版本…')
+        try {
+          const res = await fetch('/dsh-resume/api/templates/actions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action: 'save', root: status?.root, templateJson: candidateJson }),
+          })
+          const result = await res.json()
+          if (!res.ok || !result.saved) throw new Error(result.error || result.errors?.join('；') || 'CSS 模板保存失败')
+          await reloadTemplates(result.template.id)
+          setTemplateId(result.template.id)
+          setTemplateCssDraft(result.template.templateCss || templateCssDraft)
+          setTemplateCssSaved(result.template.templateCss || templateCssDraft)
+          setTemplateCssUndo('')
+          setTemplateMessage(asCopy || isBuiltin ? `已另存为「${result.template.name}」` : '当前 CSS 版本已保存')
+        } catch (err) {
+          setTemplateMessage(`保存失败：${err?.message || err}`)
+        }
+      }
+
       const saveTemplateDraft = async () => {
+        let templateJson = templateDraft
+        try {
+          const parsed = JSON.parse(templateDraft)
+          parsed.templateCss = templateCssDraft
+          templateJson = JSON.stringify(parsed)
+        } catch {
+          // Keep the original text so the server returns the JSON parse error.
+        }
         setTemplateMessage('正在校验并保存模板…')
         try {
           const res = await fetch('/dsh-resume/api/templates/actions', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action: 'save', templateJson: templateDraft }),
+            body: JSON.stringify({ action: 'save', root: status?.root, templateJson }),
           })
           const result = await res.json()
           if (!res.ok || !result.saved) throw new Error(result.error || result.errors?.join('；') || '模板保存失败')
@@ -1991,7 +2096,7 @@ window.__ModuleLoader__.load({
           const res = await fetch('/dsh-resume/api/templates/actions', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action: 'copy', sourceId: selectedTemplate.id, newId }),
+            body: JSON.stringify({ action: 'copy', root: status?.root, sourceId: selectedTemplate.id, newId }),
           })
           const result = await res.json()
           if (!res.ok || !result.saved) throw new Error(result.error || '模板复制失败')
@@ -2009,7 +2114,7 @@ window.__ModuleLoader__.load({
           const res = await fetch('/dsh-resume/api/templates/actions', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action: 'restore-latest', id: templateId }),
+            body: JSON.stringify({ action: 'restore-latest', root: status?.root, id: templateId }),
           })
           const result = await res.json()
           if (!res.ok || !result.restored) throw new Error(result.error || '恢复失败')
@@ -2026,12 +2131,41 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         let active = true
-        fetch(`/dsh-resume/api/templates/versions?id=${encodeURIComponent(templateId)}`, { cache: 'no-store' })
+        setTemplateCssLoading(true)
+        const query = new URLSearchParams({ id: templateId })
+        if (status?.root) query.set('root', status.root)
+        fetch(`/dsh-resume/api/templates/detail?${query}`, { cache: 'no-store' })
+          .then((res) => res.ok ? res.json() : Promise.reject(new Error(`template detail ${res.status}`)))
+          .then((data) => {
+            if (!active) return
+            const css = String(data.template?.templateCss || '')
+            setTemplateCssDraft(css)
+            setTemplateCssSaved(css)
+            setTemplateCssUndo('')
+            setTemplateCssValidation({ state: 'idle', message: `${css.length.toLocaleString()} 字符 · 已加载` })
+          })
+          .catch((err) => { if (active) setTemplateCssValidation({ state: 'error', message: `读取 CSS 失败：${err?.message || err}` }) })
+          .finally(() => { if (active) setTemplateCssLoading(false) })
+        return () => { active = false }
+      }, [templateId, templates.length, status?.root])
+
+      useEffect(() => {
+        if (view !== 'workshop') return undefined
+        const post = () => workshopPreviewRef.current?.contentWindow?.postMessage({ source: 'dsh-resume-token-preview', tokens: visualTokens, templateCss: templateCssDraft }, '*')
+        const timer = window.setTimeout(post, 0)
+        return () => window.clearTimeout(timer)
+      }, [view, visualTokens, templateCssDraft])
+
+      useEffect(() => {
+        let active = true
+        const query = new URLSearchParams({ id: templateId })
+        if (status?.root) query.set('root', status.root)
+        fetch(`/dsh-resume/api/templates/versions?${query}`, { cache: 'no-store' })
           .then((res) => res.ok ? res.json() : Promise.reject(new Error(`versions ${res.status}`)))
           .then((data) => { if (active) setTemplateVersions(Array.isArray(data.versions) ? data.versions : []) })
           .catch(() => { if (active) setTemplateVersions([]) })
         return () => { active = false }
-      }, [templateId, templates.length])
+      }, [templateId, templates.length, status?.root])
 
       const updateLayoutSetting = (key, value) => {
         setFitState({ text: '正在重新计算', state: 'pending' })
@@ -2227,6 +2361,19 @@ window.__ModuleLoader__.load({
         ),
         React.createElement('div', { className: 'cj-workshopCurrent' }, React.createElement('div', { className: 'cj-workshopMiniPaper', 'data-variant': selectedTemplate?.visual?.variant || 'standard' }), React.createElement('span', null, '当前模板'), React.createElement('strong', null, selectedTemplate?.name || '校招标准'), React.createElement('span', null, selectedTemplate?.layout?.mode === 'two-column' ? '双栏' : '单栏')),
         visualTokenPanel,
+        React.createElement('details', { className: 'cj-advanced cj-cssDrawer', open: templateCssOpen, onToggle: (event) => setTemplateCssOpen(event.currentTarget.open) },
+          React.createElement('summary', null, React.createElement('span', null, '高级：编辑模板 CSS'), React.createElement('span', null, templateCssLoading ? '读取中…' : `${templateCssDraft.length.toLocaleString()} 字符`)),
+          React.createElement('div', { className: 'cj-workshopHint' }, '只在需要时接管 CSS。修改会立即注入右侧 A4 预览；保存时仍会经过安全规则和 TemplateSpec 校验。'),
+          React.createElement('div', { className: 'cj-cssMeta', 'data-state': templateCssValidation.state }, templateCssValidation.message, React.createElement('span', null, '当前模板作用域')),
+          React.createElement('textarea', { className: 'cj-templateCss', value: templateCssDraft, onChange: (event) => updateTemplateCss(event.target.value), spellCheck: false, 'aria-label': '模板 CSS', disabled: templateCssLoading }),
+          templateCssValidation.state === 'error' ? React.createElement('div', { className: 'cj-cssError', role: 'alert' }, templateCssValidation.message) : null,
+          React.createElement('div', { className: 'cj-workshopActions' },
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => validateTemplateCssDraft(), disabled: templateCssLoading }, '校验 CSS'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: undoTemplateCss, disabled: !templateCssUndo }, '撤销编辑'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: restoreTemplateCssDraft, disabled: templateCssLoading }, '恢复已保存'),
+            React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => saveTemplateWithCss({ asCopy: false }), disabled: templateCssLoading }, BUILTIN_TEMPLATE_IDS.has(selectedTemplate?.id) ? '另存为模板' : '保存当前 CSS'),
+          ),
+        ),
         React.createElement('div', { className: 'cj-workshopPrompt' }, '推荐提示：生成一个适合前端实习投递的黑白高密度一页模板，保留项目成果指标，并输出符合 dsh-resume TemplateSpec 的 JSON。'),
         React.createElement('div', { className: 'cj-workshopActions' },
           React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: copySelectedTemplate }, '复制当前模板'),
@@ -2265,7 +2412,7 @@ window.__ModuleLoader__.load({
         React.Fragment,
         null,
         React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, '模板工坊'), React.createElement('div', { className: 'cj-mainHint' }, '生成、保存、复制和恢复视觉模板。'))),
-        React.createElement('div', { className: 'cj-workshopLayout' }, React.createElement('div', { className: 'cj-guide cj-workshopColumn' }, templateWorkshop), React.createElement('section', { className: 'cj-workshopPreview' }, React.createElement('div', { className: 'cj-workshopPreviewHead' }, React.createElement('strong', null, '实时 A4 预览'), React.createElement('span', null, previewSrc ? 'Token 调整会立即刷新' : '先创建或选择一份投递版')), React.createElement('div', { className: 'cj-workshopPreviewFrame' }, previewSrc ? React.createElement('iframe', { ref: workshopPreviewRef, title: '模板工坊实时 A4 预览', src: previewSrc, onLoad: (event) => { onFrameLoad(event); event.currentTarget.contentWindow?.postMessage({ source: 'dsh-resume-token-preview', tokens: visualTokens }, '*') } }) : React.createElement('div', { className: 'cj-empty' }, '选择一份投递版后，这里会显示真实内容。')))),
+        React.createElement('div', { className: 'cj-workshopLayout' }, React.createElement('div', { className: 'cj-guide cj-workshopColumn' }, templateWorkshop), React.createElement('section', { className: 'cj-workshopPreview' }, React.createElement('div', { className: 'cj-workshopPreviewHead' }, React.createElement('strong', null, '实时 A4 预览'), React.createElement('span', null, previewSrc ? 'Token / CSS 调整会立即刷新' : '先创建或选择一份投递版')), React.createElement('div', { className: 'cj-workshopPreviewFrame' }, previewSrc ? React.createElement('iframe', { ref: workshopPreviewRef, title: '模板工坊实时 A4 预览', src: previewSrc, onLoad: (event) => { onFrameLoad(event); event.currentTarget.contentWindow?.postMessage({ source: 'dsh-resume-token-preview', tokens: visualTokens, templateCss: templateCssDraft }, '*') } }) : React.createElement('div', { className: 'cj-empty' }, '选择一份投递版后，这里会显示真实内容。')))),
       )
       const guideView = React.createElement(
         React.Fragment,
