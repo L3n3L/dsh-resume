@@ -203,6 +203,9 @@ test('representative built-in templates carry distinct visual asset layers', asy
     const template = await loadTemplate(null, id)
     assert.ok(template.templateCss.length >= 1800, `${id} should have a substantive independent CSS layer`)
     for (const marker of markers) assert.match(template.templateCss, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    for (const marker of ['table', 'blockquote', 'pre', 'a:hover', 'dsh-entry-bullets ul', 'dsh-icon', '@media print']) {
+      assert.match(template.templateCss, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `${id} should cover ${marker}`)
+    }
   }
 })
 
@@ -315,6 +318,25 @@ test('entry markup exposes stable title, metadata, and bullet semantics', () => 
   assert.match(html, /<h3 class="dsh-entry-title">校园服务平台<\/h3>/)
   assert.match(html, /<p class="dsh-entry-meta">2025\.09 - 2026\.01 \| React \/ TypeScript<\/p>/)
   assert.match(html, /<ul class="dsh-entry-bullets">[\s\S]*首屏加载/)
+})
+
+test('safe icon tokens become local semantic markup and unknown tokens stay text', () => {
+  const source = '# 林知远\n\n## 联系方式\n\n邮箱 [icon:email] · GitHub [icon:github] · [icon:unknown]'
+  const template = getTemplatePreset('campus-standard')
+  const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+  assert.match(html, /class="dsh-icon dsh-icon-email"[^>]*aria-label="邮箱"/)
+  assert.match(html, /class="dsh-icon dsh-icon-github"[^>]*aria-label="GitHub"/)
+  assert.match(html, /\[icon:unknown\]/)
+  assert.doesNotMatch(html, /https?:\/\//)
+})
+
+test('header icons render and nested lists keep only the outer bullet class', () => {
+  const source = '# 林知远\n\n邮箱 [icon:email] · GitHub [icon:github]\n\n## 项目经历\n\n### 校园服务平台\n\n2025.09 - 2026.01\n\n- 一级要点\n  - 二级要点'
+  const template = getTemplatePreset('campus-standard')
+  const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+  assert.match(html, /<header[^>]*>[\s\S]*class="dsh-icon dsh-icon-email"/)
+  assert.match(html, /<ul class="dsh-entry-bullets">[\s\S]*<ul>/)
+  assert.equal((html.match(/class="dsh-entry-bullets"/g) || []).length, 1)
 })
 
 test('Layout IR normalizes legacy regions and preserves explicit composition', () => {
