@@ -1,8 +1,31 @@
-/* Independent visual layer for the built-in profile template. */
-.resume-document[data-template-id="portrait-profile"] .dsh-portrait-frame {
-  box-shadow: 8px 8px 0 color-mix(in srgb, var(--resume-accent-color) 16%, transparent);
-}
-
-.resume-document[data-template-id="portrait-profile"] .dsh-portrait-copy .header-block h1 {
-  letter-spacing: -.055em;
-}
+/*
+ * Portrait Profile — independent visual system.
+ * A personal-brand layout with a soft rose identity rail and editorial cards.
+ */
+.resume-document[data-template-id="portrait-profile"] { --portrait-rose:#be185d; --portrait-ink:#302332; --portrait-soft:#fff1f7; background:#fdf7fa; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-page { background:#fffafe; box-shadow:0 18px 45px rgba(157,23,77,.12); }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-page-content { background:radial-gradient(circle at 94% 4%,rgba(244,114,182,.17),transparent 24%),linear-gradient(180deg,#fffafe,#fff); }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-head { position:relative; grid-template-columns:118px minmax(0,1fr); gap:24px; padding:10px 0 24px; border-bottom:1px solid #f3c4da; }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-head::before { content:"PROFILE / 2026"; position:absolute; right:0; top:0; color:#c084a3; font:700 8px/1 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.2em; }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-frame { width:118px; height:138px; border:1px solid #f3c4da; border-radius:18px 18px 42px 18px; background:linear-gradient(145deg,#fce7f3,#fff); box-shadow:9px 9px 0 rgba(244,114,182,.16); }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-frame .dsh-photo { width:100%; height:100%; border-radius:18px 18px 42px 18px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-placeholder { width:86px; height:86px; border:1px solid #e879a9; color:var(--portrait-rose); background:#fff; }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-copy .header-block { padding:20px 0 0; border:0; }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-copy .header-block h1 { color:var(--portrait-ink); font-size:37px; font-weight:800; line-height:.94; letter-spacing:-.075em; }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-copy .header-block h1::after { content:""; display:inline-block; width:38px; height:7px; margin:0 0 3px 10px; border-radius:99px 3px 99px 3px; background:var(--portrait-rose); }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-copy .header-block p { max-width:480px; margin-top:14px; color:#806477; font-size:12px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-body { grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr); column-gap:26px; padding-top:25px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-body .dsh-renderer-item { min-width:0; padding:13px 14px 3px; border:1px solid #f5d6e4; border-radius:14px; background:rgba(255,255,255,.72); }
+.resume-document[data-template-id="portrait-profile"] .dsh-portrait-body .dsh-renderer-item:nth-child(3n) { grid-column:1/-1; border-radius:14px 14px 4px 14px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section > h2 { display:flex; align-items:center; gap:7px; margin:0 0 10px; color:var(--portrait-rose); border:0; font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section > h2::before { content:"✦"; color:#f472b6; font-size:10px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section h3 { margin:11px 0 4px; color:var(--portrait-ink); font-size:14px; font-weight:800; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section p,
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section li { color:#574452; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section li::marker { color:#e879a9; }
+.resume-document[data-template-id="portrait-profile"] strong { color:var(--portrait-rose); font-weight:800; }
+.resume-document[data-template-id="portrait-profile"] a { color:var(--portrait-rose); text-decoration:underline; text-decoration-color:#f9a8d4; text-underline-offset:3px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-skill-tags { gap:7px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-skill-tag { padding:5px 9px; color:var(--portrait-rose); border:1px solid #f3c4da; border-radius:7px 7px 7px 2px; background:var(--portrait-soft); font-size:11px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-summary { padding:9px 11px; border:0; border-radius:8px; background:var(--portrait-soft); }
+.resume-document[data-template-id="portrait-profile"] .meta { color:#9b7186; border-top-color:#f3c4da; }

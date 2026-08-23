@@ -1,8 +1,33 @@
-/* Independent visual layer for the built-in Geek template. */
-.resume-document[data-template-id="geek-lab"] .header-block {
-  box-shadow: inset 0 -1px rgba(163, 230, 53, .18);
-}
-
-.resume-document[data-template-id="geek-lab"] .dsh-geek-block {
-  border-radius: 4px;
-}
+/*
+ * Geek Lab — independent visual system.
+ * A terminal-inspired engineering resume with readable contrast and explicit status.
+ */
+.resume-document[data-template-id="geek-lab"] { --geek-bg:#0b120f; --geek-panel:#111d17; --geek-green:#b7f34b; --geek-cyan:#67e8f9; --geek-muted:#9bb6a6; background:#07100c; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-page,
+.resume-document[data-template-id="geek-lab"] .dsh-resume-page-content { background:var(--geek-bg); color:#eaffef; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-page-content { position:relative; background-image:linear-gradient(rgba(183,243,75,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(183,243,75,.035) 1px,transparent 1px); background-size:22px 22px; }
+.resume-document[data-template-id="geek-lab"] .dsh-geek-command { display:flex; align-items:center; gap:8px; padding:8px 10px; margin-bottom:18px; border:1px solid rgba(183,243,75,.28); background:rgba(183,243,75,.045); color:var(--geek-green); font:700 10px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.04em; }
+.resume-document[data-template-id="geek-lab"] .dsh-geek-command::before { content:"●"; color:var(--geek-cyan); }
+.resume-document[data-template-id="geek-lab"] .dsh-geek-command span { margin-left:auto; color:var(--geek-muted); }
+.resume-document[data-template-id="geek-lab"] .header-block { padding:17px 18px 15px; border:1px solid rgba(183,243,75,.30); border-radius:3px; background:linear-gradient(135deg,rgba(183,243,75,.09),rgba(103,232,249,.03)); }
+.resume-document[data-template-id="geek-lab"] .header-block h1 { color:var(--geek-green); font:800 30px/1 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:-.06em; }
+.resume-document[data-template-id="geek-lab"] .header-block h1::before { content:"~/"; color:var(--geek-cyan); font-size:.58em; letter-spacing:0; }
+.resume-document[data-template-id="geek-lab"] .header-block p,
+.resume-document[data-template-id="geek-lab"] .meta { color:var(--geek-muted); font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:10px; }
+.resume-document[data-template-id="geek-lab"] .dsh-geek-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:17px; }
+.resume-document[data-template-id="geek-lab"] .dsh-geek-block { min-width:0; padding:11px 12px 5px; border:1px solid rgba(183,243,75,.22); border-radius:3px; background:var(--geek-panel); break-inside:avoid; }
+.resume-document[data-template-id="geek-lab"] .dsh-geek-block:nth-child(3n) { grid-column:1/-1; border-color:rgba(103,232,249,.28); }
+.resume-document[data-template-id="geek-lab"] .dsh-geek-label { display:flex; align-items:center; gap:7px; margin-bottom:8px; color:var(--geek-cyan); font:700 9px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.08em; text-transform:uppercase; }
+.resume-document[data-template-id="geek-lab"] .dsh-geek-label::after { content:""; height:1px; flex:1; background:rgba(103,232,249,.22); }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section > h2 { margin-bottom:8px; color:var(--geek-green); border:0; font:700 11px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.12em; text-transform:uppercase; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section > h2::before { content:"["; color:var(--geek-cyan); }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section > h2::after { content:"]"; color:var(--geek-cyan); }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section h3 { color:#eaffef; font:700 12px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section p,
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section li { color:#c8dfd0; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section li::marker { color:var(--geek-green); }
+.resume-document[data-template-id="geek-lab"] strong { color:var(--geek-green); }
+.resume-document[data-template-id="geek-lab"] a { color:var(--geek-cyan); text-decoration:underline; text-decoration-color:rgba(103,232,249,.38); text-underline-offset:2px; }
+.resume-document[data-template-id="geek-lab"] .dsh-skill-tags { gap:6px; }
+.resume-document[data-template-id="geek-lab"] .dsh-skill-tag { padding:4px 7px; border:1px solid rgba(183,243,75,.32); border-radius:2px; background:rgba(183,243,75,.06); color:var(--geek-green); font:600 10px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.resume-document[data-template-id="geek-lab"] .dsh-summary { padding:9px 11px; border:1px solid rgba(103,232,249,.22); border-left:3px solid var(--geek-cyan); background:rgba(103,232,249,.05); }

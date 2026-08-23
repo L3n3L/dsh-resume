@@ -1678,6 +1678,8 @@ window.__ModuleLoader__.load({
             renderer: template.renderer,
             visual: template.visual,
             layout: template.layout,
+            templateCssBytes: template.templateCssBytes,
+            templateCssFingerprint: template.templateCssFingerprint,
           })))
           if (thumbnailSignatureRef.current !== thumbnailSignature) {
             thumbnailSignatureRef.current = thumbnailSignature

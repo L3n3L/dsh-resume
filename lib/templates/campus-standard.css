@@ -1,17 +1,58 @@
-/* Independent visual layer for the built-in campus template. */
+/*
+ * Campus Standard — independent visual system.
+ * A readable, ATS-safe campus resume: one column, strong alignment, quiet blue.
+ */
+.resume-document[data-template-id="campus-standard"] {
+  --campus-ink: #12233f;
+  --campus-blue: #2563eb;
+  --campus-pale: #eff6ff;
+  counter-reset: campus-section;
+  background: #f6f8fc;
+}
+.resume-document[data-template-id="campus-standard"] .dsh-resume-page { background: #fff; box-shadow: 0 16px 36px rgba(30,64,175,.10); }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-page-content {
+  position: relative;
+  background: linear-gradient(90deg, rgba(37,99,235,.045) 1px, transparent 1px) 0 0/32px 32px, #fff;
+}
 .resume-document[data-template-id="campus-standard"] .header-block {
-  padding-bottom: 18px;
-  border-bottom-width: 3px;
+  position: relative; padding: 4px 0 18px; margin-bottom: 25px; border-bottom: 3px solid var(--campus-blue);
 }
-
+.resume-document[data-template-id="campus-standard"] .header-block::after {
+  content: "AVAILABLE FOR THE NEXT BUILD"; display: block; margin-top: 12px; color: #6b7f9f;
+  font: 700 8px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing: .18em;
+}
+.resume-document[data-template-id="campus-standard"] .header-block h1 {
+  color: var(--campus-ink); font-size: 35px; font-weight: 800; letter-spacing: -.06em; line-height: .98;
+}
+.resume-document[data-template-id="campus-standard"] .header-block p { max-width: 650px; margin-top: 11px; color: #526581; font-size: 12px; letter-spacing: .01em; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section { position: relative; counter-increment: campus-section; padding-left: 0; margin-bottom: 21px; }
 .resume-document[data-template-id="campus-standard"] .dsh-resume-section > h2 {
-  letter-spacing: .02em;
-  text-transform: none;
+  display: flex; align-items: baseline; gap: 9px; margin: 0 0 12px; padding: 0 0 7px;
+  color: var(--campus-ink); border-bottom: 1px solid #cbd8ed; font-size: 16px; font-weight: 800; letter-spacing: .02em;
 }
-
 .resume-document[data-template-id="campus-standard"] .dsh-resume-section > h2::before {
-  content: "// ";
-  color: var(--resume-muted-color);
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  font-size: .72em;
+  content: counter(campus-section, decimal-leading-zero); color: var(--campus-blue);
+  font: 800 10px/1 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing: .05em;
 }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section > h2::after { content: ""; flex: 1; height: 3px; background: linear-gradient(90deg,var(--campus-blue),transparent); opacity: .35; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section h3 { margin: 13px 0 4px; color: var(--campus-ink); font-size: 14px; font-weight: 800; line-height: 1.35; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section p,
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section li { color: #334866; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section li { padding-left: 2px; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section li::marker { color: var(--campus-blue); font-size: .8em; }
+.resume-document[data-template-id="campus-standard"] strong { color: var(--campus-ink); font-weight: 800; }
+.resume-document[data-template-id="campus-standard"] a { color: #1d4ed8; text-decoration: underline; text-decoration-color: #bfdbfe; text-underline-offset: 2px; }
+.resume-document[data-template-id="campus-standard"] .dsh-skill-tags { gap: 7px; padding: 1px 0 2px; }
+.resume-document[data-template-id="campus-standard"] .dsh-skill-tag {
+  padding: 4px 9px; color: #1e40af; border: 1px solid #bfdbfe; border-radius: 4px; background: var(--campus-pale);
+  font: 600 11px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+.resume-document[data-template-id="campus-standard"] .dsh-skill-groups { gap: 7px; }
+.resume-document[data-template-id="campus-standard"] .dsh-skill-group { padding: 7px 10px; border: 0; border-left: 3px solid #93c5fd; border-radius: 0; background: #f8fbff; }
+.resume-document[data-template-id="campus-standard"] .dsh-module-education h3::after,
+.resume-document[data-template-id="campus-standard"] .dsh-module-experience h3::after { content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 0 3px 7px; border-radius: 50%; background: var(--campus-blue); }
+.resume-document[data-template-id="campus-standard"] .dsh-module-projects,
+.resume-document[data-template-id="campus-standard"] .dsh-module-project-list { padding: 12px 14px 2px; border: 1px solid #dbe7f7; border-radius: 8px; background: linear-gradient(135deg,#fff,#f8fbff); }
+.resume-document[data-template-id="campus-standard"] .dsh-summary { padding: 10px 13px; border-left: 3px solid var(--campus-blue); background: #f8fbff; }
+.resume-document[data-template-id="campus-standard"] .meta { color: #6b7f9f; border-top: 1px dashed #cbd8ed; }
+@media print { .resume-document[data-template-id="campus-standard"] .dsh-resume-page-content { background: #fff; } }

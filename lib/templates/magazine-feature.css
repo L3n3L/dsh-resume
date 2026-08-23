@@ -1,9 +1,35 @@
-/* Independent visual layer for the built-in editorial template. */
-.resume-document[data-template-id="magazine-feature"] .dsh-magazine-kicker {
-  border-top: 1px solid color-mix(in srgb, var(--resume-accent-color) 42%, transparent);
-  padding-top: 8px;
-}
-
-.resume-document[data-template-id="magazine-feature"] .dsh-magazine-entry:first-child {
-  padding-top: 4px;
-}
+/*
+ * Magazine Feature — independent visual system.
+ * An editorial layout: a memorable masthead, a lead story, and quiet evidence blocks.
+ */
+.resume-document[data-template-id="magazine-feature"] { --mag-ink:#2f2528; --mag-rose:#be123c; --mag-paper:#fffaf3; --mag-rule:#e8cfd2; background:#f7f1ea; }
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-page,
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-page-content { background:var(--mag-paper); }
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-page { box-shadow:0 18px 42px rgba(91,33,46,.12); }
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-page-content { background-image:linear-gradient(90deg,rgba(190,18,60,.028) 1px,transparent 1px); background-size:36px 36px; }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-kicker { display:flex; align-items:center; gap:10px; margin-bottom:13px; color:var(--mag-rose); border:0; padding:0; font:700 9px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.22em; }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-kicker::before { content:"✳"; font-size:15px; }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-kicker::after { content:""; flex:1; height:1px; background:var(--mag-rule); }
+.resume-document[data-template-id="magazine-feature"] .header-block { padding:0 0 20px; border-bottom:1px solid #b9939d; }
+.resume-document[data-template-id="magazine-feature"] .header-block h1 { max-width:560px; color:var(--mag-ink); font:800 46px/.9 Georgia,"Noto Serif SC",serif; letter-spacing:-.075em; }
+.resume-document[data-template-id="magazine-feature"] .header-block h1::after { content:"."; color:var(--mag-rose); }
+.resume-document[data-template-id="magazine-feature"] .header-block p { max-width:600px; margin-top:16px; color:#80696e; font-size:12px; }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-layout { grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr); gap:25px; padding-top:23px; }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-lead { padding-right:23px; border-right:1px solid var(--mag-rule); }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-lead::before { content:"LEAD STORY"; display:block; margin-bottom:10px; color:var(--mag-rose); font:700 9px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.18em; }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-layout { grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr); gap:18px 25px; align-items:start; }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-entry { min-width:0; }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-entry { padding:0 0 15px; border-bottom:1px solid var(--mag-rule); }
+.resume-document[data-template-id="magazine-feature"] .dsh-magazine-entry:nth-child(odd) { padding-left:15px; }
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-section > h2 { display:flex; align-items:center; gap:8px; margin:0 0 11px; color:var(--mag-rose); border:0; font:800 18px/1.05 Georgia,"Noto Serif SC",serif; letter-spacing:-.02em; }
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-section > h2::before { content:"—"; color:#d7a4ae; font:400 17px/1 Georgia,serif; }
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-section h3 { margin:12px 0 5px; color:var(--mag-ink); font:700 15px/1.2 Georgia,"Noto Serif SC",serif; }
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-section p,
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-section li { color:#514247; font-size:12px; }
+.resume-document[data-template-id="magazine-feature"] .dsh-resume-section li::marker { color:var(--mag-rose); }
+.resume-document[data-template-id="magazine-feature"] strong { color:var(--mag-rose); font-weight:800; }
+.resume-document[data-template-id="magazine-feature"] blockquote { margin:12px 0; padding:8px 13px; border-left:3px solid var(--mag-rose); color:#765d65; background:#fff2f1; font-family:Georgia,"Noto Serif SC",serif; }
+.resume-document[data-template-id="magazine-feature"] .dsh-skill-tags { gap:6px; }
+.resume-document[data-template-id="magazine-feature"] .dsh-skill-tag { padding:4px 8px; border:1px solid #e5b9c1; border-radius:2px; background:#fff3f3; color:var(--mag-rose); font-size:10px; }
+.resume-document[data-template-id="magazine-feature"] a { color:var(--mag-rose); }
+.resume-document[data-template-id="magazine-feature"] .meta { color:#977983; border-top-color:var(--mag-rule); }

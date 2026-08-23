@@ -1,8 +1,34 @@
-/* Independent visual layer for the built-in case-study template. */
-.resume-document[data-template-id="case-study"] .dsh-case-feature {
-  box-shadow: 9px 9px 0 color-mix(in srgb, var(--resume-accent-color) 12%, transparent);
-}
-
-.resume-document[data-template-id="case-study"] .dsh-case-label {
-  letter-spacing: .2em;
-}
+/*
+ * Case Study — independent visual system.
+ * A product-style evidence board: one flagship case, then supporting proof.
+ */
+.resume-document[data-template-id="case-study"] { --case-blue:#1d4ed8; --case-ink:#172033; --case-sky:#eff6ff; --case-rule:#c8daf8; background:#eef4fb; }
+.resume-document[data-template-id="case-study"] .dsh-resume-page { background:#f8fbff; box-shadow:0 18px 42px rgba(30,64,175,.13); }
+.resume-document[data-template-id="case-study"] .dsh-resume-page-content { background:linear-gradient(135deg,#f8fbff 0 73%,#edf5ff 73% 100%); }
+.resume-document[data-template-id="case-study"] .dsh-case-intro { position:relative; padding:0 0 20px; border-bottom:1px solid var(--case-rule); }
+.resume-document[data-template-id="case-study"] .dsh-case-intro::before { content:"SELECTED WORK / 01"; display:block; margin-bottom:12px; color:var(--case-blue); font:800 9px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.16em; }
+.resume-document[data-template-id="case-study"] .dsh-case-intro .header-block { padding:0; border:0; }
+.resume-document[data-template-id="case-study"] .dsh-case-intro .header-block h1 { color:var(--case-ink); font-size:38px; font-weight:850; letter-spacing:-.07em; }
+.resume-document[data-template-id="case-study"] .dsh-case-intro .header-block h1::after { content:" /"; color:var(--case-blue); font-weight:400; }
+.resume-document[data-template-id="case-study"] .dsh-case-intro .header-block p { max-width:610px; margin-top:12px; color:#536783; font-size:12px; }
+.resume-document[data-template-id="case-study"] .dsh-case-label { display:inline-flex; margin-top:15px; padding:5px 8px; color:var(--case-blue); border:1px solid #a8c5f5; border-radius:3px; background:var(--case-sky); font:800 9px/1.1 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.16em; }
+.resume-document[data-template-id="case-study"] .dsh-case-layout { grid-template-columns:minmax(0,1.34fr) minmax(0,.66fr); gap:19px; margin-top:23px; }
+.resume-document[data-template-id="case-study"] .dsh-case-feature { padding:17px 17px 7px; border:1px solid #9fbeef; border-radius:8px; background:#fff; box-shadow:9px 9px 0 rgba(37,99,235,.12); }
+.resume-document[data-template-id="case-study"] .dsh-case-feature::before { content:"OUTCOME FIRST"; display:block; margin-bottom:10px; color:#6b86ae; font:800 8px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.17em; }
+.resume-document[data-template-id="case-study"] .dsh-case-feature .dsh-resume-section > h2 { margin-bottom:13px; color:var(--case-ink); border:0; font-size:18px; }
+.resume-document[data-template-id="case-study"] .dsh-case-feature .dsh-resume-section > h2::before { content:"↗"; display:inline-grid; place-items:center; width:22px; height:22px; margin-right:7px; border-radius:50%; background:var(--case-blue); color:#fff; font-size:13px; }
+.resume-document[data-template-id="case-study"] .dsh-case-support-list { gap:6px; }
+.resume-document[data-template-id="case-study"] .dsh-case-support { padding:7px 0 8px; border-bottom:1px solid var(--case-rule); }
+.resume-document[data-template-id="case-study"] .dsh-case-support::before { content:"EVIDENCE"; display:block; margin-bottom:7px; color:#6b86ae; font:800 8px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.16em; }
+.resume-document[data-template-id="case-study"] .dsh-resume-section > h2 { margin-bottom:10px; color:var(--case-blue); border-bottom:2px solid var(--case-rule); font-size:14px; font-weight:800; }
+.resume-document[data-template-id="case-study"] .dsh-resume-section > h2::after { content:""; display:inline-block; width:24px; height:4px; margin-left:8px; background:var(--case-blue); }
+.resume-document[data-template-id="case-study"] .dsh-resume-section h3 { margin:11px 0 4px; color:var(--case-ink); font-size:14px; font-weight:800; }
+.resume-document[data-template-id="case-study"] .dsh-resume-section p,
+.resume-document[data-template-id="case-study"] .dsh-resume-section li { color:#334866; }
+.resume-document[data-template-id="case-study"] .dsh-resume-section li::marker { color:var(--case-blue); }
+.resume-document[data-template-id="case-study"] strong { color:var(--case-blue); }
+.resume-document[data-template-id="case-study"] .dsh-skill-tags { gap:7px; }
+.resume-document[data-template-id="case-study"] .dsh-skill-tag { padding:5px 8px; border:1px solid #aec8f3; border-radius:4px; background:#fff; color:var(--case-blue); font-size:10px; }
+.resume-document[data-template-id="case-study"] .dsh-summary { padding:10px 12px; border:1px solid #c8daf8; border-left:4px solid var(--case-blue); background:var(--case-sky); }
+.resume-document[data-template-id="case-study"] a { color:var(--case-blue); }
+.resume-document[data-template-id="case-study"] .meta { color:#6b86ae; border-top-color:var(--case-rule); }

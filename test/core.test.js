@@ -191,6 +191,29 @@ test('independent template CSS is safe, persisted separately, and restored with 
   }
 })
 
+test('representative built-in templates carry distinct visual asset layers', async () => {
+  const expected = {
+    'campus-standard': ['AVAILABLE FOR THE NEXT BUILD', 'campus-section'],
+    'portrait-profile': ['PROFILE / 2026', 'portrait-rose'],
+    'geek-lab': ['--geek-green', 'geek-green'],
+    'magazine-feature': ['LEAD STORY', 'mag-rose'],
+    'case-study': ['OUTCOME FIRST', 'case-blue'],
+  }
+  for (const [id, markers] of Object.entries(expected)) {
+    const template = await loadTemplate(null, id)
+    assert.ok(template.templateCss.length >= 1800, `${id} should have a substantive independent CSS layer`)
+    for (const marker of markers) assert.match(template.templateCss, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+})
+
+test('template listings expose CSS metadata so gallery thumbnails invalidate after CSS-only edits', async () => {
+  const templates = await listAvailableTemplates(repoRoot)
+  const campus = templates.find((template) => template.id === 'campus-standard')
+  assert.ok(campus)
+  assert.equal(campus.templateCssBytes, Buffer.byteLength((await loadTemplate(null, 'campus-standard')).templateCss, 'utf8'))
+  assert.match(campus.templateCssFingerprint, /^[a-f0-9]{16}$/)
+})
+
 test('preview links preserve the selected workspace root across reloads', async () => {
   const source = await fs.readFile(path.join(repoRoot, 'lib/preview-api.js'), 'utf8')
   assert.match(source, /buildPreviewUrl\(root, currentPreview\)/)
