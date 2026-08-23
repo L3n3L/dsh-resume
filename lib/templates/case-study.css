@@ -32,3 +32,8 @@
 .resume-document[data-template-id="case-study"] .dsh-summary { padding:10px 12px; border:1px solid #c8daf8; border-left:4px solid var(--case-blue); background:var(--case-sky); }
 .resume-document[data-template-id="case-study"] a { color:var(--case-blue); }
 .resume-document[data-template-id="case-study"] .meta { color:#6b86ae; border-top-color:var(--case-rule); }
+.resume-document[data-template-id="case-study"] .dsh-resume-section .dsh-entry-title { margin-bottom:4px; color:var(--case-ink); font-weight:800; letter-spacing:-.015em; }
+.resume-document[data-template-id="case-study"] .dsh-resume-section .dsh-entry-meta { display:flex; flex-wrap:wrap; gap:5px 10px; color:#6780a5; font:600 10px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.resume-document[data-template-id="case-study"] .dsh-resume-section .dsh-entry-bullets { margin-top:7px; padding-left:1.15em; }
+.resume-document[data-template-id="case-study"] .dsh-resume-section .dsh-entry-bullets li + li { margin-top:4px; }
+.resume-document[data-template-id="case-study"] .dsh-resume-section .dsh-entry-bullets strong { color:var(--case-blue); }

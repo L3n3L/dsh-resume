@@ -27,6 +27,11 @@
 .resume-document[data-template-id="geek-lab"] .dsh-resume-section li { color:#c8dfd0; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
 .resume-document[data-template-id="geek-lab"] .dsh-resume-section li::marker { color:var(--geek-green); }
 .resume-document[data-template-id="geek-lab"] strong { color:var(--geek-green); }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section .dsh-entry-title { margin-bottom:4px; color:#f4ffd9; font-size:14px; letter-spacing:.01em; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section .dsh-entry-meta { display:flex; flex-wrap:wrap; gap:5px 10px; color:var(--geek-muted); font:600 10px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section .dsh-entry-bullets { margin-top:7px; padding-left:1.2em; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section .dsh-entry-bullets li + li { margin-top:4px; }
+.resume-document[data-template-id="geek-lab"] .dsh-resume-section .dsh-entry-bullets strong { color:var(--geek-cyan); }
 .resume-document[data-template-id="geek-lab"] a { color:var(--geek-cyan); text-decoration:underline; text-decoration-color:rgba(103,232,249,.38); text-underline-offset:2px; }
 .resume-document[data-template-id="geek-lab"] .dsh-skill-tags { gap:6px; }
 .resume-document[data-template-id="geek-lab"] .dsh-skill-tag { padding:4px 7px; border:1px solid rgba(183,243,75,.32); border-radius:2px; background:rgba(183,243,75,.06); color:var(--geek-green); font:600 10px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace; }

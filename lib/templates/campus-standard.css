@@ -55,4 +55,9 @@
 .resume-document[data-template-id="campus-standard"] .dsh-module-project-list { padding: 12px 14px 2px; border: 1px solid #dbe7f7; border-radius: 8px; background: linear-gradient(135deg,#fff,#f8fbff); }
 .resume-document[data-template-id="campus-standard"] .dsh-summary { padding: 10px 13px; border-left: 3px solid var(--campus-blue); background: #f8fbff; }
 .resume-document[data-template-id="campus-standard"] .meta { color: #6b7f9f; border-top: 1px dashed #cbd8ed; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section .dsh-entry-title { margin-bottom: 3px; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section .dsh-entry-meta { display:flex; flex-wrap:wrap; gap:6px 12px; color:#6b7f9f; font:600 11px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section .dsh-entry-bullets { margin-top:6px; padding-left:1.15em; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section .dsh-entry-bullets li + li { margin-top:3px; }
+.resume-document[data-template-id="campus-standard"] .dsh-resume-section .dsh-entry-bullets strong { color:#1d4ed8; }
 @media print { .resume-document[data-template-id="campus-standard"] .dsh-resume-page-content { background: #fff; } }

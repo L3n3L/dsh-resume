@@ -256,11 +256,15 @@ test('legacy placeholder resumes upgrade without touching custom content', async
 
 test('built-in template gallery includes representative visual directions', () => {
   const templates = listTemplatePresets()
-  assert.equal(templates.length, 20)
+  assert.equal(templates.length, 5)
   assert.deepEqual(listRendererIds(), ['clean-single', 'split-sidebar', 'technical-timeline', 'portfolio-grid', 'editorial', 'academic', 'swiss-grid', 'midnight-terminal', 'sidebar-signal', 'business-timeline', 'portrait-profile', 'magazine-feature', 'metrics-board', 'color-block', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'case-study', 'social-profile'])
-  assert.equal(new Set(templates.map((template) => template.renderer)).size, 20)
-  for (const id of ['campus-standard', 'two-column-brief', 'rail-engineering', 'project-atlas', 'editorial-spread', 'research-dossier', 'swiss-modular', 'terminal-console', 'signal-sidebar', 'executive-ledger', 'portrait-profile', 'magazine-feature', 'metrics-board', 'color-block', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'case-study', 'social-profile']) {
+  assert.equal(new Set(templates.map((template) => template.renderer)).size, 5)
+  for (const id of ['campus-standard', 'portrait-profile', 'magazine-feature', 'geek-lab', 'case-study']) {
     assert.ok(templates.some((template) => template.id === id), `missing built-in template: ${id}`)
+  }
+  for (const id of ['two-column-brief', 'rail-engineering', 'project-atlas', 'research-dossier', 'editorial-spread', 'terminal-console', 'executive-ledger', 'social-profile']) {
+    assert.equal(templates.some((template) => template.id === id), false, `near-duplicate still in gallery: ${id}`)
+    assert.ok(getTemplatePreset(id), `hidden preset must remain loadable: ${id}`)
   }
 })
 
@@ -283,7 +287,7 @@ test('legacy workspace experiments stay hidden from the refreshed gallery', asyn
       }))
     }
     const templates = await listAvailableTemplates(root)
-    assert.equal(templates.length, 20)
+    assert.equal(templates.length, 5)
     assert.equal(templates.some((template) => ['premium-navy', 'quiet-editorial-filled', 'soft-tinted'].includes(template.id)), false)
   } finally {
     await fs.rm(root, { recursive: true, force: true })
@@ -302,6 +306,15 @@ test('template renderer registry produces structural variants', () => {
   assert.match(sidebar, /dsh-column-main-item/)
   assert.match(sidebar, /dsh-column-side-item/)
   assert.doesNotMatch(sidebar, /dsh-resume-columns/)
+})
+
+test('entry markup exposes stable title, metadata, and bullet semantics', () => {
+  const source = '# 林知远\n\n## 项目经历\n\n### 校园服务平台\n\n2025.09 - 2026.01 | React / TypeScript\n\n- **首屏加载** 降低 42%\n- 支持 20 万条记录查询'
+  const template = getTemplatePreset('magazine-feature')
+  const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+  assert.match(html, /<h3 class="dsh-entry-title">校园服务平台<\/h3>/)
+  assert.match(html, /<p class="dsh-entry-meta">2025\.09 - 2026\.01 \| React \/ TypeScript<\/p>/)
+  assert.match(html, /<ul class="dsh-entry-bullets">[\s\S]*首屏加载/)
 })
 
 test('Layout IR normalizes legacy regions and preserves explicit composition', () => {
@@ -426,7 +439,7 @@ test('local asset route serves safe images and a visible placeholder', async () 
 
 test('business timeline renderer keeps the header and timeline structure distinct', () => {
   const source = '# 林知远\n\n前端工程师 | lin@example.com\n\n## 项目经历\n\n### 项目名称\n\n- 结果指标'
-  const template = listTemplatePresets().find((item) => item.id === 'executive-ledger')
+  const template = getTemplatePreset('executive-ledger')
   const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
   assert.match(html, /dsh-renderer-business-timeline/)
   assert.match(html, /dsh-business-timeline/)
@@ -466,7 +479,8 @@ test('new visual families generate their own renderer instead of flattening to a
 
 test('every built-in renderer can render the same resume fixture', () => {
   const source = '# 张三\n\n前端开发 | demo@example.com\n\n## 教育经历\n\n某某大学 · 计算机科学与技术\n\n## 专业技能\n\n- JavaScript / TypeScript\n\n## 项目经历\n\n- 性能提升 30%\n\n## 实习经历\n\n- 负责前端交付'
-  for (const template of listTemplatePresets()) {
+  for (const renderer of listRendererIds()) {
+    const template = listTemplatePresets().find((item) => item.renderer === renderer) || { ...TEMPLATE_DEFAULTS, id: `test-${renderer}`, renderer }
     const body = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
     const html = buildPreviewDocument({ title: template.name, bodyHtml: body, cssText: '', sourcePath: 'resume.md', templatePath: 'templates/default.css', previewPath: 'preview.html', templateSpec: template })
     assert.match(html, new RegExp(`renderer-${template.renderer}`), `renderer missing for ${template.id}`)

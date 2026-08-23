@@ -29,3 +29,8 @@
 .resume-document[data-template-id="portrait-profile"] .dsh-skill-tag { padding:5px 9px; color:var(--portrait-rose); border:1px solid #f3c4da; border-radius:7px 7px 7px 2px; background:var(--portrait-soft); font-size:11px; }
 .resume-document[data-template-id="portrait-profile"] .dsh-summary { padding:9px 11px; border:0; border-radius:8px; background:var(--portrait-soft); }
 .resume-document[data-template-id="portrait-profile"] .meta { color:#9b7186; border-top-color:#f3c4da; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section .dsh-entry-title { margin-bottom:4px; letter-spacing:-.015em; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section .dsh-entry-meta { display:flex; flex-wrap:wrap; gap:5px 10px; color:#9b7186; font:600 10px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section .dsh-entry-bullets { margin-top:7px; padding-left:1.1em; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section .dsh-entry-bullets li + li { margin-top:4px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-resume-section .dsh-entry-bullets strong { color:var(--portrait-rose); }
