@@ -53,5 +53,5 @@
 .resume-document[data-template-id="portrait-profile"] .dsh-module-projects .dsh-entry-title { padding:7px 10px; border-left:3px solid #e879a9; border-radius:0 7px 7px 0; background:#fff8fb; }
 .resume-document[data-template-id="portrait-profile"] .dsh-module-experience .dsh-entry-meta { padding-left:13px; }
 .resume-document[data-template-id="portrait-profile"] .dsh-skill-group { box-shadow:0 3px 0 rgba(244,114,182,.07); }
-.resume-document[data-template-id="portrait-profile"] .dsh-icon { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:18px; margin:0 3px; padding:0 4px; border:1px solid #f3c4da; border-radius:6px 6px 6px 2px; background:#fff1f7; color:var(--portrait-rose); font:800 9px/1 ui-monospace,SFMono-Regular,monospace; vertical-align:-2px; }
+.resume-document[data-template-id="portrait-profile"] .dsh-icon { border:1px solid #f3c4da; border-radius:9px 9px 9px 3px; background:#fff1f7; color:var(--portrait-rose); }
 @media print { .resume-document[data-template-id="portrait-profile"] .dsh-resume-page { box-shadow:none; } }

@@ -272,19 +272,25 @@ a { color: var(--accent); text-decoration: none; }
    只新增规则，不改既有 HTML 输出，保证测试不回退。
    ============================================================ */
 
-/* A8 图标：统一尺寸/对齐/颜色（renderIconTokens 发 .dsh-icon dsh-icon-{name}） */
+/* A8 图标：尺寸跟随文字，模板只负责视觉装饰 */
 .dsh-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 1.15em;
-  height: 1.15em;
-  margin-right: 4px;
-  font-size: 0.9em;
-  font-weight: 600;
+  --dsh-icon-scale: 1;
+  --dsh-icon-offset-y: 0;
+  position: relative;
+  top: calc(var(--dsh-icon-offset-y) * 1em);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(1em * var(--dsh-icon-scale));
+  height: calc(1em * var(--dsh-icon-scale));
+  margin-inline-end: 0.12em;
+  padding: 0;
+  font: inherit;
+  line-height: 1;
   color: var(--accent);
-  vertical-align: -0.12em;
+  vertical-align: middle;
 }
-.dsh-contact-item .dsh-icon { font-size: 0.95em; }
+.dsh-icon svg { width: 100%; height: 100%; display: block; }
 
 /* A7 富文本原语：blockquote / inline code / table —— 对照 codecv 单栏 */
 .dsh-single-column-page blockquote,

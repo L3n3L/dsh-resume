@@ -419,6 +419,8 @@ test('safe icon tokens become local semantic markup and unknown tokens stay text
   const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
   assert.match(html, /class="dsh-icon dsh-icon-email"[^>]*aria-label="邮箱"/)
   assert.match(html, /class="dsh-icon dsh-icon-github"[^>]*aria-label="GitHub"/)
+  assert.match(html, /class="dsh-icon dsh-icon-email"[^>]*data-icon-name="email"[^>]*data-icon-index="0"/)
+  assert.match(html, /class="dsh-icon dsh-icon-github"[^>]*data-icon-name="github"[^>]*data-icon-index="1"/)
   assert.match(html, /\[icon:unknown\]/)
   assert.doesNotMatch(html, /https?:\/\//)
 })

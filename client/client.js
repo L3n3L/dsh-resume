@@ -852,6 +852,21 @@ window.__ModuleLoader__.load({
 .cj-tuningPopover .cj-inlineControl { flex: 1 1 145px; min-width: 140px; }
 .cj-tuningPopover .cj-inlineControl input { width: 100%; }
 .cj-tuningPopover .cj-inlineReset { margin-left: auto; }
+.cj-iconTuningBlock { flex: 0 0 100%; margin-top: 2px; padding-top: 10px; border-top: 1px solid #edf0f4; }
+.cj-iconTuningHead, .cj-iconTuningFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #7b8496; font-size: 9px; }
+.cj-iconTuningHead strong { color: #536078; font-size: 10px; }
+.cj-iconTuningEmpty { padding: 8px 0 2px; color: #9aa3b3; font-size: 10px; }
+.cj-iconTuningRow { display: grid; grid-template-columns: minmax(72px, 1fr) minmax(92px, 1.2fr) minmax(92px, 1.2fr); align-items: center; gap: 7px; padding: 8px 0 0; }
+.cj-iconTuningName { min-width: 0; overflow: hidden; }
+.cj-iconTuningName strong, .cj-iconTuningName small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cj-iconTuningName strong { color: #536078; font-size: 10px; }
+.cj-iconTuningName small { margin-top: 2px; color: #9aa3b3; font-size: 8px; }
+.cj-iconInlineControl { min-width: 0; display: grid; grid-template-columns: auto auto; align-items: center; gap: 3px 5px; color: #7b8496; font-size: 8px; white-space: nowrap; }
+.cj-iconInlineControl strong { color: #536078; font-size: 8px; font-weight: 700; text-align: right; }
+.cj-iconInlineControl input { grid-column: 1 / -1; display: block; width: 100%; height: 12px; margin: 0; accent-color: #3559a8; }
+.cj-iconTuningFoot { margin-top: 8px; }
+.cj-iconTuningFoot .cj-inlineReset { margin-left: 0; }
+.cj-iconTuningFoot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cj-previewWorkspace { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(300px, .82fr) minmax(420px, 1.18fr); gap: 10px; }
 .cj-previewWorkspace[data-chat="open"] { grid-template-columns: minmax(240px, .62fr) minmax(560px, 1.1fr) minmax(300px, .72fr); }
 .cj-previewEditorPane, .cj-previewA4Pane { min-height: 0; }
@@ -1347,6 +1362,15 @@ window.__ModuleLoader__.load({
       }
     }
 
+    const ICON_TUNING_DEFAULTS = Object.freeze({ scale: 1, offsetY: 0 })
+
+    function normalizeIconTuning(value = {}) {
+      return {
+        scale: Math.min(1.5, Math.max(0.7, Number(value.scale) || ICON_TUNING_DEFAULTS.scale)),
+        offsetY: Math.min(0.25, Math.max(-0.25, Number(value.offsetY) || ICON_TUNING_DEFAULTS.offsetY)),
+      }
+    }
+
     const BUILTIN_TEMPLATE_IDS = new Set(['campus-standard', 'portrait-profile', 'magazine-feature', 'geek-lab', 'case-study', 'business-ledger-plus'])
 
     function PreviewWorkbench({ compact, onClose }) {
@@ -1364,6 +1388,9 @@ window.__ModuleLoader__.load({
       const [layout, setLayout] = useState(null)
       const [layoutSettings, setLayoutSettings] = useState({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
       const [layoutHistory, setLayoutHistory] = useState([])
+      const [iconInventory, setIconInventory] = useState([])
+      const [iconTuning, setIconTuning] = useState({})
+      const [iconHistory, setIconHistory] = useState([])
       const [templates, setTemplates] = useState([])
       const [thumbnailEpoch, setThumbnailEpoch] = useState(0)
       const thumbnailSignatureRef = useRef('')
@@ -1405,6 +1432,7 @@ window.__ModuleLoader__.load({
       const [editorMessage, setEditorMessage] = useState('')
       const [editorExternalPending, setEditorExternalPending] = useState(false)
       const editorDiskContentRef = useRef('')
+      const editorPreviewRef = useRef(null)
       const [editorChatOpen, setEditorChatOpen] = useState(false)
       const [chatInput, setChatInput] = useState('')
       const [chatMessages, setChatMessages] = useState([])
@@ -1853,6 +1881,16 @@ window.__ModuleLoader__.load({
         frame.contentWindow.postMessage({ source: 'dsh-resume-token-preview', tokens: visualTokens }, '*')
       }, [visualTokens])
 
+      useEffect(() => {
+        postIconTuning()
+      }, [iconTuning, editorPreviewUrl])
+
+      useEffect(() => {
+        setIconInventory([])
+        setIconTuning({})
+        setIconHistory([])
+      }, [selected, templateId, editorSource?.previewPath])
+
       const onRefresh = () => {
         setFitState({ text: '正在重新检查', state: 'pending' })
         setLayout(null)
@@ -2188,13 +2226,68 @@ window.__ModuleLoader__.load({
         setLayoutHistory((history) => history.slice(0, -1))
       }
 
+      const postIconTuning = (frame = editorPreviewRef.current) => {
+        if (!frame?.contentWindow) return
+        frame.contentWindow.postMessage({ source: 'dsh-resume-icon-tuning', icons: iconTuning }, '*')
+      }
+
+      const inspectPreviewIcons = (frame) => {
+        try {
+          const elements = [...(frame?.contentDocument?.querySelectorAll('.dsh-icon[data-icon-name]') || [])]
+          const counts = new Map()
+          for (const element of elements) {
+            const name = element.dataset.iconName || 'unknown'
+            const current = counts.get(name) || { name, label: element.getAttribute('aria-label') || name, count: 0 }
+            current.count += 1
+            counts.set(name, current)
+          }
+          setIconInventory([...counts.values()].sort((a, b) => a.name.localeCompare(b.name)))
+          postIconTuning(frame)
+        } catch {
+          setIconInventory([])
+        }
+      }
+
+      const updateIconTuning = (name, key, value) => {
+        setIconHistory((history) => [...history, iconTuning].slice(-20))
+        const nextValue = key === 'scale'
+          ? Math.min(1.5, Math.max(0.7, Number(value)))
+          : Math.min(0.25, Math.max(-0.25, Number(value)))
+        setIconTuning((current) => ({
+          ...current,
+          [name]: { ...(current[name] || {}), [key]: nextValue },
+        }))
+      }
+
+      const resetIconTuning = () => {
+        setIconHistory((history) => [...history, iconTuning].slice(-20))
+        setIconTuning({})
+      }
+
+      const undoIconTuning = () => {
+        if (!iconHistory.length) return
+        setIconTuning(iconHistory[iconHistory.length - 1])
+        setIconHistory((history) => history.slice(0, -1))
+      }
+
+      const iconTuningValue = (name, key) => normalizeIconTuning({ ...(iconTuning['*'] || {}), ...(iconTuning[name] || {}) })[key]
+
+      const iconTuningCss = () => [...Object.entries(iconTuning)]
+        .sort(([a], [b]) => (a === '*' ? -1 : b === '*' ? 1 : 0))
+        .map(([name, value]) => {
+          const tuning = normalizeIconTuning(value)
+          const selector = name === '*' ? '.dsh-icon' : `.dsh-icon-${name}`
+          return `${selector}{--dsh-icon-scale:${tuning.scale};--dsh-icon-offset-y:${tuning.offsetY}}`
+        })
+        .join('')
+
       const onDownload = async () => {
         if (!previewSrc) return
         try {
           const res = await fetch(previewSrc, { cache: 'no-store' })
           if (!res.ok) throw new Error(`预览读取失败（${res.status}）`)
           const html = await res.text()
-          const exportStyle = `<style data-dsh-resume-export>body{line-height:${layoutSettings.lineHeight} !important}.dsh-resume-page-content{padding:${layoutSettings.pageMargin}px !important}.dsh-resume-section{margin-bottom:${layoutSettings.sectionGap}px !important}p,li{font-size:${layoutSettings.fontSize}px !important}</style>`
+          const exportStyle = `<style data-dsh-resume-export>body{line-height:${layoutSettings.lineHeight} !important}.dsh-resume-page-content{padding:${layoutSettings.pageMargin}px !important}.dsh-resume-section{margin-bottom:${layoutSettings.sectionGap}px !important}p,li{font-size:${layoutSettings.fontSize}px !important}${iconTuningCss()}</style>`
           const exportedHtml = html.replace('</head>', `${exportStyle}</head>`)
           const blob = new Blob([exportedHtml], { type: 'text/html;charset=utf-8' })
           const url = URL.createObjectURL(blob)
@@ -2224,6 +2317,12 @@ window.__ModuleLoader__.load({
             }
             if (w.document && w.document.readyState === 'complete') {
               clearInterval(timer)
+              if (iconTuningCss()) {
+                const style = w.document.createElement('style')
+                style.setAttribute('data-dsh-resume-icon-tuning', 'true')
+                style.textContent = iconTuningCss()
+                w.document.head.append(style)
+              }
               w.focus()
               w.print()
             }
@@ -2440,6 +2539,7 @@ window.__ModuleLoader__.load({
           ]).map((item, index) => React.createElement('div', { className: 'cj-guideRow', key: item.id }, React.createElement('span', { className: `cj-qualityStatus cj-quality-${item.status}` }, item.status === 'pass' ? '✓' : item.status === 'error' ? '!' : item.status === 'warn' ? '!' : '·'), React.createElement('span', null, React.createElement('strong', null, String(index + 1).padStart(2, '0') + '　' + item.message), item.detail ? React.createElement('small', null, item.detail) : null))),
         ),
       )
+      const iconRows = [{ name: '*', label: '全部图标', count: iconInventory.reduce((total, item) => total + item.count, 0) }, ...iconInventory]
       const tuningPanel = React.createElement(
         'div',
         { className: 'cj-tuningPopover', 'aria-label': '手动调整' },
@@ -2458,6 +2558,22 @@ window.__ModuleLoader__.load({
         )),
         React.createElement('button', { type: 'button', className: 'cj-inlineReset', onClick: undoLayout, disabled: !layoutHistory.length, title: '撤销上一次调整' }, '↶'),
         React.createElement('button', { type: 'button', className: 'cj-inlineReset', onClick: resetLayoutSettings, title: '恢复默认排版' }, '默认'),
+        React.createElement('div', { className: 'cj-iconTuningBlock' },
+          React.createElement('div', { className: 'cj-iconTuningHead' },
+            React.createElement('strong', null, '图标微调'),
+            React.createElement('span', null, iconInventory.length ? `${iconInventory.length} 种 · ${iconRows[0].count} 个` : '等待预览读取'),
+          ),
+          iconRows.length === 1
+            ? React.createElement('div', { className: 'cj-iconTuningEmpty' }, '当前预览没有可调图标。')
+            : iconRows.map((item) => React.createElement(
+              'div',
+              { className: 'cj-iconTuningRow', key: item.name },
+              React.createElement('div', { className: 'cj-iconTuningName' }, React.createElement('strong', null, item.label), React.createElement('small', null, item.name === '*' ? '全部' : `${item.name} · ${item.count} 个`)),
+              React.createElement('label', { className: 'cj-iconInlineControl' }, React.createElement('span', null, '大小'), React.createElement('strong', null, `${iconTuningValue(item.name, 'scale').toFixed(2)}em`), React.createElement('input', { type: 'range', min: 0.7, max: 1.5, step: 0.05, value: iconTuningValue(item.name, 'scale'), onChange: (event) => updateIconTuning(item.name, 'scale', Number(event.target.value)), 'aria-label': `${item.label}图标大小` })),
+              React.createElement('label', { className: 'cj-iconInlineControl' }, React.createElement('span', null, '上下'), React.createElement('strong', null, `${iconTuningValue(item.name, 'offsetY').toFixed(2)}em`), React.createElement('input', { type: 'range', min: -0.25, max: 0.25, step: 0.01, value: iconTuningValue(item.name, 'offsetY'), onChange: (event) => updateIconTuning(item.name, 'offsetY', Number(event.target.value)), 'aria-label': `${item.label}图标上下位置` })),
+            )),
+          React.createElement('div', { className: 'cj-iconTuningFoot' }, React.createElement('span', null, '只影响当前预览，不会改写 Markdown'), React.createElement('button', { type: 'button', className: 'cj-inlineReset', onClick: undoIconTuning, disabled: !iconHistory.length, title: '撤销上一次图标调整' }, '↶'), React.createElement('button', { type: 'button', className: 'cj-inlineReset', onClick: resetIconTuning, title: '恢复图标默认值' }, '默认')),
+        ),
       )
 
       const lastUserPrompt = [...chatMessages].reverse().find((item) => item.role === 'user')?.text || ''
@@ -2597,7 +2713,7 @@ window.__ModuleLoader__.load({
           'section',
           { className: 'cj-editorPane cj-previewA4Pane' },
           React.createElement('div', { className: 'cj-editorPaneHead' }, React.createElement('span', null, 'A4 预览'), React.createElement('small', null, editorPreviewUrl ? '草稿实时渲染' : '等待输入')),
-          React.createElement('div', { className: 'cj-editorPreviewFrame' }, editorPreviewUrl ? React.createElement('iframe', { title: 'Markdown 草稿预览', src: editorPreviewUrl }) : React.createElement('div', { className: 'cj-empty' }, '输入内容后生成预览')),
+          React.createElement('div', { className: 'cj-editorPreviewFrame' }, editorPreviewUrl ? React.createElement('iframe', { ref: editorPreviewRef, title: 'Markdown 草稿预览', src: editorPreviewUrl, onLoad: (event) => { inspectPreviewIcons(event.currentTarget); postIconTuning(event.currentTarget) } }) : React.createElement('div', { className: 'cj-empty' }, '输入内容后生成预览')),
         ),
         editorChatOpen ? editorChatView : null,
       )

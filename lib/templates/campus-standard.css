@@ -79,5 +79,5 @@
 .resume-document[data-template-id="campus-standard"] .dsh-module-projects .dsh-entry-title { padding-left:9px; border-left:3px solid #93c5fd; }
 .resume-document[data-template-id="campus-standard"] .dsh-module-experience .dsh-entry-meta { padding-left:12px; }
 .resume-document[data-template-id="campus-standard"] .dsh-skill-group { min-height:18px; }
-.resume-document[data-template-id="campus-standard"] .dsh-icon { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:18px; margin:0 3px; padding:0 4px; border-radius:4px; background:var(--campus-pale); color:var(--campus-blue); font:800 9px/1 ui-monospace,SFMono-Regular,monospace; vertical-align:-2px; }
+.resume-document[data-template-id="campus-standard"] .dsh-icon { border-radius:6px; background:var(--campus-pale); color:var(--campus-blue); }
 @media print { .resume-document[data-template-id="campus-standard"] .dsh-resume-page { box-shadow:none; } }
