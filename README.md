@@ -208,12 +208,11 @@ AI 助手位于当前预览工作台右侧，拿到的是当前简历上下文�
 | `jobhunt_init` | 初始化求职工作区 |
 | `jobhunt_read` / `jobhunt_write` | 读取和写入简历材料 |
 | `jobhunt_check` | 检查内容证据、目录和排版风险 |
-| `jobhunt_template_list` | 查看 6 个内置模板和已保存的 composition 模板；旧模板需先迁移 |
+| `jobhunt_template_list` | 查看 6 个内置模板和已保存的 composition 模板；不支持的模板会被忽略 |
 | `jobhunt_template_copy` | 复制模板并建立独立版本 |
 | `jobhunt_template_generate` | 从 DesignBrief 生成可校验的模板候选，不自动入库 |
 | `jobhunt_template_validate` | 校验模板配置 |
-| `jobhunt_template_save` | 保存 composition 模板版本；拒绝静默失效的旧 renderer |
-| `jobhunt_template_migrate` | 将已有旧模板迁移到 composition 协议 |
+| `jobhunt_template_save` | 保存 composition 模板版本；拒绝不支持的 renderer |
 | `jobhunt_layout_validate` | 校验模块布局声明 |
 | `jobhunt_layout_metrics` | 读取真实 A4 测量指标 |
 | `jobhunt_template_autotune` | 根据指标做有限轮次调优 |
@@ -230,7 +229,7 @@ AI 助手位于当前预览工作台右侧，拿到的是当前简历上下文�
 
 模板生成的完成判定不是“AI 返回了候选 JSON”，而是 `jobhunt_template_save` 成功，随后
 `jobhunt_template_list` 能查到该 ID，并且 `jobhunt_render` 使用同一个 `templateId` 成功刷新预览。
-旧 workspace 模板可以用 `jobhunt_template_migrate` 转换；不会再出现“保存成功但模板库看不到”的静默状态。
+不支持的旧模板不会进入模板库；需要使用时应重新生成 composition 模板。
 
 ## 文件结构
 

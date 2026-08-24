@@ -56,5 +56,5 @@
 .resume-document[data-template-id="magazine-feature"] .dsh-module-experience .dsh-entry-title { padding-left:9px; border-left:2px solid var(--mag-rose); }
 .resume-document[data-template-id="magazine-feature"] .dsh-module-experience .dsh-entry-meta { margin-top:5px; letter-spacing:.04em; }
 .resume-document[data-template-id="magazine-feature"] .dsh-skill-group { border:0; border-bottom:1px solid #eadfe3; border-radius:0; background:transparent; }
-.resume-document[data-template-id="magazine-feature"] .dsh-icon { display:inline-flex; align-items:center; justify-content:center; min-width:21px; height:18px; margin:0 3px; padding:0 4px; border-bottom:2px solid var(--mag-rose); color:var(--mag-rose); font:800 9px/1 ui-monospace,SFMono-Regular,monospace; vertical-align:-2px; }
+.resume-document[data-template-id="magazine-feature"] .dsh-icon { border-bottom:3px solid var(--mag-rose); color:var(--mag-rose); }
 @media print { .resume-document[data-template-id="magazine-feature"] .dsh-resume-page { box-shadow:none; } }

@@ -1,0 +1,1422 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>林知远</title>
+  <style data-template-base-css>
+/* dsh-resume default resume template — independent implementation */
+:root {
+  --text: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #2563eb;
+  --bg: #ffffff;
+  --page-width: 794px;
+  --page-height: 1123px;
+  --page-padding-x: 48px;
+  --page-padding-y: 40px;
+  --resume-font-size: 14px;
+  --resume-line-height: 1.55;
+  --resume-section-gap: 20px;
+  --resume-page-margin: 48px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #fff;
+  color: var(--text);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: var(--resume-line-height);
+}
+
+.resume-document {
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  padding: 24px 12px;
+}
+
+.dsh-resume-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+}
+
+.dsh-resume-page {
+  width: var(--page-width);
+  height: var(--page-height);
+  flex: 0 0 var(--page-height);
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+  position: relative;
+}
+
+.dsh-resume-page-content {
+  height: 100%;
+  overflow: hidden;
+  padding: var(--resume-page-margin) var(--resume-page-margin);
+}
+
+.dsh-resume-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.dsh-resume-column { min-width: 0; }
+
+/* Generic template structure contract. New AI templates use these hooks;
+   legacy renderer classes remain available as a compatibility layer. */
+.dsh-composed-layout { min-width: 0; }
+.dsh-composed-modules { min-width: 0; }
+.dsh-composed-modules.dsh-layout-stack { display: grid; gap: var(--resume-section-gap); }
+.dsh-composed-modules.dsh-layout-grid { display: grid; grid-template-columns: repeat(var(--layout-grid-columns, 2), minmax(0, 1fr)); gap: var(--layout-gap, 20px); align-items: start; }
+.dsh-composed-modules.dsh-layout-split { min-width: 0; }
+.dsh-entry-rail { position: relative; min-width: 0; break-inside: avoid; }
+.dsh-entry-rail-timeline { padding-left: 22px; border-left: 2px solid color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.dsh-entry-rail-marker { position: absolute; left: -7px; top: 7px; width: 11px; height: 11px; border: 3px solid var(--bg); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.dsh-entry-rail-content { min-width: 0; }
+[data-composition-header="hero"] .header-block { padding-bottom: 18px; }
+[data-composition-section="badge"] .dsh-resume-section > h2::before { content: "✦"; display: inline-grid; place-items: center; width: 19px; height: 19px; margin-right: 7px; border-radius: 50%; background: var(--accent); color: var(--bg); font-size: 11px; }
+[data-composition-skills="list"] .dsh-skill-tags { display: grid; gap: 4px; }
+[data-composition-skills="list"] .dsh-skill-tag { display: block; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+
+.header-block {
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 14px;
+  margin-bottom: 22px;
+}
+
+.header-block h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: 0.02em;
+}
+
+.header-block p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.dsh-hero-identity,
+.dsh-hero-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 9px;
+  row-gap: 4px;
+}
+
+.dsh-hero-segment,
+.dsh-hero-separator {
+  display: inline-flex;
+}
+
+.dsh-hero-separator {
+  color: color-mix(in srgb, currentColor 42%, transparent);
+  user-select: none;
+}
+
+.dsh-contact-item {
+  white-space: nowrap;
+}
+
+.dsh-resume-section {
+  margin: 0 0 var(--resume-section-gap);
+  break-inside: avoid;
+}
+
+.dsh-resume-section > h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+  text-transform: none;
+}
+
+.dsh-module-skill-tags li {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  list-style: none;
+}
+
+.dsh-module-metric-row ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-left: 0;
+  list-style: none;
+}
+
+.dsh-module-timeline {
+  border-left: 2px solid var(--line);
+  padding-left: 14px;
+}
+
+h3 {
+  margin: 14px 0 6px;
+  font-size: 15px;
+}
+
+p, li {
+  font-size: var(--resume-font-size);
+}
+
+ul {
+  margin: 6px 0 8px 1.2em;
+  padding: 0;
+}
+
+/* Shared content primitive: nested bullets keep a stable rhythm across skins. */
+.dsh-entry-bullets ul {
+  margin: 4px 0 0;
+  padding-left: 1.25em;
+}
+
+/* New templates use pageSpec as a stable structural contract. These hooks
+   provide safe baseline behavior; each visual family can skin them separately. */
+.dsh-single-column-page .dsh-single-column-module,
+.dsh-single-column-page .dsh-entry-rail {
+  break-inside: avoid;
+}
+
+.dsh-single-column-page[data-page-density="compact"] .dsh-single-column-module + .dsh-single-column-module,
+.dsh-single-column-page[data-page-density="compact"] .dsh-entry-rail + .dsh-entry-rail {
+  margin-top: 6px;
+}
+
+.dsh-single-column-page[data-page-density="standard"] .dsh-single-column-module + .dsh-single-column-module,
+.dsh-single-column-page[data-page-density="standard"] .dsh-entry-rail + .dsh-entry-rail {
+  margin-top: 10px;
+}
+
+.dsh-single-column-page[data-page-density="airy"] .dsh-single-column-module + .dsh-single-column-module,
+.dsh-single-column-page[data-page-density="airy"] .dsh-entry-rail + .dsh-entry-rail {
+  margin-top: 16px;
+}
+
+.dsh-single-column-page[data-page-section="numbered-rail"] .dsh-resume-section {
+  position: relative;
+}
+
+.dsh-single-column-page[data-page-section="numbered-rail"] .dsh-section-heading::before {
+  content: counter(dsh-section) " /";
+  counter-increment: dsh-section;
+  display: inline-block;
+  margin-right: 10px;
+  color: var(--muted, #6b7280);
+  font-size: .62em;
+  font-weight: 600;
+  letter-spacing: .08em;
+  vertical-align: middle;
+}
+
+.dsh-single-column-page[data-page-section="numbered-rail"] .dsh-composed-modules {
+  counter-reset: dsh-section;
+}
+
+.dsh-single-column-page[data-page-type-scale="display"] .dsh-entry-title {
+  letter-spacing: -.02em;
+}
+
+.dsh-single-column-page[data-page-accent-mode="surface"] .dsh-single-column-module-feature-first,
+.dsh-single-column-page[data-page-accent-mode="surface"] .dsh-single-column-module-cards {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent, #2563eb) 6%, transparent);
+  border-radius: var(--corner-radius, 0);
+}
+
+strong { color: #111827; }
+
+a { color: var(--accent); text-decoration: none; }
+
+.meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 28px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+@media (max-width: 820px) {
+  .resume-document { padding: 0; }
+  .dsh-resume-pages { gap: 10px; }
+  .dsh-resume-page { transform-origin: top center; }
+}
+
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  html, body { background: #fff !important; }
+  .resume-document { padding: 0 !important; }
+  .dsh-resume-pages { display: block !important; }
+  .dsh-resume-page {
+    margin: 0 !important;
+    box-shadow: none !important;
+    background: var(--bg) !important;
+    page-break-after: always;
+    break-after: page;
+  }
+  .dsh-resume-page:last-child { page-break-after: auto; break-after: auto; }
+  .meta { display: none !important; }
+}
+
+/* ============================================================
+   pageSpec 视觉兑现 P0（补齐空缺，见 docs/pageSpec视觉兑现空缺与补齐.md）
+   只新增规则，不改既有 HTML 输出，保证测试不回退。
+   ============================================================ */
+
+/* A8 图标：统一尺寸/对齐/颜色（renderIconTokens 发 .dsh-icon dsh-icon-{name}） */
+.dsh-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 4px;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--accent);
+  vertical-align: -0.12em;
+}
+.dsh-contact-item .dsh-icon { font-size: 0.95em; }
+
+/* A7 富文本原语：blockquote / inline code / table —— 对照 codecv 单栏 */
+.dsh-single-column-page blockquote,
+.dsh-resume-section blockquote {
+  position: relative;
+  margin: 10px 0;
+  padding: 8px 12px 8px 16px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 2px;
+}
+.dsh-single-column-page blockquote::before,
+.dsh-resume-section blockquote::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.dsh-single-column-page code,
+.dsh-resume-section code {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 1px;
+  font-size: 0.88em;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 999px;
+}
+.dsh-single-column-page pre code,
+.dsh-resume-section pre code { display: inline; padding: 0; background: transparent; color: var(--text); }
+.dsh-single-column-page table,
+.dsh-resume-section table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 0.92em;
+}
+.dsh-single-column-page table thead th,
+.dsh-resume-section table thead th {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  text-align: left;
+  padding: 6px 8px;
+}
+.dsh-single-column-page table td,
+.dsh-resume-section table td {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 8px;
+}
+
+/* A1 accentMode：text / marker / rule 三档兑现（surface 已有） */
+.dsh-single-column-page[data-page-accent-mode="text"] .dsh-section-heading,
+.dsh-single-column-page[data-page-accent-mode="text"] .dsh-entry-title { color: var(--accent); }
+.dsh-single-column-page[data-page-accent-mode="text"] strong { color: color-mix(in srgb, var(--accent) 70%, var(--text)); }
+
+.dsh-single-column-page[data-page-accent-mode="marker"] .dsh-entry-bullets li::marker { color: var(--accent); }
+.dsh-single-column-page[data-page-accent-mode="marker"] .dsh-section-heading::before {
+  content: "";
+  display: inline-block;
+  width: 4px; height: 1em;
+  margin-right: 8px;
+  background: var(--accent);
+  vertical-align: -0.12em;
+  border-radius: 2px;
+}
+
+.dsh-single-column-page[data-page-accent-mode="rule"] .dsh-section-heading { border-bottom: 2px solid var(--accent); }
+.dsh-single-column-page[data-page-accent-mode="rule"] .header-block { border-bottom-color: var(--accent); }
+.dsh-single-column-page[data-page-accent-mode="rule"] .dsh-resume-section { border-top: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); padding-top: 14px; }
+
+/* A3 header 变体：masthead / split / centered / compact / command */
+.dsh-single-column-page[data-page-header="split"] .header-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.dsh-single-column-page[data-page-header="split"] .dsh-hero-name { margin: 0; }
+.dsh-single-column-page[data-page-header="split"] .dsh-hero-line { margin: 0; }
+
+.dsh-single-column-page[data-page-header="centered"] .header-block { text-align: center; }
+.dsh-single-column-page[data-page-header="centered"] .dsh-hero-identity,
+.dsh-single-column-page[data-page-header="centered"] .dsh-hero-contact { justify-content: center; }
+
+.dsh-single-column-page[data-page-header="compact"] .header-block { padding-bottom: 8px; margin-bottom: 14px; }
+.dsh-single-column-page[data-page-header="compact"] .dsh-hero-name { font-size: 22px; margin: 0 0 4px; }
+.dsh-single-column-page[data-page-header="compact"] .dsh-hero-line { font-size: 12.5px; }
+
+.dsh-single-column-page[data-page-header="command"] .header-block { font-family: ui-monospace, "Cascadia Code", monospace; }
+.dsh-single-column-page[data-page-header="command"] .dsh-hero-name::before { content: "$ "; color: var(--accent); }
+
+/* A3 identity / contact 对齐变体 */
+.dsh-single-column-page[data-page-identity="stacked"] .dsh-hero-identity-item { display: block; }
+.dsh-single-column-page[data-page-identity="split"] .dsh-hero-segment.dsh-hero-identity-item + .dsh-hero-segment.dsh-hero-identity-item { margin-left: 12px; }
+
+.dsh-single-column-page[data-page-contact="stacked"] .dsh-contact-item { display: block; }
+.dsh-single-column-page[data-page-contact="stacked"] .dsh-hero-separator { display: none; }
+.dsh-single-column-page[data-page-contact="split"] .dsh-hero-contact { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
+
+/* A4 section 变体：plain / badge / rule / marker（numbered-rail 已有，接通 pageSpec 类路径） */
+.dsh-single-column-page[data-page-section="plain"] .dsh-resume-section > h2 { border-bottom: 0; padding-bottom: 0; }
+
+.dsh-single-column-page[data-page-section="badge"] .dsh-section-heading::before {
+  content: "";
+  display: inline-block;
+  width: 18px; height: 18px;
+  margin-right: 8px;
+  border-radius: 4px;
+  background: var(--accent);
+  vertical-align: -3px;
+}
+
+.dsh-single-column-page[data-page-section="rule"] .dsh-section-heading {
+  display: inline-block;
+  padding: 2px 10px 2px 0;
+  border-bottom: 2px solid var(--accent);
+}
+
+.dsh-single-column-page[data-page-section="marker"] .dsh-section-heading::before {
+  content: "■";
+  margin-right: 8px;
+  color: var(--accent);
+  font-size: 0.7em;
+  vertical-align: 0.1em;
+}
+
+/* A5 entry 变体：role-stack / feature-first（timeline 已有竖轴；compact 为密度） */
+.dsh-single-column-page .dsh-entry-row-role-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.dsh-single-column-page .dsh-entry-row-role-stack .dsh-entry-meta-slot { order: -1; }
+
+.dsh-single-column-page .dsh-entry-row-feature-first .dsh-entry-main { font-size: 1.05em; }
+.dsh-single-column-page .dsh-single-column-module-feature-first > .dsh-module-projects .dsh-entry-row:first-child {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border-left: 3px solid var(--accent);
+  border-radius: 2px;
+}
+
+/* A5 cards：模块级卡片网格 */
+.dsh-single-column-page .dsh-single-column-module-cards > .dsh-module-projects,
+.dsh-single-column-page .dsh-single-column-module-cards > .dsh-module-experience {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.dsh-single-column-page .dsh-single-column-module-cards .dsh-entry-row { padding: 10px; border: 1px solid var(--line); border-radius: 4px; }
+
+/* A6 skills 变体（接通 pageSpec 类路径 dsh-skills-composition-*） */
+.dsh-single-column-page .dsh-skills-composition-grouped-chips .dsh-skill-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.dsh-single-column-page .dsh-skills-composition-rows .dsh-skill-tags { display: grid; gap: 3px; }
+.dsh-single-column-page .dsh-skills-composition-rows .dsh-skill-tag {
+  display: block; padding: 0; border: 0; border-bottom: 1px dotted var(--line); border-radius: 0; background: transparent;
+}
+.dsh-single-column-page .dsh-skills-composition-inline .dsh-skill-tags { display: inline; }
+.dsh-single-column-page .dsh-skills-composition-inline .dsh-skill-tag::after { content: "、"; }
+.dsh-single-column-page .dsh-skills-composition-inline .dsh-skill-tag:last-child::after { content: ""; }
+
+/* A2 字体族 family：campus-clear 为默认现代无衬线；预留 editorial/terminal 切换 */
+.dsh-single-column-page[data-page-family="editorial"] { font-family: "Noto Serif SC", "Source Han Serif SC", Georgia, serif; }
+.dsh-single-column-page[data-page-family="terminal"] { font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace; }
+
+/* A9 ruleStyle：控制章节底线/分隔线样式 */
+.dsh-single-column-page[data-page-rule="none"] .dsh-section-heading { border-bottom: 0; padding-bottom: 0; }
+.dsh-single-column-page[data-page-rule="solid"] .dsh-section-heading { border-bottom: 2px solid var(--text); }
+.dsh-single-column-page[data-page-rule="dashed"] .dsh-section-heading { border-bottom: 1px dashed var(--accent); }
+.dsh-single-column-page[data-page-rule="hairline"] .dsh-section-heading { border-bottom: 1px solid var(--line); }
+
+/* A10 typeScale：balanced/compact（display 已有） */
+.dsh-single-column-page[data-page-type-scale="balanced"] .dsh-hero-name { letter-spacing: 0.01em; }
+.dsh-single-column-page[data-page-type-scale="compact"] .dsh-hero-name { font-size: 24px; letter-spacing: 0; }
+.dsh-single-column-page[data-page-type-scale="compact"] .dsh-entry-title { font-size: 14px; }
+
+/* A11 page.margin → padding 兑现 */
+.dsh-single-column-page { --_pad-x: var(--page-padding-x, 48px); --_pad-y: var(--page-padding-y, 40px); }
+
+  </style>
+  <style data-template-css>
+/*
+ * Business Ledger Plus — an independent business-resume skin.
+ *
+ * The visual target is a navy identity header, a gold signal line and a
+ * project-first chronology. It deliberately uses the dsh-resume semantic DOM
+ * rather than copying any third-party stylesheet or asset.
+ */
+
+[data-template-id="business-ledger-plus"] .header-block {
+  position: relative;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  column-gap: 18px;
+  align-items: center;
+  min-height: 162px;
+  margin: calc(-1 * var(--resume-page-margin)) calc(-1 * var(--resume-page-margin)) 28px;
+  padding: 34px var(--resume-page-margin) 28px;
+  overflow: hidden;
+  background: #10263c;
+  color: #f8fafc;
+  border: 0;
+  border-bottom: 5px solid #d6bd25;
+}
+
+[data-template-id="business-ledger-plus"] .header-block::after {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  width: 92px;
+  height: 1px;
+  content: "";
+  background: rgba(242, 212, 141, .38);
+  box-shadow: -16px -7px 0 rgba(242, 212, 141, .18), -32px -14px 0 rgba(242, 212, 141, .1);
+}
+
+/* A neutral fallback keeps the identity block balanced before a portrait is supplied. */
+[data-template-id="business-ledger-plus"] .header-block:not(:has(img))::before {
+  display: grid;
+  grid-row: 1 / span 3;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  content: "CV";
+  color: #10263c;
+  background: #d6d228;
+  border: 4px solid rgba(214, 210, 40, .35);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .28), inset 0 0 0 7px rgba(20, 38, 61, .08);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+[data-template-id="business-ledger-plus"] .header-block:has(img) {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-avatar {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  margin: 0;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-avatar img {
+  display: block;
+  width: 68px;
+  height: 68px;
+  object-fit: cover;
+  border: 3px solid #f2d48d;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(242, 212, 141, .18);
+}
+
+[data-template-id="business-ledger-plus"] .header-block h1,
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-name {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0 0 7px;
+  color: #d6d228;
+  font-size: 30px;
+  line-height: 1.08;
+  letter-spacing: .015em;
+}
+
+[data-template-id="business-ledger-plus"] .header-block p,
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-line {
+  grid-column: 2;
+  margin: 3px 0 0;
+  color: #d7e0ea;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-identity {
+  grid-row: 2;
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 9px;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-contact {
+  grid-row: 3;
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 9px;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-hero-separator {
+  color: rgba(215, 224, 234, .48);
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-contact-item {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-contact-email,
+[data-template-id="business-ledger-plus"] .header-block .dsh-contact-github,
+[data-template-id="business-ledger-plus"] .header-block .dsh-contact-website {
+  color: #f2d48d;
+}
+
+[data-template-id="business-ledger-plus"] .header-block .dsh-icon,
+[data-template-id="business-ledger-plus"] .header-block a {
+  color: #d6d228;
+}
+
+/* Only the two experience-bearing modules use the chronology rail. */
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline {
+  position: relative;
+  margin: 0 0 20px 8px;
+  padding: 0 0 4px 28px;
+  border-left: 2px solid rgba(20, 38, 61, .24);
+  break-inside: avoid;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline:not(.dsh-renderer-item-experience):not(.dsh-renderer-item-projects):not(.dsh-renderer-item-project-list) {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline:last-child {
+  margin-bottom: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-marker {
+  position: absolute;
+  left: -9px;
+  top: 1px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #d2a84b;
+  box-shadow: 0 0 0 2px #14263d;
+  display: none;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline:not(.dsh-renderer-item-experience):not(.dsh-renderer-item-projects):not(.dsh-renderer-item-project-list) .dsh-entry-rail-marker {
+  display: none;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content > .dsh-resume-section {
+  min-width: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(120px, .9fr) minmax(150px, .95fr);
+  column-gap: 12px;
+  row-gap: 5px;
+  margin: 12px 0 19px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-main {
+  display: contents;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-main .dsh-entry-title,
+[data-template-id="business-ledger-plus"] .dsh-entry-main > h3 {
+  display: contents;
+  max-width: none;
+  margin: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-main .dsh-entry-role,
+[data-template-id="business-ledger-plus"] .dsh-entry-main .dsh-entry-tech {
+  grid-column: 1 / -1;
+  margin: 3px 0 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-project {
+  display: block;
+  grid-column: 1;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-role-label {
+  display: block;
+  grid-column: 2;
+  align-self: baseline;
+  color: #1c2938;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-meta-slot {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-meta-slot .dsh-entry-meta {
+  display: contents;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-detail {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-date,
+[data-template-id="business-ledger-plus"] .dsh-entry-tech-label {
+  grid-column: 3;
+  display: block;
+  text-align: right;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-tech-label {
+  grid-row: 2;
+  margin-top: 2px;
+  color: #6c7b8d;
+  font-size: 9px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-detail > p:first-child {
+  margin-top: 3px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 0 0 7px;
+  color: #14263d;
+  border: 0;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: .01em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-section-heading::before {
+  display: inline-grid;
+  flex: 0 0 23px;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  content: "▣";
+  color: #fff;
+  background: #14263d;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #14263d;
+  font-size: 10px;
+}
+
+[data-template-id="business-ledger-plus"] [data-module-id="education"] .dsh-section-heading::before {
+  content: "▤";
+}
+
+[data-template-id="business-ledger-plus"] [data-module-id="experience"] .dsh-section-heading::before {
+  content: "↗";
+}
+
+[data-template-id="business-ledger-plus"] [data-module-id="skills"] .dsh-section-heading::before {
+  content: "✦";
+}
+
+[data-template-id="business-ledger-plus"] [data-module-id="awards"] .dsh-section-heading::before {
+  content: "◆";
+}
+
+[data-template-id="business-ledger-plus"] .dsh-section-heading::after {
+  flex: 1;
+  height: 2px;
+  content: "";
+  background: #d2a84b;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-renderer-item-experience .dsh-section-heading,
+[data-template-id="business-ledger-plus"] .dsh-renderer-item-projects .dsh-section-heading,
+[data-template-id="business-ledger-plus"] .dsh-renderer-item-project-list .dsh-section-heading {
+  width: calc(100% + 30px);
+  margin-left: -30px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content > .dsh-resume-section > h3,
+[data-template-id="business-ledger-plus"] .dsh-entry-title {
+  display: inline-block;
+  max-width: 70%;
+  margin: 14px 0 2px;
+  color: #1c2938;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content > .dsh-resume-section > h3:first-of-type,
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content > .dsh-resume-section > h2 + h3 {
+  margin-top: 0;
+}
+
+/* Date and location metadata share the title row without a new renderer wrapper. */
+[data-template-id="business-ledger-plus"] .dsh-entry-meta {
+  display: block;
+  float: right;
+  max-width: 42%;
+  margin: 14px 0 5px;
+  color: #6c7b8d;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+  letter-spacing: .02em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-role {
+  clear: both;
+  margin: 4px 0 7px;
+  color: #536273;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-tech {
+  clear: both;
+  margin: 3px 0 7px;
+  color: #6c7b8d;
+  font-size: 10px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-tech code,
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content code {
+  padding: 2px 6px;
+  color: #14263d;
+  background: #eef2f5;
+  border: 1px solid #dbe3ea;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: .92em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content strong {
+  color: #8a6b24;
+  font-weight: 800;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content p {
+  margin: 5px 0;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content ul {
+  clear: both;
+  margin: 7px 0 12px;
+  padding-left: 1.12em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content li {
+  margin: 4px 0;
+  padding-left: 3px;
+  color: #334253;
+  line-height: 1.5;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content li::marker {
+  color: #d2a84b;
+  font-size: .85em;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content li li {
+  margin: 2px 0;
+  color: #536273;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content a {
+  color: #8a6b24;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content a:hover {
+  color: #14263d;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content blockquote {
+  position: relative;
+  margin: 10px 0;
+  padding: 9px 12px;
+  color: #536273;
+  background: #f7f3e8;
+  border-left: 3px solid #d2a84b;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content table {
+  width: 100%;
+  margin: 9px 0;
+  border-collapse: collapse;
+  color: #334253;
+  font-size: 11px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content th,
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e6e9ed;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content th {
+  color: #14263d;
+  background: #f2eee2;
+  font-weight: 800;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content tr:nth-child(even) td {
+  background: #fbfaf7;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content .dsh-skill-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  clear: both;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-entry-rail-content .dsh-skill-group {
+  padding: 7px 9px;
+  color: #334253;
+  border: 1px solid #e1e6eb;
+  border-left: 3px solid #d2a84b;
+  background: #fbfaf7;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-skills-composition-list .dsh-skill-tags {
+  display: grid;
+  gap: 5px;
+}
+
+[data-template-id="business-ledger-plus"] .dsh-skills-composition-list .dsh-skill-tag {
+  display: block;
+  margin: 0;
+  padding: 0;
+  color: #334253;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+@media print {
+  [data-template-id="business-ledger-plus"] .header-block {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  [data-template-id="business-ledger-plus"] .dsh-entry-rail-timeline {
+    break-inside: avoid;
+  }
+}
+
+  </style>
+
+</head>
+<body>
+  <main class="resume-document template-standard renderer-composition" data-renderer="composition" data-template-renderer="composition" data-source="resume.md" data-template="templates/default.css" data-preview-root="E:/vsws/deepseek-harness-plugins/jobhunt" data-preview-path="preview-pagespec.html" data-render-id="cae2712e-f7d2-4136-a0b1-0fd1430c9ef4" data-content-hash="b333bfe391d610da5391a8ad0d9be8e954da254f01391e16c5dca5db343a1fbe" data-template-id="business-ledger-plus" data-template-family="business-timeline" data-composition-page="stack" data-composition-header="hero" data-composition-section="badge" data-composition-entry="timeline" data-composition-meta="split" data-composition-skills="list" data-page-spec-version="1" data-page-size="A4" data-page-column="single" data-page-density="standard" data-page-family="campus-clear" data-page-type-scale="balanced" data-page-rule="hairline" data-page-accent-mode="marker">
+    <div class="resume-content">
+<div class="dsh-resume-root dsh-renderer-composition dsh-composed-layout dsh-single-column-page" data-page-spec-version="1" data-page-size="A4" data-page-column="single" data-page-density="standard" data-page-family="campus-clear" data-page-type-scale="balanced" data-page-header="masthead" data-page-section="numbered-rail" data-page-rule="hairline" data-page-accent-mode="marker" data-composition-page="stack" data-composition-header="hero" data-composition-section="badge" data-composition-entry="timeline" data-composition-meta="split" data-composition-skills="list"><header class="header-block dsh-hero-header dsh-header-composition-masthead" data-page-header="masthead" data-page-header-align="left" data-page-identity="stacked" data-page-contact="inline"><h1 class="dsh-hero-name">林知远</h1>
+<p class="dsh-hero-line dsh-hero-identity"><span class="dsh-hero-segment dsh-hero-identity-item">前端开发工程师（2027 届校招）</span><span class="dsh-hero-separator" aria-hidden="true">｜</span><span class="dsh-hero-segment dsh-hero-identity-item">北京 / 杭州</span></p><p class="dsh-hero-line dsh-hero-contact"><span class="dsh-hero-segment dsh-contact-item dsh-contact-phone">158-0000-1234</span><span class="dsh-hero-separator" aria-hidden="true">｜</span><span class="dsh-hero-segment dsh-contact-item dsh-contact-email">lin.zhiyuan@example.com</span><span class="dsh-hero-separator" aria-hidden="true">｜</span><span class="dsh-hero-segment dsh-contact-item dsh-contact-github">GitHub: github.com/example/lin-zhiyuan</span></p>
+</header><div class="dsh-composed-modules dsh-layout-stack" data-layout-type="stack"><article class="dsh-entry-rail dsh-entry-rail-timeline dsh-single-column-module-timeline dsh-renderer-item dsh-renderer-item-experience" data-entry-index="1" data-module-source="experience" data-module-variant="timeline"><span class="dsh-entry-rail-marker" aria-hidden="true"></span><div class="dsh-entry-rail-content"><section class="dsh-resume-section dsh-module-experience dsh-section-composition-numbered-rail dsh-module-composition-timeline" data-module-id="experience" data-module-type="experience" data-module-variant="timeline"><h2 class="dsh-section-heading">实习经历</h2>
+<div class="dsh-entry-row dsh-entry-row-timeline" data-entry-layout="split" data-entry-variant="timeline"><div class="dsh-entry-main"><h3 class="dsh-entry-title"><span class="dsh-entry-project">杭州云栈科技</span><span class="dsh-entry-role-label">前端开发实习生</span></h3></div><div class="dsh-entry-meta-slot"><p class="dsh-entry-meta"><span class="dsh-entry-date">2026.07 - 2026.09</span><span class="dsh-entry-tech-label">业务中台组</span></p></div><div class="dsh-entry-detail">
+
+<ul class="dsh-entry-bullets">
+<li>参与内部运营工具建设，完成 8 个业务页面和 12 个通用组件，统一加载、空状态和错误态规范</li>
+<li>与后端协作定义接口字段和异常码，整理 20 个高频联调问题，减少重复返工</li>
+<li>根据埋点和用户反馈优化表单流程，关键操作完成率提升 18%</li>
+</ul>
+</div></div></section></div></article>
+<div class="dsh-single-column-module dsh-single-column-module-feature-first" data-module-source="projects" data-module-variant="feature-first"><div class="dsh-renderer-item dsh-renderer-item-project-list"><section class="dsh-resume-section dsh-module-project-list dsh-section-composition-numbered-rail dsh-module-composition-feature-first" data-module-id="projects" data-module-type="project-list" data-module-variant="feature-first"><div class="dsh-project-list"><h2 class="dsh-section-heading">项目经历</h2>
+<div class="dsh-entry-row dsh-entry-row-timeline" data-entry-layout="split" data-entry-variant="timeline"><div class="dsh-entry-main"><h3 class="dsh-entry-title"><span class="dsh-entry-project">校园服务平台</span><span class="dsh-entry-role-label">前端负责人</span></h3></div><div class="dsh-entry-meta-slot"><p class="dsh-entry-meta"><span class="dsh-entry-date">2025.09 - 2026.01</span><span class="dsh-entry-tech-label">React / TypeScript / SSE</span></p></div><div class="dsh-entry-detail">
+
+<ul class="dsh-entry-bullets">
+<li>负责从需求拆解到上线的前端实现，抽象表格、筛选、表单和状态反馈等 14 个可复用模块</li>
+<li>使用 SSE 推送审批和任务进度，配合增量渲染将首屏可交互时间从 2.8s 降至 1.8s</li>
+<li>通过空状态、重试和权限异常设计减少误操作，核心流程测试通过率达到 99%</li>
+</ul>
+</div></div><div class="dsh-entry-row dsh-entry-row-timeline" data-entry-layout="split" data-entry-variant="timeline"><div class="dsh-entry-main"><h3 class="dsh-entry-title"><span class="dsh-entry-project">实验室数据看板</span><span class="dsh-entry-role-label">核心成员</span></h3></div><div class="dsh-entry-meta-slot"><p class="dsh-entry-meta"><span class="dsh-entry-date">2025.03 - 2025.08</span><span class="dsh-entry-tech-label">Vue / ECharts / Web Worker</span></p></div><div class="dsh-entry-detail">
+
+<ul>
+<li>设计筛选、表格、图表和导出模块，支持 20 万条实验记录的分页查询与多条件组合筛选</li>
+<li>使用虚拟列表、请求缓存和 Web Worker 拆分计算，筛选响应时间降低 40%，导出失败率下降 25%</li>
+<li>编写组件使用说明和联调清单，帮助 3 名同学复用模块完成后续页面开发</li>
+</ul>
+</div></div><div class="dsh-entry-row dsh-entry-row-timeline" data-entry-layout="split" data-entry-variant="timeline"><div class="dsh-entry-main"><h3 class="dsh-entry-title"><span class="dsh-entry-project">求职信息助手</span><span class="dsh-entry-role-label">独立开发</span></h3></div><div class="dsh-entry-meta-slot"><p class="dsh-entry-meta"><span class="dsh-entry-date">2024.10 - 2025.02</span><span class="dsh-entry-tech-label">Node.js / Markdown / LLM API</span></p></div><div class="dsh-entry-detail">
+
+<ul>
+<li>将简历素材、目标 JD 和投递版本拆分为可维护的 Markdown 文件，支持按公司保存版本</li>
+<li>设计“内容检查 → 生成草稿 → 预览复核”的交互流程，补充字段缺失和超长要点提示</li>
+<li>用 32 条固定样例验证 Markdown 渲染、链接安全和文件路径边界，修复 7 个异常场景</li>
+</ul>
+</div></div></div></section></div></div>
+<div class="dsh-single-column-module dsh-single-column-module-compact" data-module-source="education" data-module-variant="compact"><div class="dsh-renderer-item dsh-renderer-item-education"><section class="dsh-resume-section dsh-module-education dsh-section-composition-numbered-rail dsh-module-composition-compact" data-module-id="education" data-module-type="education" data-module-variant="compact"><h2 class="dsh-section-heading">教育经历</h2>
+<p><strong>东江理工大学 · 信息工程学院 · 计算机科学与技术（本科）</strong><br>
+2023.09 - 2027.06 | 专业前 8%</p>
+<ul class="dsh-entry-bullets">
+<li>GPA：3.78 / 4.0；核心课程：数据结构、计算机网络、操作系统、数据库原理</li>
+<li>校级一等奖学金（2024）、优秀学生干部；担任前端技术社团负责人</li>
+</ul>
+</section></div></div>
+<div class="dsh-single-column-module dsh-single-column-module-grouped-chips" data-module-source="skills" data-module-variant="grouped-chips"><div class="dsh-renderer-item dsh-renderer-item-skill-tags"><section class="dsh-resume-section dsh-module-skill-tags dsh-section-composition-numbered-rail dsh-skills-composition-grouped-chips dsh-module-composition-grouped-chips" data-module-id="skills" data-module-type="skill-tags" data-module-variant="grouped-chips"><h2 class="dsh-section-heading">专业技能</h2>
+<div class="dsh-skill-tags">
+<span class="dsh-skill-tag"><strong>前端</strong>：HTML5 / CSS3 / JavaScript / TypeScript；React、Vue、Vite、响应式布局</span>
+<span class="dsh-skill-tag"><strong>工程</strong>：Node.js、Git、Linux、Vitest、Playwright、Chrome DevTools、CI 基础配置</span>
+<span class="dsh-skill-tag"><strong>服务与数据</strong>：REST API、SSE、WebSocket、SQL；了解 Flask、FastAPI、Docker</span>
+<span class="dsh-skill-tag"><strong>工作方式</strong>：组件抽象、接口协作、性能分析、异常状态设计、测试和发布检查</span>
+</div>
+</section></div></div>
+<div class="dsh-single-column-module dsh-single-column-module-compact" data-module-source="awards" data-module-variant="compact"><div class="dsh-renderer-item dsh-renderer-item-awards"><section class="dsh-resume-section dsh-module-awards dsh-section-composition-numbered-rail dsh-module-composition-compact" data-module-id="awards" data-module-type="awards" data-module-variant="compact"><h2 class="dsh-section-heading">获奖与补充</h2>
+<ul class="dsh-entry-bullets">
+<li>2025 校级一等奖学金、优秀学生干部；全国大学生计算机设计大赛省赛二等奖</li>
+<li>技术社团负责人：组织 8 次前端分享和代码评审，维护社团组件示例仓库</li>
+<li>个人特点：能把复杂需求拆成页面、接口和验收指标，重视可读性、边界状态与真实反馈</li>
+</ul>
+</section></div></div>
+<div class="dsh-single-column-module" data-module-source="links"><div class="dsh-renderer-item dsh-renderer-item-links"><section class="dsh-resume-section dsh-module-links dsh-section-composition-numbered-rail" data-module-id="links" data-module-type="links"><h2 class="dsh-section-heading">作品与链接</h2>
+<ul class="dsh-entry-bullets">
+<li>GitHub：github.com/example/lin-zhiyuan | 作品集：lin-zhiyuan.example.com</li>
+<li>技术关键词：前端工程化 / 实时交互 / 数据看板 / 可访问性 / 测试与质量</li>
+</ul>
+</section></div></div></div></div>
+    </div>
+  </main>
+  <script>
+  (() => {
+    const query = new URLSearchParams(window.location.search);
+    const isThumbnail = query.get('thumbnail') === '1';
+    const rootStyle = document.documentElement.style;
+    const template = {"schemaVersion":1,"id":"business-ledger-plus","name":"商务履历增强","description":"深色信息头、头像锚点和细密时间线，适合把项目成果做成一页清晰履历","family":"business-timeline","renderer":"composition","tags":["商务","时间线","头像头部","社招"],"layout":{"mode":"single-column","pageTarget":1,"density":"standard","moduleOrder":["profile","summary","experience","projects","education","skills","awards"],"sidebarRatio":0.32,"columnGap":24},"typography":{"fontFamily":"modern-sans","fontSize":13,"headingScale":1.14,"lineHeight":1.46},"spacing":{"pageMargin":38,"sectionGap":16,"paragraphGap":4},"visual":{"accentColor":"#d2a84b","textColor":"#1c2938","mutedColor":"#6c7b8d","backgroundColor":"#ffffff","divider":"solid","cornerRadius":0,"variant":"standard"},"customCss":"","composition":{"page":"stack","header":"hero","section":"badge","entry":"timeline","meta":"split","skills":"list","pageSpec":{"schemaVersion":1,"page":{"size":"A4","column":"single","density":"standard","margin":{"top":40,"right":44,"bottom":40,"left":44}},"header":{"variant":"masthead","alignment":"left","identity":"stacked","contact":"inline"},"flow":{"order":["profile","summary","experience","projects","education","skills"],"keepEntryTogether":true,"avoidSectionOrphans":true},"modules":{"section":"numbered-rail","experience":"timeline","projects":"feature-first","skills":"grouped-chips","education":"compact","awards":"compact"},"visual":{"family":"campus-clear","typeScale":"balanced","ruleStyle":"hairline","accentMode":"marker"}}},"metadata":{"generatedBy":"dsh-built-in-template","family":"business-timeline"}};
+    const fontFamilies = {
+      'system-sans': '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      'modern-sans': 'Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      serif: 'Georgia, "Songti SC", "SimSun", serif',
+    };
+    const templateFont = fontFamilies[template.typography.fontFamily] || fontFamilies['system-sans'];
+    const safeColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : fallback;
+    const safeNumber = (value, min, max, fallback) => {
+      const number = Number(value);
+      return Number.isFinite(number) && number >= min && number <= max ? number : fallback;
+    };
+    const applyVisualTokens = (tokens = {}) => {
+      const accentColor = safeColor(tokens.accentColor, template.visual.accentColor);
+      const textColor = safeColor(tokens.textColor, template.visual.textColor);
+      const mutedColor = safeColor(tokens.mutedColor, template.visual.mutedColor);
+      const backgroundColor = safeColor(tokens.backgroundColor, template.visual.backgroundColor);
+      const cornerRadius = safeNumber(tokens.cornerRadius, 0, 16, template.visual.cornerRadius);
+      const divider = ['none', 'solid', 'dashed'].includes(tokens.divider) ? tokens.divider : template.visual.divider;
+      rootStyle.setProperty('--resume-accent-color', accentColor);
+      rootStyle.setProperty('--resume-text-color', textColor);
+      rootStyle.setProperty('--resume-muted-color', mutedColor);
+      rootStyle.setProperty('--resume-background-color', backgroundColor);
+      rootStyle.setProperty('--bg', backgroundColor);
+      rootStyle.setProperty('--resume-corner-radius', cornerRadius + 'px');
+      rootStyle.setProperty('--resume-divider', divider);
+    };
+    rootStyle.setProperty('--resume-font-size', template.typography.fontSize + 'px');
+    rootStyle.setProperty('--resume-line-height', template.typography.lineHeight);
+    rootStyle.setProperty('--resume-section-gap', template.spacing.sectionGap + 'px');
+    rootStyle.setProperty('--resume-page-margin', template.spacing.pageMargin + 'px');
+    rootStyle.setProperty('--resume-paragraph-gap', template.spacing.paragraphGap + 'px');
+    rootStyle.setProperty('--resume-heading-scale', template.typography.headingScale);
+    // The active workspace may provide an older template CSS that does not
+    // declare the page-height contract. Keep the preview renderer authoritative
+    // so an A4 page cannot silently grow into a long canvas.
+    rootStyle.setProperty('--page-width', '794px');
+    rootStyle.setProperty('--page-height', '1123px');
+    applyVisualTokens({
+      accentColor: query.get('accentColor'),
+      textColor: query.get('textColor'),
+      mutedColor: query.get('mutedColor'),
+      backgroundColor: query.get('backgroundColor'),
+      cornerRadius: query.get('cornerRadius'),
+      divider: query.get('divider'),
+    });
+    const settingMap = [
+      ['fontSize', '--resume-font-size', 'px', 11, 18],
+      ['lineHeight', '--resume-line-height', '', 1.2, 2],
+      ['sectionGap', '--resume-section-gap', 'px', 6, 30],
+      ['pageMargin', '--resume-page-margin', 'px', 24, 72],
+    ];
+    for (const [key, variable, unit, min, max] of settingMap) {
+      const value = Number(query.get(key));
+      if (Number.isFinite(value) && value >= min && value <= max) rootStyle.setProperty(variable, value + unit);
+    }
+    const visualStyle = document.createElement('style');
+    const fontSize = rootStyle.getPropertyValue('--resume-font-size').trim() || '14px';
+    const lineHeight = rootStyle.getPropertyValue('--resume-line-height').trim() || '1.55';
+    const sectionGap = rootStyle.getPropertyValue('--resume-section-gap').trim() || '20px';
+    const pageMargin = rootStyle.getPropertyValue('--resume-page-margin').trim() || '48px';
+    visualStyle.textContent = [
+      'html,body{background:#fff !important;overflow-x:hidden !important;}',
+      '.resume-document{min-height:0 !important;padding:0 !important;background:#fff !important;}',
+      '.dsh-resume-pages{display:flex !important;flex-direction:column !important;align-items:center !important;gap:18px !important;width:100% !important;}',
+      '.dsh-resume-page{box-sizing:border-box !important;width:794px !important;height:1123px !important;min-height:1123px !important;flex:0 0 1123px !important;margin:0 !important;overflow:hidden !important;box-shadow:0 8px 30px rgba(15,23,42,.08) !important;}',
+      '.dsh-resume-page-content{box-sizing:border-box !important;width:100% !important;height:100% !important;overflow:hidden !important;}',
+      'body{line-height:' + lineHeight + ' !important;color:var(--resume-text-color);}',
+      '.dsh-resume-page-content{padding:' + pageMargin + ' !important;}',
+      '.dsh-resume-page{background:var(--bg) !important;border-radius:var(--resume-corner-radius);}',
+      '.dsh-resume-page-content{background-color:var(--bg) !important;border-radius:var(--resume-corner-radius);}',
+      '.dsh-resume-section{margin-bottom:' + sectionGap + ' !important;}',
+      '.dsh-resume-section{border-radius:var(--resume-corner-radius);}',
+      'p,li{font-size:' + fontSize + ' !important;margin-bottom:' + template.spacing.paragraphGap + 'px;}',
+      '.header-block{border-bottom-color:var(--resume-accent-color) !important;border-radius:var(--resume-corner-radius);}',
+      '.header-block p,.meta{color:var(--resume-muted-color);}',
+      '.dsh-resume-section > h2{color:var(--resume-accent-color);font-size:calc(' + fontSize + ' * ' + template.typography.headingScale + ');border-bottom-color:var(--resume-accent-color);border-bottom-style:var(--resume-divider);}',
+      '.dsh-layout-split{display:grid !important;grid-template-columns:minmax(0,' + Math.max(0.55, 1 - template.layout.sidebarRatio) + 'fr) minmax(0,' + template.layout.sidebarRatio + 'fr) !important;gap:var(--layout-gap,' + template.layout.columnGap + 'px) !important;align-items:start;}',
+      '.dsh-layout-column{min-width:0;min-height:0;overflow:hidden;}',
+      '.dsh-column-main-item,.dsh-column-side-item{min-width:0;}',
+      '.dsh-layout-grid{display:grid;grid-template-columns:repeat(var(--layout-grid-columns,2),minmax(0,1fr));gap:var(--layout-gap,20px);align-items:start;}',
+      '.dsh-skill-tags{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px;}',
+      '.dsh-skill-tag{display:inline-flex;align-items:center;padding:3px 8px;border:1px solid color-mix(in srgb,var(--resume-accent-color) 26%,#dbe3ef);border-radius:999px;font-size:.92em;line-height:1.35;}',
+      '.dsh-timeline{border-left:2px solid color-mix(in srgb,var(--resume-accent-color) 28%,transparent);padding-left:14px;}',
+      '.dsh-metric-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}',
+      '.dsh-portfolio-card{padding:10px 12px;border:1px solid color-mix(in srgb,var(--resume-accent-color) 20%,#e2e8f0);border-radius:var(--resume-corner-radius);background:color-mix(in srgb,var(--resume-background-color) 92%,#f8fafc);}',
+      '.dsh-project-list > ul{padding-left:1.2em;}',
+      '.dsh-qr-code{display:flex;justify-content:flex-end;}',
+      '.resume-document img{max-width:100%;height:auto;}',
+      '.dsh-photo{display:flex;align-items:center;justify-content:center;width:var(--photo-size,88px);height:var(--photo-size,88px);margin:0 0 var(--resume-paragraph-gap) 0;overflow:hidden;background:#f1f5f9;color:var(--resume-muted-color);}',
+      '.dsh-photo img{display:block;width:100%;height:100%;object-fit:cover;}',
+      '.dsh-photo-circle,.dsh-photo-circle img{border-radius:50%;}',
+      '.dsh-photo-rounded,.dsh-photo-rounded img{border-radius:var(--resume-corner-radius,8px);}',
+      '.dsh-photo-square,.dsh-photo-square img{border-radius:0;}',
+      '.dsh-photo-missing{border:1px dashed color-mix(in srgb,var(--resume-muted-color) 45%,#e2e8f0);font-size:11px;}',
+      '.dsh-header-with-image{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;}',
+      '.dsh-header-with-image img{width:var(--photo-size,72px);height:var(--photo-size,72px);object-fit:cover;border-radius:var(--resume-corner-radius,8px);}',
+      '.dsh-summary{padding:10px 12px;border-left:3px solid color-mix(in srgb,var(--resume-accent-color) 55%,transparent);background:color-mix(in srgb,var(--resume-accent-color) 6%,transparent);}',
+      '.dsh-contact{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--resume-muted-color);}',
+      '.dsh-contact p{margin:0 0 var(--resume-paragraph-gap) 0;}',
+      '.dsh-skill-groups{display:grid;gap:6px;}',
+      '.dsh-skill-group{padding:6px 8px;border:1px solid color-mix(in srgb,var(--resume-accent-color) 18%,#e2e8f0);border-radius:var(--resume-corner-radius,4px);}',
+      'h3{font-size:calc(' + fontSize + ' * 1.08) !important;}',
+      '.resume-document.template-technical .dsh-resume-page-content{border-left:8px solid var(--resume-accent-color) !important;}',
+      '.resume-document.template-technical .header-block{padding-left:14px;border-bottom:0 !important;}',
+      '.resume-document.template-editorial .header-block{padding:16px 18px;background:color-mix(in srgb,var(--resume-accent-color) 8%,transparent);border-bottom:0 !important;border-left:3px solid var(--resume-accent-color) !important;}',
+      '.resume-document.template-editorial .dsh-resume-section > h2{display:inline-block;padding:4px 10px;border:0 !important;background:color-mix(in srgb,var(--resume-accent-color) 7%,transparent);}',
+      '.resume-document.template-terminal .dsh-resume-page-content{background:linear-gradient(90deg,var(--resume-background-color) 0,var(--resume-background-color) 96%,#f1f5f9 96%) !important;}',
+      '.resume-document.template-terminal .header-block{border-bottom:2px solid var(--resume-accent-color) !important;}',
+      '.resume-document.template-terminal .dsh-resume-section > h2{letter-spacing:.08em;text-transform:uppercase;border-bottom:0 !important;}',
+      '@media print{.dsh-resume-page{background:var(--bg) !important;}}',
+    ].join('').replace(/s*!important/g, '');
+    const templateStyle = document.querySelector('[data-template-css]');
+    const customStyle = document.querySelector('[data-template-custom-css]');
+    document.head.insertBefore(visualStyle, templateStyle || customStyle || null);
+    const manualTokenStyle = document.createElement('style');
+    manualTokenStyle.setAttribute('data-dsh-manual-tokens', 'true');
+    manualTokenStyle.textContent = [
+      'body{font-family:' + templateFont + ';line-height:' + lineHeight + ' !important;color:var(--resume-text-color) !important;}',
+      '.dsh-resume-page-content{padding:' + pageMargin + ' !important;}',
+      '.dsh-resume-section{margin-bottom:' + sectionGap + 'px !important;}',
+      'p,li{font-size:' + fontSize + 'px;margin-bottom:' + template.spacing.paragraphGap + 'px;}',
+    ].join('');
+    document.head.append(manualTokenStyle);
+    const contractStyle = document.createElement('style');
+    contractStyle.setAttribute('data-dsh-layout-contract', 'true');
+    contractStyle.textContent = [
+      'html,body{overflow-x:hidden !important;}',
+      '.resume-document{min-height:0 !important;padding:0 !important;}',
+      '.dsh-resume-pages{display:flex !important;flex-direction:column !important;align-items:center !important;gap:18px !important;width:100% !important;}',
+      '.dsh-resume-page{box-sizing:border-box !important;width:794px !important;height:1123px !important;min-height:1123px !important;flex:0 0 1123px !important;margin:0 !important;overflow:hidden !important;}',
+      '.dsh-resume-page-content{box-sizing:border-box !important;width:100% !important;height:100% !important;overflow:hidden !important;}',
+    ].join('');
+    document.head.append(contractStyle);
+    window.addEventListener('message', (event) => {
+      if (event.data?.source !== 'dsh-resume-token-preview') return;
+      applyVisualTokens(event.data.tokens || {});
+      const css = typeof event.data.templateCss === 'string' ? event.data.templateCss : '';
+      let workshopStyle = document.querySelector('[data-dsh-workshop-css]');
+      if (!css) {
+        workshopStyle?.remove();
+      } else {
+        if (!workshopStyle) {
+          workshopStyle = document.createElement('style');
+          workshopStyle.setAttribute('data-dsh-workshop-css', 'true');
+          document.head.append(workshopStyle);
+        }
+        workshopStyle.textContent = css;
+      }
+    });
+    const source = document.querySelector('.resume-content');
+    if (!source) return;
+    const root = source.querySelector('.dsh-resume-root');
+    const rootChildren = [...root?.children || []];
+    const splitLayout = root?.querySelector(':scope > .dsh-layout-split[data-layout-type="split"]');
+    const gridLayout = root?.querySelector(':scope > .dsh-layout-grid[data-layout-type="grid"]');
+    const stackLayout = root?.querySelector(':scope > .dsh-layout-stack[data-layout-type="stack"]');
+    const splitMeta = splitLayout ? {
+      headers: rootChildren.filter((node) => node !== splitLayout),
+      columns: [...splitLayout.children].map((column) => ({
+        id: column.dataset.region || column.className,
+        prototype: column.cloneNode(false),
+        items: [...column.children],
+      })),
+    } : null;
+    const gridMeta = gridLayout ? {
+      headers: rootChildren.filter((node) => node !== gridLayout),
+      prototype: gridLayout.cloneNode(false),
+      items: [...gridLayout.children],
+    } : null;
+    const stackMeta = stackLayout ? {
+      headers: rootChildren.filter((node) => node !== stackLayout),
+      prototype: stackLayout.cloneNode(false),
+      items: [...stackLayout.children],
+    } : null;
+    const host = document.createElement('div');
+    host.className = 'dsh-resume-pages';
+    source.replaceWith(host);
+    const pages = [];
+    let paginationOverflow = false;
+    const makePage = (kind = 'single', includeHeaders = false, meta = null) => {
+      const page = document.createElement('section');
+      page.className = 'dsh-resume-page';
+      page.setAttribute('aria-label', '简历第 ' + (pages.length + 1) + ' 页');
+      const content = document.createElement('div');
+      content.className = 'dsh-resume-page-content';
+      page.append(content);
+      host.append(page);
+      const record = { page, content };
+      if (kind === 'split' && meta) {
+        if (includeHeaders) for (const header of meta.headers) content.append(header.cloneNode(true));
+        const layout = splitLayout.cloneNode(false);
+        layout.innerHTML = '';
+        const columns = new Map();
+        for (const column of meta.columns) {
+          const clone = column.prototype.cloneNode(false);
+          clone.innerHTML = '';
+          layout.append(clone);
+          columns.set(column.id, clone);
+        }
+        content.append(layout);
+        const contentStyle = getComputedStyle(content);
+        const paddingTop = Number.parseFloat(contentStyle.paddingTop) || 0;
+        const paddingBottom = Number.parseFloat(contentStyle.paddingBottom) || 0;
+        const headerHeight = includeHeaders ? content.querySelector('.header-block')?.getBoundingClientRect().height || 0 : 0;
+        const columnHeight = Math.max(1, content.clientHeight - paddingTop - paddingBottom - headerHeight);
+        for (const column of columns.values()) {
+          column.style.height = columnHeight + 'px';
+          column.style.maxHeight = columnHeight + 'px';
+          column.style.overflow = 'hidden';
+        }
+        record.columns = columns;
+      } else if ((kind === 'grid' || kind === 'stack') && meta) {
+        if (includeHeaders) for (const header of meta.headers) content.append(header.cloneNode(true));
+        const layout = meta.prototype.cloneNode(false);
+        layout.innerHTML = '';
+        content.append(layout);
+        record.layout = layout;
+      }
+      pages.push(record);
+      return record;
+    };
+    if (splitMeta) {
+      if (!pages.length) makePage('split', true, splitMeta);
+      const ensurePage = (index) => {
+        while (pages.length <= index) makePage('split', pages.length === 0, splitMeta);
+        return pages[index];
+      };
+      for (const columnMeta of splitMeta.columns) {
+        let pageIndex = 0;
+        for (const item of columnMeta.items) {
+          let pageRecord = ensurePage(pageIndex);
+          let column = pageRecord.columns.get(columnMeta.id);
+          column.append(item);
+          if (column.scrollHeight > column.clientHeight + 1 && column.children.length > 1) {
+            column.removeChild(item);
+            pageIndex += 1;
+            pageRecord = ensurePage(pageIndex);
+            column = pageRecord.columns.get(columnMeta.id);
+            column.append(item);
+          }
+          if (column.scrollHeight > column.clientHeight + 1) paginationOverflow = true;
+        }
+      }
+    } else if (gridMeta || stackMeta) {
+      const flowMeta = gridMeta || stackMeta;
+      const flowKind = gridMeta ? 'grid' : 'stack';
+      let pageIndex = 0;
+      const ensurePage = (index) => {
+        while (pages.length <= index) makePage(flowKind, pages.length === 0, flowMeta);
+        return pages[index];
+      };
+      if (!pages.length) makePage(flowKind, true, flowMeta);
+      for (const item of flowMeta.items) {
+        let pageRecord = ensurePage(pageIndex);
+        pageRecord.layout.append(item);
+        if (pageRecord.content.scrollHeight > pageRecord.content.clientHeight + 1 && pageRecord.layout.children.length > 1) {
+          pageRecord.layout.removeChild(item);
+          pageIndex += 1;
+          pageRecord = ensurePage(pageIndex);
+          pageRecord.layout.append(item);
+        }
+        if (pageRecord.content.scrollHeight > pageRecord.content.clientHeight + 1) paginationOverflow = true;
+      }
+    } else {
+      const items = rootChildren;
+      let content = makePage().content;
+      for (const item of items) {
+        content.append(item);
+        if (content.scrollHeight > content.clientHeight + 1 && content.children.length > 1) {
+          content.removeChild(item);
+          content = makePage().content;
+          content.append(item);
+        }
+        if (content.scrollHeight > content.clientHeight + 1) paginationOverflow = true;
+      }
+    }
+    const fitSheets = () => {
+      const availableWidth = Math.max(280, document.documentElement.clientWidth - 24);
+      const baseWidth = 794;
+      const scale = Math.min(1, availableWidth / baseWidth);
+      for (const { page } of pages) {
+        page.style.transformOrigin = 'top center';
+        page.style.transform = 'scale(' + scale + ')';
+        page.style.marginBottom = '-' + Math.round(page.offsetHeight * (1 - scale)) + 'px';
+      }
+    };
+    fitSheets();
+    window.addEventListener('resize', fitSheets);
+    const overflow = paginationOverflow || pages.some(({ content }) => content.scrollHeight > content.clientHeight + 1);
+      const pageMetrics = pages.map(({ content, page }, index) => {
+        const contentRect = content.getBoundingClientRect();
+        const contentStyle = getComputedStyle(content);
+      const paddingTop = Number.parseFloat(contentStyle.paddingTop) || 0;
+      const paddingBottom = Number.parseFloat(contentStyle.paddingBottom) || 0;
+      const availableHeight = Math.max(1, content.clientHeight - paddingTop - paddingBottom);
+        // The preview sheet is scaled down when the iframe is narrower than
+        // A4. getBoundingClientRect() then reports scaled pixels, while
+        // clientHeight is still in the document's layout pixels. Normalize
+        // all rect-based measurements back to the unscaled A4 coordinate
+        // system before calculating blank space or occupancy.
+        const layoutScale = content.offsetHeight ? Math.max(0.01, content.getBoundingClientRect().height / content.offsetHeight) : 1;
+        const measuredNodes = [...content.querySelectorAll('.header-block,.dsh-resume-section,.dsh-business-entry')];
+        const fallbackNodes = measuredNodes.length ? measuredNodes : [...content.children].filter((node) => !node.matches('.dsh-layout-stack,.dsh-layout-grid,.dsh-layout-split'));
+        const bottoms = fallbackNodes.map((node) => node.getBoundingClientRect().bottom).filter(Number.isFinite);
+        const tops = fallbackNodes.map((node) => node.getBoundingClientRect().top).filter(Number.isFinite);
+        const usedHeight = bottoms.length
+          ? Math.max(0, (Math.max(...bottoms) - contentRect.top) / layoutScale - paddingTop)
+          : 0;
+        const topWhitespace = tops.length
+          ? Math.max(0, (Math.min(...tops) - contentRect.top) / layoutScale - paddingTop)
+          : availableHeight;
+        const moduleNames = [...content.querySelectorAll('.dsh-resume-section > h2')].map((node) => node.textContent?.trim()).filter(Boolean);
+        const moduleDetails = [...content.querySelectorAll('.dsh-resume-section')].map((node) => {
+          const heading = node.querySelector(':scope > h2');
+          return {
+            id: node.dataset.moduleId || '',
+            type: node.dataset.moduleType || 'custom-section',
+            name: heading?.textContent?.trim() || node.dataset.moduleId || '未命名模块',
+            top: Math.max(0, Math.round((node.getBoundingClientRect().top - contentRect.top) / layoutScale - paddingTop)),
+            height: Math.max(0, Math.round(node.getBoundingClientRect().height / layoutScale)),
+          };
+        });
+        return {
+          page: index + 1,
+          usedHeight,
+          availableHeight,
+          topWhitespace: Math.round(topWhitespace),
+          bottomWhitespace: Math.max(0, Math.round(availableHeight - usedHeight)),
+          occupancyRatio: Number((Math.min(usedHeight, availableHeight) / availableHeight).toFixed(3)),
+          blankRatio: Math.max(0, Number((1 - Math.min(usedHeight, availableHeight) / availableHeight).toFixed(3))),
+          modules: moduleNames,
+          moduleDetails,
+          overflow: content.scrollHeight > content.clientHeight + 1,
+          width: page.offsetWidth,
+          height: page.offsetHeight,
+        };
+      });
+      const primaryPage = pageMetrics[0];
+      // A resume that merely fits is not necessarily ready to submit. Keep a
+      // small breathing margin, but reject visibly sparse one-page layouts.
+      const targetBlankRatio = { min: 0.04, max: 0.10 };
+      const maxAcceptableBlankRatio = targetBlankRatio.max;
+      const occupancy = pageMetrics.map((page) => page.occupancyRatio);
+      const visualWarnings = [];
+      if (primaryPage?.bottomWhitespace > primaryPage.availableHeight * 0.18) visualWarnings.push({ code: 'bottom-whitespace', message: '页面底部留白偏多' });
+      if (primaryPage?.topWhitespace > primaryPage.availableHeight * 0.12) visualWarnings.push({ code: 'top-whitespace', message: '页面顶部留白偏多' });
+      if (pages.length > 1 && pageMetrics.some((page) => page.moduleDetails.length === 1)) visualWarnings.push({ code: 'isolated-module', message: '存在只有一个模块的页面，建议检查分页' });
+      const balanceState = overflow
+        ? 'overflow'
+        : pages.length > 1
+          ? 'multi-page'
+          : (primaryPage?.blankRatio || 0) > maxAcceptableBlankRatio
+            ? 'sparse'
+            : visualWarnings.length
+              ? 'needs-review'
+              : 'balanced';
+      const visualAudit = {
+        state: balanceState,
+        occupancy,
+        warnings: visualWarnings,
+        moduleCount: pageMetrics.reduce((count, page) => count + page.moduleDetails.length, 0),
+        pageBalance: pages.length === 1 ? Number((1 - Math.abs((primaryPage?.occupancyRatio || 0) - 0.92)).toFixed(3)) : null,
+      };
+      const sparse = !overflow && pages.length === 1 && (primaryPage?.blankRatio || 0) > maxAcceptableBlankRatio;
+    if (!isThumbnail) window.parent?.postMessage({
+      source: 'dsh-resume-preview',
+      previewRoot: document.querySelector('.resume-document')?.dataset.previewRoot || '',
+      previewPath: document.querySelector('.resume-document')?.dataset.previewPath || '',
+      renderId: document.querySelector('.resume-document')?.dataset.renderId || '',
+      contentHash: document.querySelector('.resume-document')?.dataset.contentHash || '',
+      metrics: {
+        pageCount: pages.length,
+        overflow,
+        sparse,
+        fit: !overflow && pages.length === 1 && !sparse,
+        targetBlankRatio,
+        visualAudit,
+        pageWidth: 794,
+        pageHeight: 1123,
+        pages: pageMetrics,
+      },
+    }, '*');
+    document.documentElement.dataset.pageCount = String(pages.length);
+    document.documentElement.dataset.pageOverflow = String(overflow);
+  })();
+  </script>
+</body>
+</html>

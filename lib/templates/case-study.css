@@ -55,5 +55,5 @@
 .resume-document[data-template-id="case-study"] .dsh-module-experience .dsh-entry-title { padding-left:10px; border-left:4px solid var(--case-blue); }
 .resume-document[data-template-id="case-study"] .dsh-module-experience .dsh-entry-meta { padding-left:14px; }
 .resume-document[data-template-id="case-study"] .dsh-skill-group { padding:8px 10px; border-color:var(--case-rule); background:#fff; }
-.resume-document[data-template-id="case-study"] .dsh-icon { display:inline-flex; align-items:center; justify-content:center; min-width:21px; height:18px; margin:0 3px; padding:0 4px; border:1px solid #aec8f3; border-radius:3px; background:var(--case-sky); color:var(--case-blue); font:800 9px/1 ui-monospace,SFMono-Regular,monospace; vertical-align:-2px; }
+.resume-document[data-template-id="case-study"] .dsh-icon { border:1px solid #aec8f3; border-radius:4.5px; background:var(--case-sky); color:var(--case-blue); }
 @media print { .resume-document[data-template-id="case-study"] .dsh-resume-page { box-shadow:none; } }

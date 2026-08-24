@@ -5,12 +5,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { assembleResumeSections, buildPreviewDocument, markdownToHtml, renderPreviewHtml } from '../lib/renderer.js'
-import { TEMPLATE_DEFAULTS, validateCssText, validateTemplateSpec } from '../lib/template-schema.js'
+import { TEMPLATE_DEFAULTS, validateCompositionPageSpec, validateCssText, validateTemplateSpec } from '../lib/template-schema.js'
 import { auditTemplateCss, generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { normalizeLayoutSpec, validateLayoutSpec } from '../lib/layout-schema.js'
-import { getTemplatePreset, listAvailableTemplates, listTemplatePresets, loadTemplate, migrateTemplate, saveTemplate } from '../lib/template-presets.js'
-import { listLegacyRendererIds, listRendererIds, renderTemplateLayout, resolveRendererId } from '../lib/renderers/registry.js'
+import { getTemplatePreset, listAvailableTemplates, listTemplatePresets, loadTemplate, saveTemplate } from '../lib/template-presets.js'
+import { listRendererIds, renderTemplateLayout, resolveRendererId } from '../lib/renderers/registry.js'
 import { initJobhunt } from '../lib/workspace.js'
 import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview } from '../lib/preview-api.js'
 
@@ -102,7 +102,7 @@ test('preview document carries an explicit preview path for metrics association'
   assert.match(html, /visualAudit/)
   assert.match(html, /bottomWhitespace/)
   assert.match(html, /layoutScale/)
-  assert.match(html, /renderer-clean-single/)
+  assert.match(html, /renderer-composition/)
   assert.match(html, /data-template-family="campus-clear"/)
 })
 
@@ -342,7 +342,7 @@ test('built-in template gallery includes representative visual directions', () =
   const templates = listTemplatePresets()
   assert.equal(templates.length, 6)
   assert.deepEqual(listRendererIds(), ['composition'])
-  assert.equal(listLegacyRendererIds().length, 20)
+  assert.equal(validateTemplateSpec({ ...TEMPLATE_DEFAULTS, renderer: 'clean-single' }).valid, false)
   assert.equal(new Set(templates.map((template) => template.renderer)).size, 1)
   assert.equal(templates.filter((template) => template.renderer === 'composition').length, 6)
   for (const id of ['campus-standard', 'portrait-profile', 'magazine-feature', 'geek-lab', 'case-study', 'business-ledger-plus']) {
@@ -358,94 +358,6 @@ test('legacy template ids are removed from the built-in catalog', () => {
   const templates = listTemplatePresets()
   assert.equal(templates.some((template) => template.id === 'portfolio-grid'), false)
   assert.equal(getTemplatePreset('portfolio-grid'), undefined)
-})
-
-test('legacy workspace experiments stay hidden from the refreshed gallery', async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-gallery-'))
-  try {
-    await fs.mkdir(path.join(root, 'templates'), { recursive: true })
-    for (const id of ['premium-navy', 'quiet-editorial-filled', 'soft-tinted']) {
-      await fs.writeFile(path.join(root, 'templates', `${id}.json`), JSON.stringify({
-        ...getTemplatePreset('campus-standard'),
-        id,
-        name: id,
-      }))
-    }
-    const templates = await listAvailableTemplates(root)
-    assert.equal(templates.length, 6)
-    assert.equal(templates.some((template) => ['premium-navy', 'quiet-editorial-filled', 'soft-tinted'].includes(template.id)), false)
-  } finally {
-    await fs.rm(root, { recursive: true, force: true })
-  }
-})
-
-test('old workspace renderers stay out of the composition-only catalog', async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-old-template-'))
-  try {
-    await fs.mkdir(path.join(root, 'templates'), { recursive: true })
-    await fs.writeFile(path.join(root, 'templates', 'old-template.json'), JSON.stringify({
-      ...getTemplatePreset('campus-standard'),
-      id: 'old-template',
-      renderer: 'clean-single',
-      composition: undefined,
-    }))
-    const templates = await listAvailableTemplates(root)
-    assert.equal(templates.length, 6)
-    assert.equal(templates.some((template) => template.id === 'old-template'), false)
-  } finally {
-    await fs.rm(root, { recursive: true, force: true })
-  }
-})
-
-test('legacy workspace templates migrate into the active composition catalog', async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-template-migrate-'))
-  try {
-    await fs.mkdir(path.join(root, 'templates'), { recursive: true })
-    const legacy = {
-      ...getTemplatePreset('business-ledger-plus'),
-      id: 'obsidian-exec',
-      name: '墨金 · Obsidian',
-      renderer: 'business-timeline',
-      composition: undefined,
-    }
-    await fs.writeFile(path.join(root, 'templates', 'obsidian-exec.json'), JSON.stringify(legacy), 'utf8')
-    await fs.writeFile(path.join(root, 'templates', 'obsidian-exec.css'), '[data-template-id="obsidian-exec"]{color:#c9a86a;}', 'utf8')
-    await assert.rejects(() => saveTemplate(root, legacy), /renderer must be composition/)
-    const migrated = await migrateTemplate(root, 'obsidian-exec')
-    assert.equal(migrated.migrated, true)
-    const template = await loadTemplate(root, 'obsidian-exec')
-    assert.equal(template.renderer, 'composition')
-    assert.deepEqual(template.composition, { page: 'stack', header: 'hero', section: 'badge', entry: 'timeline', meta: 'split', skills: 'list' })
-    assert.match(template.templateCss, /c9a86a/)
-    const templates = await listAvailableTemplates(root)
-    assert.equal(templates.length, 7)
-    assert.ok(templates.some((item) => item.id === 'obsidian-exec'))
-  } finally {
-    await fs.rm(root, { recursive: true, force: true })
-  }
-})
-
-test('template renderer registry produces structural variants', () => {
-  const source = '# 张三\n\n## 项目经历\n\n- 结果指标'
-  const technical = assembleResumeSections(markdownToHtml(source), null, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'technical-timeline' })
-  const portfolio = assembleResumeSections(markdownToHtml(source), null, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'portfolio-grid' })
-  const sidebar = assembleResumeSections(markdownToHtml('# 张三\n\n## 技能\n\n- JavaScript\n\n## 项目经历\n\n- 结果指标'), null, { mode: 'two-column', regions: { main: ['projects'], side: ['skills'] } }, { ...TEMPLATE_DEFAULTS, renderer: 'split-sidebar', layout: { ...TEMPLATE_DEFAULTS.layout, mode: 'two-column' } })
-  assert.match(technical, /dsh-renderer-technical-timeline/)
-  assert.match(technical, /dsh-renderer-item-projects/)
-  assert.match(portfolio, /dsh-renderer-portfolio-grid/)
-  assert.match(portfolio, /dsh-renderer-featured/)
-  assert.match(sidebar, /dsh-column-main-item/)
-  assert.match(sidebar, /dsh-column-side-item/)
-  assert.doesNotMatch(sidebar, /dsh-resume-columns/)
-})
-
-test('rail-like renderers share the reusable entry primitive without losing legacy hooks', () => {
-  const source = '# 林知远\n\n## 项目经历\n\n### 校园服务平台\n\n2025.09 - 2026.01\n\n- 结果指标'
-  for (const renderer of ['technical-timeline', 'academic', 'business-timeline', 'chronicle-rail', 'minimal-typographic', 'geek-lab', 'heading-stack', 'metrics-board', 'color-block']) {
-    const html = assembleResumeSections(markdownToHtml(source), null, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer })
-    assert.match(html, /data-entry-layout="rail"/, `${renderer} should expose the shared entry layout hook`)
-    assert.match(html, /dsh-entry-rail/, `${renderer} should retain the shared entry class`)
-  }
 })
 
 test('entry markup exposes stable title, metadata, and bullet semantics', () => {
@@ -507,6 +419,8 @@ test('safe icon tokens become local semantic markup and unknown tokens stay text
   const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
   assert.match(html, /class="dsh-icon dsh-icon-email"[^>]*aria-label="邮箱"/)
   assert.match(html, /class="dsh-icon dsh-icon-github"[^>]*aria-label="GitHub"/)
+  assert.match(html, /class="dsh-icon dsh-icon-email"[^>]*data-icon-name="email"[^>]*data-icon-index="0"/)
+  assert.match(html, /class="dsh-icon dsh-icon-github"[^>]*data-icon-name="github"[^>]*data-icon-index="1"/)
   assert.match(html, /\[icon:unknown\]/)
   assert.doesNotMatch(html, /https?:\/\//)
 })
@@ -553,7 +467,7 @@ test('Layout IR controls module order and renderer wrappers', () => {
       { id: 'projects', type: 'projects', source: '项目经历' },
     ],
   }).value
-  const html = assembleResumeSections(markdownToHtml(source), layout, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'portfolio-grid' })
+  const html = assembleResumeSections(markdownToHtml(source), layout, { mode: 'single-column' }, { ...TEMPLATE_DEFAULTS, renderer: 'composition', composition: { ...TEMPLATE_DEFAULTS.composition, page: 'grid' } })
   assert.match(html, /dsh-layout-grid/)
   assert.ok(html.indexOf('data-module-id="projects"') < html.indexOf('data-module-id="skills"'))
   const generated = generateTemplateCandidate({ name: '作品网格', family: 'portfolio-grid', moduleOrder: ['profile', 'skills', 'projects'] })
@@ -563,9 +477,8 @@ test('Layout IR controls module order and renderer wrappers', () => {
 test('Layout IR selects the structural renderer before template style', () => {
   const split = { ir: { type: 'split', columns: [{ id: 'main', width: '1fr', items: ['projects'] }, { id: 'side', width: '0.32fr', items: ['skills'] }] } }
   const grid = { ir: { type: 'grid', columns: 2, items: ['projects', 'skills'] } }
-  assert.equal(resolveRendererId(TEMPLATE_DEFAULTS, split), 'split-sidebar')
-  assert.equal(resolveRendererId({ ...TEMPLATE_DEFAULTS, renderer: 'midnight-terminal' }, split), 'split-sidebar')
-  assert.equal(resolveRendererId({ ...TEMPLATE_DEFAULTS, renderer: 'swiss-grid' }, grid), 'portfolio-grid')
+  assert.equal(resolveRendererId(TEMPLATE_DEFAULTS, split), 'composition')
+  assert.equal(resolveRendererId(TEMPLATE_DEFAULTS, grid), 'composition')
 
   const layout = validateLayoutSpec({
     mode: 'single-column',
@@ -575,13 +488,13 @@ test('Layout IR selects the structural renderer before template style', () => {
       { id: 'projects', type: 'projects', source: '项目经历' },
     ],
   }).value
-  const terminal = { ...TEMPLATE_DEFAULTS, renderer: 'midnight-terminal', visual: { ...TEMPLATE_DEFAULTS.visual, variant: 'terminal' } }
+  const terminal = { ...TEMPLATE_DEFAULTS, renderer: 'composition', visual: { ...TEMPLATE_DEFAULTS.visual, variant: 'terminal' } }
   const body = assembleResumeSections(markdownToHtml('# 林知远\n\n## 技能\n\n- TypeScript\n\n## 项目经历\n\n- 结果指标'), layout, terminal.layout, terminal)
-  assert.match(body, /dsh-renderer-portfolio-grid/)
+  assert.match(body, /dsh-renderer-composition/)
   const document = buildPreviewDocument({ title: 'IR', bodyHtml: body, cssText: '', sourcePath: 'resume.md', templatePath: 'templates/default.css', previewPath: 'preview.html', templateSpec: terminal, layoutSpec: layout })
-  assert.match(document, /data-renderer="portfolio-grid"/)
-  assert.match(document, /renderer-portfolio-grid renderer-midnight-terminal/)
-  assert.match(document, /data-template-renderer="midnight-terminal"/)
+  assert.match(document, /data-renderer="composition"/)
+  assert.match(document, /renderer-composition/)
+  assert.match(document, /data-template-renderer="composition"/)
 })
 
 test('semantic modules render photo, summary, contact, and grouped skills', () => {
@@ -669,17 +582,17 @@ test('business ledger plus is a selectable built-in with a scoped visual layer',
 test('business composition creates reusable entry rows without changing stack templates', () => {
   const source = '# 林知远\n\n前端工程师 | lin@example.com\n\n## 教育经历\n\n### 东江理工大学\n\n2023.09 - 2027.06\n\n- 计算机科学与技术\n\n## 项目经历\n\n### 项目名称 · 核心成员\n\n2026.01 - 至今\n\n- 结果指标'
   const business = getTemplatePreset('business-ledger-plus')
-  const legacy = getTemplatePreset('campus-standard')
+  const stack = getTemplatePreset('campus-standard')
   const businessHtml = assembleResumeSections(markdownToHtml(source), null, business.layout, business)
-  const legacyHtml = assembleResumeSections(markdownToHtml(source), null, legacy.layout, legacy)
+  const stackHtml = assembleResumeSections(markdownToHtml(source), null, stack.layout, stack)
   assert.match(businessHtml, /dsh-entry-row/)
   assert.match(businessHtml, /dsh-entry-meta-slot/)
   assert.match(businessHtml, /dsh-entry-project/)
   assert.match(businessHtml, /dsh-entry-role-label/)
   assert.match(businessHtml, /dsh-header-composition-hero/)
   assert.match(businessHtml, /dsh-section-composition-badge/)
-  assert.equal((businessHtml.match(/dsh-entry-row/g) || []).length, 1)
-  assert.doesNotMatch(legacyHtml, /dsh-entry-row/)
+  assert.equal((businessHtml.match(/dsh-entry-row/g) || []).length, 2)
+  assert.doesNotMatch(stackHtml, /dsh-entry-row/)
 })
 
 test('generated composition is explicit and renderer exposes it as a stable contract', () => {
@@ -689,7 +602,11 @@ test('generated composition is explicit and renderer exposes it as a stable cont
     audience: 'general',
   })
   assert.equal(result.valid, true)
-  assert.deepEqual(result.template.composition, { page: 'stack', header: 'hero', section: 'badge', entry: 'timeline', meta: 'split', skills: 'list' })
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(result.template.composition).filter(([key]) => key !== 'pageSpec')),
+    { page: 'stack', header: 'hero', section: 'badge', entry: 'timeline', meta: 'split', skills: 'list' },
+  )
+  assert.equal(result.template.composition.pageSpec.page.column, 'single')
   const html = renderTemplateLayout({
     template: result.template,
     layout: result.layoutSpec,
@@ -714,6 +631,39 @@ test('generated composition is explicit and renderer exposes it as a stable cont
     layoutSpec: result.layoutSpec,
   })
   assert.match(documentHtml, /data-composition-meta="split"/)
+})
+
+test('new single-column templates expose and consume the page design specification', () => {
+  const result = generateTemplateCandidate({
+    name: '案例纵向系统',
+    family: 'case-study',
+    layout: 'single-column',
+    moduleOrder: ['profile', 'summary', 'projects', 'experience', 'education', 'skills'],
+  })
+  assert.equal(result.valid, true)
+  const pageSpec = result.template.composition.pageSpec
+  assert.equal(pageSpec.page.size, 'A4')
+  assert.equal(pageSpec.page.column, 'single')
+  assert.deepEqual(pageSpec.flow.order, ['profile', 'summary', 'projects', 'experience', 'education', 'skills'])
+  assert.equal(pageSpec.modules.projects, 'feature-first')
+  assert.equal(pageSpec.flow.keepEntryTogether, true)
+  assert.equal(validateCompositionPageSpec(pageSpec).valid, true)
+  assert.equal(validateCompositionPageSpec({ page: { column: 'split' } }).valid, false)
+
+  const html = renderTemplateLayout({
+    template: result.template,
+    layout: result.layoutSpec,
+    header: '<header class="header-block"><h1>林知远</h1></header>',
+    ordered: [
+      { id: 'skills', sourceId: 'skills', type: 'skill-tags', html: '<section data-module-id="skills"></section>' },
+      { id: 'projects', sourceId: 'projects', type: 'projects', html: '<section data-module-id="projects"></section>' },
+    ],
+  })
+  assert.match(html, /dsh-single-column-page/)
+  assert.match(html, /data-page-size="A4"/)
+  assert.match(html, /data-page-family="case-study"/)
+  assert.match(html, /data-module-variant="feature-first"/)
+  assert.match(html, /dsh-single-column-module-feature-first/)
 })
 
 test('generic composition renderer owns page structure for stack, split, and grid candidates', () => {
@@ -767,23 +717,13 @@ test('new visual families generate their own renderer instead of flattening to a
   }
 })
 
-test('every built-in renderer can render the same resume fixture', () => {
+test('the active renderer can render the same resume fixture', () => {
   const source = '# 张三\n\n前端开发 | demo@example.com\n\n## 教育经历\n\n某某大学 · 计算机科学与技术\n\n## 专业技能\n\n- JavaScript / TypeScript\n\n## 项目经历\n\n- 性能提升 30%\n\n## 实习经历\n\n- 负责前端交付'
   for (const renderer of listRendererIds()) {
     const template = listTemplatePresets().find((item) => item.renderer === renderer) || { ...TEMPLATE_DEFAULTS, id: `test-${renderer}`, renderer }
     const body = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
     const html = buildPreviewDocument({ title: template.name, bodyHtml: body, cssText: '', sourcePath: 'resume.md', templatePath: 'templates/default.css', previewPath: 'preview.html', templateSpec: template })
     assert.match(html, new RegExp(`renderer-${template.renderer}`), `renderer missing for ${template.id}`)
-  }
-})
-
-test('legacy renderer compatibility is explicit and outside the active catalog', () => {
-  const source = '# 张三\n\n前端开发 | demo@example.com\n\n## 项目经历\n\n- 性能提升 30%'
-  for (const renderer of listLegacyRendererIds()) {
-    const template = { ...TEMPLATE_DEFAULTS, id: `legacy-${renderer}`, renderer }
-    const body = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
-    const html = buildPreviewDocument({ title: template.name, bodyHtml: body, cssText: '', sourcePath: 'resume.md', templatePath: 'templates/default.css', previewPath: 'preview.html', templateSpec: template })
-    assert.match(html, new RegExp(`renderer-${renderer}`), `legacy renderer missing: ${renderer}`)
   }
 })
 
