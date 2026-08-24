@@ -22,9 +22,10 @@ import { validateLayoutSpec } from './lib/layout-schema.js'
 import { autoTuneTemplate } from './lib/autotune.js'
 import { auditTemplateCss, generateTemplateCandidate, validateDesignBrief } from './lib/template-generation.js'
 import { listThemeFamilies } from './lib/theme-system.js'
+import { registerBundledSkills } from './lib/skill.js'
 
 export const name = 'dsh-resume'
-export const inject = ['tools', 'systemPrompt', 'webServer']
+export const inject = ['tools', 'systemPrompt', 'webServer', 'skills']
 
 const PROMPT = `You are the campus job application resume workbench for this workspace.
 
@@ -59,7 +60,9 @@ function textResult() {
   }
 }
 
-export function apply(ctx) {
+export async function apply(ctx) {
+  await registerBundledSkills(ctx)
+
   ctx.effect(() => ctx.systemPrompt.section({
     name: 'dsh-resume',
     order: 40,
@@ -308,10 +311,14 @@ export function apply(ctx) {
   ctx.tools.register(defineTool({
     name: 'jobhunt_layout_metrics',
     description: 'Read the latest browser-measured A4 metrics from the resume preview, including page count, overflow, top/bottom whitespace, occupancy, module details, and visualAudit warnings. If the preview is still refreshing, return a pending status and continue without asking the user to reopen Settings.',
-    parameters: {},
+    parameters: {
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+      previewPath: { type: 'string', description: 'Optional preview path relative to jobhunt/, e.g. companies/foo/preview.html. Scopes metrics to that preview.' },
+    },
     output: textResult(),
-    async execute() {
-      return getLatestMetrics()
+    async execute(args, exec) {
+      const root = resolveJobhuntRoot(exec, args.rootDir)
+      return getLatestMetrics(root, args.previewPath)
     },
   }))
 
@@ -358,18 +365,32 @@ export function apply(ctx) {
     parameters: {
       resumePath: { type: 'string', description: 'Resume md relative to jobhunt/. Default: resume.md' },
       templateCssPath: { type: 'string', description: 'Template css relative to jobhunt/. Default: templates/default.css' },
-      templateId: { type: 'string', description: 'Optional safe built-in visual template id, e.g. campus-standard or tech-compact.' },
+      templateId: { type: 'string', description: 'Optional safe built-in visual template id, e.g. campus-standard or business-ledger-plus. Call jobhunt_template_list first; an unknown or misspelled id is rejected with the valid catalog.' },
       outPath: { type: 'string', description: 'Output html relative to jobhunt/. Default: sibling preview.html' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
     output: textResult(),
     async execute(args, exec) {
       const root = resolveJobhuntRoot(exec, args.rootDir)
+      let templateSpec
+      if (args.templateId) {
+        try {
+          templateSpec = await loadTemplate(root, args.templateId)
+        } catch (err) {
+          const available = await listAvailableTemplates(root).catch(() => [])
+          return {
+            rendered: false,
+            error: `templateId "${args.templateId}" could not be loaded: ${err?.code === 'ENOENT' ? 'not found' : (err?.message || String(err))}`,
+            availableTemplateIds: available.map((t) => t.id),
+            hint: 'Call jobhunt_template_list for the current catalog before rendering.',
+          }
+        }
+      }
       const rendered = await renderPreview(root, {
         resumePath: args.resumePath,
         templateCssPath: args.templateCssPath,
         outPath: args.outPath,
-        templateSpec: args.templateId ? await loadTemplate(root, args.templateId) : undefined,
+        templateSpec,
       })
       rememberPreview(root, rendered.previewPath, rendered)
       return {
