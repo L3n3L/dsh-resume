@@ -14,7 +14,6 @@ import {
   listAvailableTemplates,
   listTemplateVersions,
   loadTemplate,
-  migrateTemplate,
   restoreLatestTemplate,
   saveTemplate,
   validateTemplate,
@@ -47,12 +46,11 @@ Workflow:
 3) run jobhunt_check before rewriting so missing evidence and layout risks are explicit
 4) write companies/<name>/jd.md and companies/<name>/resume.md
 5) aim for one A4 page for a campus resume: remove repetition and low-signal bullets before shrinking type; keep modules together when possible
-6) for visual template work, load the resume-template-design Skill and use the template tools. The active built-ins are composition-only. New templates use an explicit DesignBrief, renderer=composition, composition, and scoped templateCss.
+6) for visual template work, load the resume-template-design Skill and use the template tools. The active built-ins are composition-only. New templates use an explicit DesignBrief, renderer=composition, composition.pageSpec for single-column page structure, and scoped templateCss.
 7) when the user asks to create or apply a template, complete generate → validate → save → list (verify the id) → render with that templateId → measure. A generated candidate is not an installed template.
 8) use resume.layout.json and jobhunt_layout_validate for semantic modules such as photo, summary, contact, and skill-groups; keep local images under jobhunt/assets.
 9) after jobhunt_render, call jobhunt_layout_metrics for browser A4 results. If metrics are pending, continue the task and let the open preview report them; do not invent page numbers or ask for redundant confirmation.
-10) if a legacy template is encountered, migrate it before applying it; do not save a legacy renderer.
-11) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
+10) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
 function textResult() {
   return {
@@ -131,7 +129,7 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_list',
-    description: 'List the six curated composition built-ins plus saved composition templates. Legacy workspace templates remain readable for migration but are not listed until converted; templates change layout styling only and do not overwrite resume content.',
+    description: 'List the six curated composition built-ins plus saved composition templates. Invalid or unsupported templates are ignored; templates change layout styling only and do not overwrite resume content.',
     parameters: {
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
@@ -167,15 +165,15 @@ export function apply(ctx) {
         return { valid: false, errors: ['templateJson must be valid JSON'] }
       }
       const result = validateTemplate(parsed)
-      return { valid: result.valid, active: result.valid && result.value.renderer === 'composition', migrationRequired: result.valid && result.value.renderer !== 'composition', qualityAudit: auditTemplateCss(result.value.templateCss, result.value.id), errors: result.errors, template: result.value }
+      return { valid: result.valid, active: result.valid && result.value.renderer === 'composition', qualityAudit: auditTemplateCss(result.value.templateCss, result.value.id), errors: result.errors, template: result.value }
     },
   }))
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_generate',
-    description: 'Generate a safe visual resume template candidate from a compact DesignBrief. Returns a validated TemplateSpec, optional independent templateCss, and rationale; when the user explicitly asks to create or apply the template, continue with validation, jobhunt_template_save, rendering, and A4 measurement without waiting for a redundant confirmation.',
+    description: 'Generate a safe visual resume template candidate from a compact DesignBrief. Single-column candidates receive a validated composition.pageSpec describing A4 page geometry, header, module variants, flow order, density, and pagination intent. Returns a validated TemplateSpec, optional independent templateCss, and rationale; when the user explicitly asks to create or apply the template, continue with validation, jobhunt_template_save, rendering, and A4 measurement without waiting for a redundant confirmation.',
     parameters: {
-      briefJson: { type: 'string', required: true, description: 'JSON DesignBrief: name, family, audience, optional layout/density/tone overrides, moduleOrder, palette, customCss, templateCss, bestFor, and tags.' },
+      briefJson: { type: 'string', required: true, description: 'JSON DesignBrief: name, family, audience, optional layout/density/tone overrides, moduleOrder, composition pageSpec overrides, palette, customCss, templateCss, bestFor, and tags.' },
     },
     output: textResult(),
     async execute(args) {
@@ -193,7 +191,7 @@ export function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_save',
-    description: 'Save a validated composition template as jobhunt/templates/<id>.json plus an optional independent jobhunt/templates/<id>.css so it appears in the template library. Legacy renderer templates are rejected with a migration instruction instead of being saved and then hidden.',
+    description: 'Save a validated composition template as jobhunt/templates/<id>.json plus an optional independent jobhunt/templates/<id>.css so it appears in the template library. New single-column templates should carry composition.pageSpec; unsupported renderer templates are rejected.',
     parameters: {
       templateJson: { type: 'string', required: true, description: 'Validated composition TemplateSpec JSON. It must use renderer: composition, an explicit composition object, and a lower-kebab-case id not used by a built-in. Optional templateCss is written to templates/<id>.css.' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
@@ -215,21 +213,6 @@ export function apply(ctx) {
       } catch (err) {
         return { saved: false, valid: true, errors: [String(err?.message || err)], template: validation.value }
       }
-    },
-  }))
-
-  ctx.tools.register(defineTool({
-    name: 'jobhunt_template_migrate',
-    description: 'Migrate an existing legacy workspace template to the composition protocol, preserving its id, visual tokens, and independent CSS so it can reappear in the template library.',
-    parameters: {
-      id: { type: 'string', required: true, description: 'Existing workspace template id, e.g. obsidian-exec.' },
-      newId: { type: 'string', description: 'Optional new lower-kebab-case id. Defaults to the existing id.' },
-      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
-    },
-    output: textResult(),
-    async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
-      return await migrateTemplate(root, args.id, args.newId || args.id)
     },
   }))
 

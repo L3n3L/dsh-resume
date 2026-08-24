@@ -180,6 +180,59 @@ ul {
   padding-left: 1.25em;
 }
 
+/* New templates use pageSpec as a stable structural contract. These hooks
+   provide safe baseline behavior; each visual family can skin them separately. */
+.dsh-single-column-page .dsh-single-column-module,
+.dsh-single-column-page .dsh-entry-rail {
+  break-inside: avoid;
+}
+
+.dsh-single-column-page[data-page-density="compact"] .dsh-single-column-module + .dsh-single-column-module,
+.dsh-single-column-page[data-page-density="compact"] .dsh-entry-rail + .dsh-entry-rail {
+  margin-top: 6px;
+}
+
+.dsh-single-column-page[data-page-density="standard"] .dsh-single-column-module + .dsh-single-column-module,
+.dsh-single-column-page[data-page-density="standard"] .dsh-entry-rail + .dsh-entry-rail {
+  margin-top: 10px;
+}
+
+.dsh-single-column-page[data-page-density="airy"] .dsh-single-column-module + .dsh-single-column-module,
+.dsh-single-column-page[data-page-density="airy"] .dsh-entry-rail + .dsh-entry-rail {
+  margin-top: 16px;
+}
+
+.dsh-single-column-page[data-page-section="numbered-rail"] .dsh-resume-section {
+  position: relative;
+}
+
+.dsh-single-column-page[data-page-section="numbered-rail"] .dsh-section-heading::before {
+  content: counter(dsh-section) " /";
+  counter-increment: dsh-section;
+  display: inline-block;
+  margin-right: 10px;
+  color: var(--muted, #6b7280);
+  font-size: .62em;
+  font-weight: 600;
+  letter-spacing: .08em;
+  vertical-align: middle;
+}
+
+.dsh-single-column-page[data-page-section="numbered-rail"] .dsh-composed-modules {
+  counter-reset: dsh-section;
+}
+
+.dsh-single-column-page[data-page-type-scale="display"] .dsh-entry-title {
+  letter-spacing: -.02em;
+}
+
+.dsh-single-column-page[data-page-accent-mode="surface"] .dsh-single-column-module-feature-first,
+.dsh-single-column-page[data-page-accent-mode="surface"] .dsh-single-column-module-cards {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent, #2563eb) 6%, transparent);
+  border-radius: var(--corner-radius, 0);
+}
+
 strong { color: #111827; }
 
 a { color: var(--accent); text-decoration: none; }
@@ -213,3 +266,204 @@ a { color: var(--accent); text-decoration: none; }
   .dsh-resume-page:last-child { page-break-after: auto; break-after: auto; }
   .meta { display: none !important; }
 }
+
+/* ============================================================
+   pageSpec 视觉兑现 P0（补齐空缺，见 docs/pageSpec视觉兑现空缺与补齐.md）
+   只新增规则，不改既有 HTML 输出，保证测试不回退。
+   ============================================================ */
+
+/* A8 图标：统一尺寸/对齐/颜色（renderIconTokens 发 .dsh-icon dsh-icon-{name}） */
+.dsh-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 4px;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--accent);
+  vertical-align: -0.12em;
+}
+.dsh-contact-item .dsh-icon { font-size: 0.95em; }
+
+/* A7 富文本原语：blockquote / inline code / table —— 对照 codecv 单栏 */
+.dsh-single-column-page blockquote,
+.dsh-resume-section blockquote {
+  position: relative;
+  margin: 10px 0;
+  padding: 8px 12px 8px 16px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 2px;
+}
+.dsh-single-column-page blockquote::before,
+.dsh-resume-section blockquote::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.dsh-single-column-page code,
+.dsh-resume-section code {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 1px;
+  font-size: 0.88em;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 999px;
+}
+.dsh-single-column-page pre code,
+.dsh-resume-section pre code { display: inline; padding: 0; background: transparent; color: var(--text); }
+.dsh-single-column-page table,
+.dsh-resume-section table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 0.92em;
+}
+.dsh-single-column-page table thead th,
+.dsh-resume-section table thead th {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  text-align: left;
+  padding: 6px 8px;
+}
+.dsh-single-column-page table td,
+.dsh-resume-section table td {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 8px;
+}
+
+/* A1 accentMode：text / marker / rule 三档兑现（surface 已有） */
+.dsh-single-column-page[data-page-accent-mode="text"] .dsh-section-heading,
+.dsh-single-column-page[data-page-accent-mode="text"] .dsh-entry-title { color: var(--accent); }
+.dsh-single-column-page[data-page-accent-mode="text"] strong { color: color-mix(in srgb, var(--accent) 70%, var(--text)); }
+
+.dsh-single-column-page[data-page-accent-mode="marker"] .dsh-entry-bullets li::marker { color: var(--accent); }
+.dsh-single-column-page[data-page-accent-mode="marker"] .dsh-section-heading::before {
+  content: "";
+  display: inline-block;
+  width: 4px; height: 1em;
+  margin-right: 8px;
+  background: var(--accent);
+  vertical-align: -0.12em;
+  border-radius: 2px;
+}
+
+.dsh-single-column-page[data-page-accent-mode="rule"] .dsh-section-heading { border-bottom: 2px solid var(--accent); }
+.dsh-single-column-page[data-page-accent-mode="rule"] .header-block { border-bottom-color: var(--accent); }
+.dsh-single-column-page[data-page-accent-mode="rule"] .dsh-resume-section { border-top: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); padding-top: 14px; }
+
+/* A3 header 变体：masthead / split / centered / compact / command */
+.dsh-single-column-page[data-page-header="split"] .header-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.dsh-single-column-page[data-page-header="split"] .dsh-hero-name { margin: 0; }
+.dsh-single-column-page[data-page-header="split"] .dsh-hero-line { margin: 0; }
+
+.dsh-single-column-page[data-page-header="centered"] .header-block { text-align: center; }
+.dsh-single-column-page[data-page-header="centered"] .dsh-hero-identity,
+.dsh-single-column-page[data-page-header="centered"] .dsh-hero-contact { justify-content: center; }
+
+.dsh-single-column-page[data-page-header="compact"] .header-block { padding-bottom: 8px; margin-bottom: 14px; }
+.dsh-single-column-page[data-page-header="compact"] .dsh-hero-name { font-size: 22px; margin: 0 0 4px; }
+.dsh-single-column-page[data-page-header="compact"] .dsh-hero-line { font-size: 12.5px; }
+
+.dsh-single-column-page[data-page-header="command"] .header-block { font-family: ui-monospace, "Cascadia Code", monospace; }
+.dsh-single-column-page[data-page-header="command"] .dsh-hero-name::before { content: "$ "; color: var(--accent); }
+
+/* A3 identity / contact 对齐变体 */
+.dsh-single-column-page[data-page-identity="stacked"] .dsh-hero-identity-item { display: block; }
+.dsh-single-column-page[data-page-identity="split"] .dsh-hero-segment.dsh-hero-identity-item + .dsh-hero-segment.dsh-hero-identity-item { margin-left: 12px; }
+
+.dsh-single-column-page[data-page-contact="stacked"] .dsh-contact-item { display: block; }
+.dsh-single-column-page[data-page-contact="stacked"] .dsh-hero-separator { display: none; }
+.dsh-single-column-page[data-page-contact="split"] .dsh-hero-contact { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
+
+/* A4 section 变体：plain / badge / rule / marker（numbered-rail 已有，接通 pageSpec 类路径） */
+.dsh-single-column-page[data-page-section="plain"] .dsh-resume-section > h2 { border-bottom: 0; padding-bottom: 0; }
+
+.dsh-single-column-page[data-page-section="badge"] .dsh-section-heading::before {
+  content: "";
+  display: inline-block;
+  width: 18px; height: 18px;
+  margin-right: 8px;
+  border-radius: 4px;
+  background: var(--accent);
+  vertical-align: -3px;
+}
+
+.dsh-single-column-page[data-page-section="rule"] .dsh-section-heading {
+  display: inline-block;
+  padding: 2px 10px 2px 0;
+  border-bottom: 2px solid var(--accent);
+}
+
+.dsh-single-column-page[data-page-section="marker"] .dsh-section-heading::before {
+  content: "■";
+  margin-right: 8px;
+  color: var(--accent);
+  font-size: 0.7em;
+  vertical-align: 0.1em;
+}
+
+/* A5 entry 变体：role-stack / feature-first（timeline 已有竖轴；compact 为密度） */
+.dsh-single-column-page .dsh-entry-row-role-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.dsh-single-column-page .dsh-entry-row-role-stack .dsh-entry-meta-slot { order: -1; }
+
+.dsh-single-column-page .dsh-entry-row-feature-first .dsh-entry-main { font-size: 1.05em; }
+.dsh-single-column-page .dsh-single-column-module-feature-first > .dsh-module-projects .dsh-entry-row:first-child {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border-left: 3px solid var(--accent);
+  border-radius: 2px;
+}
+
+/* A5 cards：模块级卡片网格 */
+.dsh-single-column-page .dsh-single-column-module-cards > .dsh-module-projects,
+.dsh-single-column-page .dsh-single-column-module-cards > .dsh-module-experience {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.dsh-single-column-page .dsh-single-column-module-cards .dsh-entry-row { padding: 10px; border: 1px solid var(--line); border-radius: 4px; }
+
+/* A6 skills 变体（接通 pageSpec 类路径 dsh-skills-composition-*） */
+.dsh-single-column-page .dsh-skills-composition-grouped-chips .dsh-skill-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.dsh-single-column-page .dsh-skills-composition-rows .dsh-skill-tags { display: grid; gap: 3px; }
+.dsh-single-column-page .dsh-skills-composition-rows .dsh-skill-tag {
+  display: block; padding: 0; border: 0; border-bottom: 1px dotted var(--line); border-radius: 0; background: transparent;
+}
+.dsh-single-column-page .dsh-skills-composition-inline .dsh-skill-tags { display: inline; }
+.dsh-single-column-page .dsh-skills-composition-inline .dsh-skill-tag::after { content: "、"; }
+.dsh-single-column-page .dsh-skills-composition-inline .dsh-skill-tag:last-child::after { content: ""; }
+
+/* A2 字体族 family：campus-clear 为默认现代无衬线；预留 editorial/terminal 切换 */
+.dsh-single-column-page[data-page-family="editorial"] { font-family: "Noto Serif SC", "Source Han Serif SC", Georgia, serif; }
+.dsh-single-column-page[data-page-family="terminal"] { font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace; }
+
+/* A9 ruleStyle：控制章节底线/分隔线样式 */
+.dsh-single-column-page[data-page-rule="none"] .dsh-section-heading { border-bottom: 0; padding-bottom: 0; }
+.dsh-single-column-page[data-page-rule="solid"] .dsh-section-heading { border-bottom: 2px solid var(--text); }
+.dsh-single-column-page[data-page-rule="dashed"] .dsh-section-heading { border-bottom: 1px dashed var(--accent); }
+.dsh-single-column-page[data-page-rule="hairline"] .dsh-section-heading { border-bottom: 1px solid var(--line); }
+
+/* A10 typeScale：balanced/compact（display 已有） */
+.dsh-single-column-page[data-page-type-scale="balanced"] .dsh-hero-name { letter-spacing: 0.01em; }
+.dsh-single-column-page[data-page-type-scale="compact"] .dsh-hero-name { font-size: 24px; letter-spacing: 0; }
+.dsh-single-column-page[data-page-type-scale="compact"] .dsh-entry-title { font-size: 14px; }
+
+/* A11 page.margin → padding 兑现 */
+.dsh-single-column-page { --_pad-x: var(--page-padding-x, 48px); --_pad-y: var(--page-padding-y, 40px); }

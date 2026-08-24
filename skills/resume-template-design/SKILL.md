@@ -16,7 +16,7 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 ## 不可违反的实现边界
 
 - 新模板必须使用 `renderer: "composition"`。
-- 用 `composition` 表达结构：`page`、`header`、`section`、`entry`、`meta`、`skills`。
+- 用 `composition` 表达结构：旧字段 `page`、`header`、`section`、`entry`、`meta`、`skills` 保持兼容；新单栏模板必须优先使用 `composition.pageSpec` 表达 A4 页面、头部、模块变体、顺序、密度和分页意图。
 - 视觉差异放在独立 `templateCss` 文件，不为每个皮肤新增 renderer。
 - CSS 必须作用域化，优先使用 `[data-template-id="<id>"]`。
 - 不复制其他项目的源码、CSS、图标、专有命名或资源；只借鉴通用设计方法。
@@ -48,6 +48,20 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 - `split` meta：标题、职位、日期或技术栈需要两侧对齐时使用。
 
 只有现有组合无法表达真实结构时，才提出新增原语；单纯皮肤差异不新增 renderer。
+
+新单栏模板的页面规格建议：
+
+```json
+{
+  "page": { "size": "A4", "column": "single", "density": "compact", "margin": { "top": 34, "right": 40, "bottom": 34, "left": 40 } },
+  "header": { "variant": "masthead", "alignment": "left", "identity": "stacked", "contact": "inline" },
+  "flow": { "order": ["profile", "summary", "experience", "projects", "education", "skills"], "keepEntryTogether": true, "avoidSectionOrphans": true },
+  "modules": { "section": "numbered-rail", "experience": "timeline", "projects": "feature-first", "skills": "grouped-chips" },
+  "visual": { "family": "editorial", "typeScale": "display", "ruleStyle": "hairline", "accentMode": "marker" }
+}
+```
+
+这段规格是结构契约，不是 CSS；Renderer 必须消费它，模板 CSS 再负责具体视觉皮肤。
 
 ### 3. 生成完整正文皮肤
 
@@ -97,7 +111,7 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 模板可以保存前，至少满足：
 
 1. 有明确岗位场景和独立视觉语言；
-2. 使用 composition，而不是旧 renderer；
+2. 新模板使用 composition，单栏模板必须有可校验的 composition.pageSpec，而不是旧 renderer；
 3. CSS 有模板作用域；
 4. 覆盖 header、section、entry title、entry meta、result bullets、skills 和 `@media print`；
 5. 通过模板 schema、CSS 安全和对比度校验；
