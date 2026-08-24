@@ -10,6 +10,7 @@
   --page-padding-x: 48px;
   --page-padding-y: 40px;
   --resume-font-size: 14px;
+  --resume-font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --resume-line-height: 1.55;
   --resume-section-gap: 20px;
   --resume-page-margin: 48px;
@@ -23,7 +24,7 @@ html, body {
   overflow-x: hidden;
   background: #fff;
   color: var(--text);
-  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--resume-font-family);
   line-height: var(--resume-line-height);
 }
 
@@ -457,8 +458,8 @@ a { color: var(--accent); text-decoration: none; }
 .dsh-single-column-page .dsh-skills-composition-inline .dsh-skill-tag:last-child::after { content: ""; }
 
 /* A2 字体族 family：campus-clear 为默认现代无衬线；预留 editorial/terminal 切换 */
-.dsh-single-column-page[data-page-family="editorial"] { font-family: "Noto Serif SC", "Source Han Serif SC", Georgia, serif; }
-.dsh-single-column-page[data-page-family="terminal"] { font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace; }
+.dsh-single-column-page[data-page-family="editorial"] { font-family: var(--resume-font-family); }
+.dsh-single-column-page[data-page-family="terminal"] { font-family: var(--resume-font-family); }
 
 /* A9 ruleStyle：控制章节底线/分隔线样式 */
 .dsh-single-column-page[data-page-rule="none"] .dsh-section-heading { border-bottom: 0; padding-bottom: 0; }

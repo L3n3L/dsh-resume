@@ -852,6 +852,7 @@ window.__ModuleLoader__.load({
 .cj-tuningPopoverHead { flex: 0 0 100%; display: flex; align-items: center; justify-content: space-between; color: #26334d; font-size: 12px; }
 .cj-tuningPopover .cj-inlineControl { flex: 1 1 145px; min-width: 140px; }
 .cj-tuningPopover .cj-inlineControl input { width: 100%; }
+.cj-tuningPopover .cj-inlineControl select { box-sizing: border-box; width: 100%; height: 25px; border: 1px solid #dbe0e9; border-radius: 7px; background: #fff; color: #536078; font-size: 10px; }
 .cj-tuningPopover .cj-inlineReset { margin-left: auto; }
 .cj-iconTuningBlock { flex: 0 0 100%; margin-top: 2px; padding-top: 10px; border-top: 1px solid #edf0f4; }
 .cj-iconTuningHead, .cj-iconTuningFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #7b8496; font-size: 9px; }
@@ -1345,12 +1346,19 @@ window.__ModuleLoader__.load({
 
     function layoutSettingsFromTemplate(template) {
       return {
+        fontFamily: ['system-sans', 'modern-sans', 'serif'].includes(template?.typography?.fontFamily) ? template.typography.fontFamily : 'system-sans',
         fontSize: Number(template?.typography?.fontSize) || 14,
         lineHeight: Number(template?.typography?.lineHeight) || 1.55,
         sectionGap: Number(template?.spacing?.sectionGap) || 20,
         pageMargin: Number(template?.spacing?.pageMargin) || 48,
       }
     }
+
+    const RESUME_FONT_OPTIONS = Object.freeze([
+      ['system-sans', '系统无衬线'],
+      ['modern-sans', '现代无衬线'],
+      ['serif', '衬线阅读'],
+    ])
 
     function visualTokensFromTemplate(template) {
       return {
@@ -1387,7 +1395,7 @@ window.__ModuleLoader__.load({
       const [startupMode, setStartupMode] = useState('demo')
       const [hasResolvedInitialView, setHasResolvedInitialView] = useState(false)
       const [layout, setLayout] = useState(null)
-      const [layoutSettings, setLayoutSettings] = useState({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
+      const [layoutSettings, setLayoutSettings] = useState(() => layoutSettingsFromTemplate({}))
       const [layoutHistory, setLayoutHistory] = useState([])
       const [iconInventory, setIconInventory] = useState([])
       const [iconTuning, setIconTuning] = useState({})
@@ -2216,7 +2224,7 @@ window.__ModuleLoader__.load({
       const resetLayoutSettings = () => {
         setFitState({ text: '正在恢复默认', state: 'pending' })
         setLayoutHistory((history) => [...history, layoutSettings].slice(-20))
-        setLayoutSettings({ fontSize: 14, lineHeight: 1.55, sectionGap: 20, pageMargin: 48 })
+        setLayoutSettings(layoutSettingsFromTemplate(selectedTemplate))
       }
 
       const undoLayout = () => {
@@ -2572,6 +2580,7 @@ window.__ModuleLoader__.load({
         { className: 'cj-tuningPopover', 'aria-label': '手动调整' },
         React.createElement('div', { className: 'cj-tuningPopoverHead' }, React.createElement('strong', null, '手动调整'), React.createElement('button', { type: 'button', className: 'cj-templatePickerClose', onClick: () => setTuningOpen(false) }, '收起')),
         ...[
+          ['fontFamily', '字体'],
           ['fontSize', '字号', (value) => `${value}px`, 11, 18, 0.5],
           ['lineHeight', '行高', (value) => value.toFixed(2), 1.2, 2, 0.05],
           ['sectionGap', '间距', (value) => `${value}px`, 6, 30, 1],
@@ -2580,8 +2589,9 @@ window.__ModuleLoader__.load({
           'label',
           { className: 'cj-inlineControl', key },
           React.createElement('span', null, label),
-          React.createElement('strong', null, format(layoutSettings[key])),
-          React.createElement('input', { type: 'range', min, max, step, value: layoutSettings[key], onChange: (event) => updateLayoutSetting(key, Number(event.target.value)), 'aria-label': `${label} ${format(layoutSettings[key])}` }),
+          key === 'fontFamily'
+            ? React.createElement('select', { value: layoutSettings.fontFamily, onChange: (event) => updateLayoutSetting(key, event.target.value), 'aria-label': label }, RESUME_FONT_OPTIONS.map(([value, optionLabel]) => React.createElement('option', { key: value, value }, optionLabel)))
+            : React.createElement(React.Fragment, null, React.createElement('strong', null, format(layoutSettings[key])), React.createElement('input', { type: 'range', min, max, step, value: layoutSettings[key], onChange: (event) => updateLayoutSetting(key, Number(event.target.value)), 'aria-label': `${label} ${format(layoutSettings[key])}` })),
         )),
         React.createElement('button', { type: 'button', className: 'cj-inlineReset', onClick: undoLayout, disabled: !layoutHistory.length, title: '撤销上一次调整' }, '↶'),
         React.createElement('button', { type: 'button', className: 'cj-inlineReset', onClick: resetLayoutSettings, title: '恢复默认排版' }, '默认'),
