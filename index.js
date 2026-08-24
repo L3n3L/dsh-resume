@@ -41,6 +41,13 @@ Role split (mandatory):
 - Prefer editing companies/<company>/resume.md over overwriting the master resume.md.
 - Final export is owned by the USER in Settings → 求职简历 (preview panel). After render, tell the user to open that panel; do not claim you exported a PDF.
 
+Icon token rules:
+- [icon:xxx] is an intentional dsh-resume rendering token inside Markdown, not a standard Markdown link.
+- Preserve existing valid icon tokens exactly when editing resume content; do not delete, translate, or treat them as experience text.
+- Only add an icon token when it improves a contact line, skill label, or small heading decoration; never use icons to replace factual text.
+- Use only known icon slugs already present in the document or explicitly requested by the user. Unknown slugs remain plain text.
+- Do not add size, offsetY, or CSS to Markdown. Icon size and vertical alignment are preview controls handled by the manual adjustment panel.
+
 Workflow:
 1) jobhunt_init if needed
 2) read profile/resume/story-bank and the target JD

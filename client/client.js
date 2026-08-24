@@ -375,6 +375,7 @@ window.__ModuleLoader__.load({
         recent ? `主对话时间线（含工具/系统节点）：\n${recent}` : '',
         mainSummary?.pending?.length ? `主对话当前有 ${mainSummary.pending.length} 个待处理交互，请先完成它们，不要并行开启另一个请求。` : '',
         '',
+        '图标规则：`[icon:xxx]` 是 dsh-resume 的 Markdown 渲染标签，不是普通链接。修改简历时保留已有合法图标标签，不要删除、翻译或把它当作经历内容；只在联系方式、技能标签或小标题确实有帮助时添加。不要凭空编造未知图标名，也不要在 Markdown 中写 size、offsetY 或 CSS；图标大小和上下位置由“手动调整”面板控制。',
         '规则：主对话是唯一真实上下文；不编造经历；优先使用主对话已有上下文和 jobhunt 工具；需要用户决定时使用结构化提问；涉及 Markdown 时先给出修改建议或候选内容，不要替用户保存文件。',
         '[/DSH_RESUME_WORKBENCH]',
       ].filter(Boolean).join('\n')
@@ -847,7 +848,7 @@ window.__ModuleLoader__.load({
 .cj-templatePickerHead strong { font-weight: 800; }
 .cj-templatePickerClose { all: unset; cursor: pointer; padding: 4px 6px; border-radius: 6px; color: #8b95a7; font-size: 10px; }
 .cj-templatePickerClose:hover { background: #edf1f6; color: #3559a8; }
-.cj-tuningPopover { position: absolute; top: 42px; right: 0; z-index: 50; width: 360px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border: 1px solid #dfe5ee; border-radius: 13px; background: rgba(255,255,255,.98); box-shadow: 0 16px 40px rgba(24,43,78,.16); }
+.cj-tuningPopover { position: absolute; top: 42px; right: 0; z-index: 50; box-sizing: border-box; width: 360px; max-height: calc(100vh - 80px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border: 1px solid #dfe5ee; border-radius: 13px; background: rgba(255,255,255,.98); box-shadow: 0 16px 40px rgba(24,43,78,.16); }
 .cj-tuningPopoverHead { flex: 0 0 100%; display: flex; align-items: center; justify-content: space-between; color: #26334d; font-size: 12px; }
 .cj-tuningPopover .cj-inlineControl { flex: 1 1 145px; min-width: 140px; }
 .cj-tuningPopover .cj-inlineControl input { width: 100%; }
