@@ -96,10 +96,6 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 
 `jobhunt_template_family_list` → `jobhunt_template_generate` → `jobhunt_template_validate` → `jobhunt_template_save` → `jobhunt_template_list` → `jobhunt_render` → `jobhunt_layout_metrics`
 
-如果发现旧模板使用旧 renderer：
-
-`jobhunt_template_migrate` → `jobhunt_template_list` → `jobhunt_render`
-
 生成后要关注工具返回的 `qualityAudit`：
 
 - `needs-visual-work`：补齐独立 CSS、正文层或打印规则，不要直接宣称完成；
