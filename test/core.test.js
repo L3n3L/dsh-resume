@@ -11,8 +11,9 @@ import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme
 import { normalizeLayoutSpec, validateLayoutSpec } from '../lib/layout-schema.js'
 import { getTemplatePreset, listAvailableTemplates, listTemplatePresets, loadTemplate, saveTemplate } from '../lib/template-presets.js'
 import { listRendererIds, renderTemplateLayout, resolveRendererId } from '../lib/renderers/registry.js'
-import { initJobhunt } from '../lib/workspace.js'
-import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview } from '../lib/preview-api.js'
+import { initJobhunt, readJobhuntFile, writeJobhuntFile } from '../lib/workspace.js'
+import { activeWorkspaceLockCount, withWorkspaceLock } from '../lib/workspace-lock.js'
+import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview, rememberWorkspaceRoot } from '../lib/preview-api.js'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -77,6 +78,113 @@ test('metrics rejects stale render identities and status does not select an old 
     assert.equal(status.result.previewRel, null)
   } finally {
     previewState.clear()
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('status follows the last explicitly touched workspace when no root is provided', async () => {
+  previewState.clear()
+  rememberWorkspaceRoot(null)
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-workspace-root-test-'))
+  try {
+    await initJobhunt(root)
+    const routes = []
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
+    const statusRoute = routes.find((route) => route.path === '/dsh-resume/api/status')
+    rememberWorkspaceRoot(root)
+    const response = { result: null, writeHead(status) { this.status = status }, end(body) { this.result = JSON.parse(body) } }
+    await statusRoute.handler({ method: 'GET', url: '/dsh-resume/api/status' }, response)
+    assert.equal(response.status, 200)
+    assert.equal(response.result.root, path.normalize(root))
+  } finally {
+    rememberWorkspaceRoot(null)
+    previewState.clear()
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('status bindings stay isolated per DSH session and expose deleted workspaces', async () => {
+  previewState.clear()
+  rememberWorkspaceRoot(null, 'session-a')
+  rememberWorkspaceRoot(null, 'session-b')
+  const firstRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-session-a-'))
+  const secondRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-session-b-'))
+  try {
+    await initJobhunt(firstRoot)
+    await initJobhunt(secondRoot)
+    const routes = []
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
+    const statusRoute = routes.find((route) => route.path === '/dsh-resume/api/status')
+    const response = () => ({ result: null, writeHead(status) { this.status = status }, end(body) { this.result = JSON.parse(body) } })
+    rememberWorkspaceRoot(firstRoot, 'session-a')
+    rememberWorkspaceRoot(secondRoot, 'session-b')
+
+    const first = response()
+    await statusRoute.handler({ method: 'GET', url: '/dsh-resume/api/status?sessionId=session-a' }, first)
+    assert.equal(first.result.root, path.normalize(firstRoot))
+    assert.equal(first.result.workspaceState, 'ready')
+
+    const second = response()
+    await statusRoute.handler({ method: 'GET', url: '/dsh-resume/api/status?sessionId=session-b' }, second)
+    assert.equal(second.result.root, path.normalize(secondRoot))
+    assert.equal(second.result.workspaceState, 'ready')
+
+    await fs.rm(secondRoot, { recursive: true, force: true })
+    const missing = response()
+    await statusRoute.handler({ method: 'GET', url: '/dsh-resume/api/status?sessionId=session-b' }, missing)
+    assert.equal(missing.result.root, path.normalize(secondRoot))
+    assert.equal(missing.result.workspaceState, 'missing')
+    assert.equal(missing.result.workspaceExists, false)
+    assert.deepEqual(missing.result.previews, [])
+  } finally {
+    rememberWorkspaceRoot(null, 'session-a')
+    rememberWorkspaceRoot(null, 'session-b')
+    previewState.clear()
+    await fs.rm(firstRoot, { recursive: true, force: true })
+    await fs.rm(secondRoot, { recursive: true, force: true })
+  }
+})
+
+test('workspace mutations serialize per root while independent roots can proceed', async () => {
+  const firstRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-lock-a-'))
+  const secondRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-lock-b-'))
+  const events = []
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  try {
+    await Promise.all([
+      withWorkspaceLock(firstRoot, async () => {
+        events.push('a-start')
+        await wait(15)
+        events.push('a-end')
+      }),
+      withWorkspaceLock(firstRoot, async () => {
+        events.push('a2-start')
+        events.push('a2-end')
+      }),
+      withWorkspaceLock(secondRoot, async () => {
+        events.push('b-start')
+        await wait(2)
+        events.push('b-end')
+      }),
+    ])
+    assert.ok(events.indexOf('a-end') < events.indexOf('a2-start'))
+    assert.equal(activeWorkspaceLockCount(), 0)
+  } finally {
+    await fs.rm(firstRoot, { recursive: true, force: true })
+    await fs.rm(secondRoot, { recursive: true, force: true })
+  }
+})
+
+test('workspace text writes are atomic and leave no temporary files', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-atomic-write-'))
+  try {
+    await initJobhunt(root)
+    const content = '# 林知远\n\n## 项目经历\n\n- 原子写入测试\n'
+    await writeJobhuntFile(root, 'resume.md', content)
+    assert.equal((await readJobhuntFile(root, 'resume.md')).content, content)
+    const entries = await fs.readdir(root, { withFileTypes: true })
+    assert.equal(entries.some((entry) => entry.name.endsWith('.tmp')), false)
+  } finally {
     await fs.rm(root, { recursive: true, force: true })
   }
 })

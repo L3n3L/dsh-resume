@@ -7,7 +7,7 @@ import {
   resolveJobhuntRoot,
 } from './lib/workspace.js'
 import { renderPreview } from './lib/renderer.js'
-import { getLatestMetrics, registerPreviewRoutes, rememberPreview } from './lib/preview-api.js'
+import { getLatestMetrics, registerPreviewRoutes, rememberPreview, rememberWorkspaceRoot } from './lib/preview-api.js'
 import { resumeQualityCheck } from './lib/quality.js'
 import {
   copyTemplate,
@@ -23,6 +23,7 @@ import { autoTuneTemplate } from './lib/autotune.js'
 import { auditTemplateCss, generateTemplateCandidate, validateDesignBrief } from './lib/template-generation.js'
 import { listThemeFamilies } from './lib/theme-system.js'
 import { registerBundledSkills } from './lib/skill.js'
+import { withWorkspaceLock } from './lib/workspace-lock.js'
 
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer', 'skills']
@@ -73,6 +74,13 @@ Workflow:
 10) after jobhunt_render, call jobhunt_layout_metrics for browser A4 results. If metrics are pending, continue the task and let the open preview report them; do not invent page numbers or ask for redundant confirmation.
 11) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
+function resolveAndRememberRoot(args, exec) {
+  const root = resolveJobhuntRoot(exec, args?.rootDir)
+  const sessionId = String(args?.sessionId || exec?.sessionId || exec?.context?.sessionId || exec?.agent?.session?.id || exec?.agent?.session?.header?.id || 'default')
+  rememberWorkspaceRoot(root, sessionId)
+  return root
+}
+
 function textResult() {
   return {
     schema: { type: 'object', additionalProperties: true },
@@ -99,8 +107,8 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
-      return await initJobhunt(root)
+      const root = resolveAndRememberRoot(args, exec)
+      return await withWorkspaceLock(root, () => initJobhunt(root))
     },
   }))
 
@@ -112,7 +120,7 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const root = resolveAndRememberRoot(args, exec)
       return await listJobhunt(root)
     },
   }))
@@ -126,7 +134,7 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const root = resolveAndRememberRoot(args, exec)
       return await readJobhuntFile(root, args.path)
     },
   }))
@@ -140,7 +148,7 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const root = resolveAndRememberRoot(args, exec)
       const resumePath = args.resumePath || 'resume.md'
       const { content } = await readJobhuntFile(root, resumePath)
       return {
@@ -158,7 +166,7 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const root = resolveAndRememberRoot(args, exec)
       return { templates: await listAvailableTemplates(root) }
     },
   }))
@@ -230,8 +238,8 @@ export async function apply(ctx) {
       const validation = validateTemplate(parsed)
       if (!validation.valid) return { saved: false, valid: false, errors: validation.errors, template: validation.value }
       try {
-        const root = resolveJobhuntRoot(exec, args.rootDir)
-        const saved = await saveTemplate(root, parsed)
+        const root = resolveAndRememberRoot(args, exec)
+        const saved = await withWorkspaceLock(root, () => saveTemplate(root, parsed))
         return { saved: true, valid: true, qualityAudit: auditTemplateCss(saved.template?.templateCss, parsed.id), ...saved }
       } catch (err) {
         return { saved: false, valid: true, errors: [String(err?.message || err)], template: validation.value }
@@ -250,8 +258,8 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
-      return { saved: true, ...(await copyTemplate(root, args.sourceId, args.newId, args.name)) }
+      const root = resolveAndRememberRoot(args, exec)
+      return { saved: true, ...(await withWorkspaceLock(root, () => copyTemplate(root, args.sourceId, args.newId, args.name))) }
     },
   }))
 
@@ -264,7 +272,7 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const root = resolveAndRememberRoot(args, exec)
       return { id: args.id, versions: await listTemplateVersions(root, args.id) }
     },
   }))
@@ -278,8 +286,8 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
-      return { restored: true, ...(await restoreLatestTemplate(root, args.id)) }
+      const root = resolveAndRememberRoot(args, exec)
+      return { restored: true, ...(await withWorkspaceLock(root, () => restoreLatestTemplate(root, args.id))) }
     },
   }))
 
@@ -320,10 +328,10 @@ export async function apply(ctx) {
       }
       const validation = validateLayoutSpec(parsed)
       if (!validation.valid) return { saved: false, valid: false, errors: validation.errors, layout: validation.value }
-      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const root = resolveAndRememberRoot(args, exec)
       const resumePath = args.resumePath || 'resume.md'
       const layoutPath = resumePath.replace(/\.md$/i, '.layout.json')
-      const result = await writeJobhuntFile(root, layoutPath, `${JSON.stringify(validation.value, null, 2)}\n`)
+      const result = await withWorkspaceLock(root, () => writeJobhuntFile(root, layoutPath, `${JSON.stringify(validation.value, null, 2)}\n`))
       return { saved: true, valid: true, ...result, layout: validation.value }
     },
   }))
@@ -337,7 +345,7 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const root = resolveAndRememberRoot(args, exec)
       return getLatestMetrics(root, args.previewPath)
     },
   }))
@@ -374,8 +382,8 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
-      return await writeJobhuntFile(root, args.path, args.content)
+      const root = resolveAndRememberRoot(args, exec)
+      return await withWorkspaceLock(root, () => writeJobhuntFile(root, args.path, args.content))
     },
   }))
 
@@ -391,7 +399,7 @@ export async function apply(ctx) {
     },
     output: textResult(),
     async execute(args, exec) {
-      const root = resolveJobhuntRoot(exec, args.rootDir)
+      const root = resolveAndRememberRoot(args, exec)
       let templateSpec
       if (args.templateId) {
         try {

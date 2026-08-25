@@ -1055,52 +1055,68 @@ window.__ModuleLoader__.load({
       return data
     }
 
-    function useStatus(refreshKey) {
+    function useStatus(refreshKey, sessionId, rootHint = '') {
       const [status, setStatus] = useState(null)
       const [error, setError] = useState('')
       const [loading, setLoading] = useState(true)
+      const requestRef = useRef(0)
 
       const reload = useCallback(async () => {
+        const requestId = ++requestRef.current
         setLoading(true)
         setError('')
         try {
-          const res = await fetch('/dsh-resume/api/status', { cache: 'no-store' })
+          const query = new URLSearchParams()
+          if (sessionId) query.set('sessionId', sessionId)
+          if (rootHint) query.set('root', rootHint)
+          const res = await fetch(`/dsh-resume/api/status${query.toString() ? `?${query}` : ''}`, { cache: 'no-store' })
           if (!res.ok) throw new Error(`status ${res.status}`)
-          setStatus(await res.json())
+          const nextStatus = await res.json()
+          if (requestId !== requestRef.current) return
+          setStatus(nextStatus)
         } catch (err) {
+          if (requestId !== requestRef.current) return
           setError(String(err?.message || err))
           setStatus(null)
         } finally {
-          setLoading(false)
+          if (requestId === requestRef.current) setLoading(false)
         }
-      }, [])
+      }, [sessionId, rootHint])
 
       useEffect(() => {
+        setStatus(null)
         void reload()
-      }, [reload, refreshKey])
+      }, [reload, refreshKey, sessionId, rootHint])
 
       return { status, error, loading, reload }
     }
 
-    function useQuality(previewPath, refreshKey) {
+    function useQuality(previewPath, refreshKey, root, sessionId) {
       const [quality, setQuality] = useState(null)
       const [qualityLoading, setQualityLoading] = useState(false)
+      const requestRef = useRef(0)
       const reload = useCallback(async () => {
+        const requestId = ++requestRef.current
         if (!previewPath) {
           setQuality(null)
+          setQualityLoading(false)
           return
         }
         setQualityLoading(true)
         try {
-          const res = await fetch(`/dsh-resume/api/check?preview=${encodeURIComponent(previewPath)}&t=${refreshKey}`, { cache: 'no-store' })
+          const query = new URLSearchParams({ preview: previewPath, t: String(refreshKey) })
+          if (root) query.set('root', root)
+          if (sessionId) query.set('sessionId', sessionId)
+          const res = await fetch(`/dsh-resume/api/check?${query}`, { cache: 'no-store' })
           if (!res.ok) throw new Error(`check ${res.status}`)
-          setQuality(await res.json())
+          const nextQuality = await res.json()
+          if (requestId === requestRef.current) setQuality(nextQuality)
         } catch {
-          setQuality(null)
+          if (requestId === requestRef.current) setQuality(null)
         } finally {
-          setQualityLoading(false)
+          if (requestId === requestRef.current) setQualityLoading(false)
         }
-      }, [previewPath, refreshKey])
+      }, [previewPath, refreshKey, root, sessionId])
 
       useEffect(() => {
         void reload()
@@ -1388,8 +1404,12 @@ window.__ModuleLoader__.load({
     function PreviewWorkbench({ compact, onClose }) {
       ensureCss()
       const [tick, setTick] = useState(0)
-      const { status, error, loading, reload } = useStatus(tick)
       const mainConversation = useMainConversation()
+      const workspaceHint = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('root') || ''
+        : ''
+      const { status, error, loading, reload } = useStatus(tick, mainConversation.sessionId, workspaceHint)
+      const lastWorkspaceBindingRef = useRef({ sessionId: '', root: '' })
       const [selected, setSelected] = useState('')
       const [fitState, setFitState] = useState({ text: '等待排版信息', state: 'pending' })
       const [view, setView] = useState('start')
@@ -1434,7 +1454,7 @@ window.__ModuleLoader__.load({
       const [visualTokens, setVisualTokens] = useState(() => visualTokensFromTemplate(selectedTemplate))
       const [visualHistory, setVisualHistory] = useState([])
       const [templateCompareIds, setTemplateCompareIds] = useState([])
-      const { quality, qualityLoading } = useQuality(selected, tick)
+      const { quality, qualityLoading } = useQuality(selected, tick, status?.root, mainConversation.sessionId)
       const [editorOpen, setEditorOpen] = useState(false)
       const [editorSource, setEditorSource] = useState(null)
       const [editorDraft, setEditorDraft] = useState('')
@@ -1533,7 +1553,10 @@ window.__ModuleLoader__.load({
         setEditorBusy(true)
         setEditorMessage('正在读取 Markdown…')
         try {
-          const res = await fetch(`/dsh-resume/api/editor/source?preview=${encodeURIComponent(selected)}`, { cache: 'no-store' })
+          const query = new URLSearchParams({ preview: selected })
+          if (status?.root) query.set('root', status.root)
+          if (mainConversation.sessionId) query.set('sessionId', mainConversation.sessionId)
+          const res = await fetch(`/dsh-resume/api/editor/source?${query}`, { cache: 'no-store' })
           const source = await readJsonResponse(res, 'Markdown 编辑器')
           setEditorSource(source)
           setEditorDraft(source.content || '')
@@ -1580,6 +1603,7 @@ window.__ModuleLoader__.load({
                 root: editorSource.root,
                 resume: editorSource.resumePath,
                 preview: editorSource.previewPath,
+                sessionId: mainConversation.sessionId,
                 templateId,
                 content: editorDraft,
               }),
@@ -1600,7 +1624,7 @@ window.__ModuleLoader__.load({
           active = false
           clearTimeout(timer)
         }
-      }, [editorOpen, editorSource, editorDraft, templateId, layoutSettings, visualTokens])
+      }, [editorOpen, editorSource, editorDraft, templateId, layoutSettings, visualTokens, mainConversation.sessionId])
 
       const saveEditor = async () => {
         if (!editorSource || !editorDraft.trim()) return
@@ -1610,7 +1634,7 @@ window.__ModuleLoader__.load({
           const res = await fetch('/dsh-resume/api/editor/save', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ root: editorSource.root, resume: editorSource.resumePath, preview: editorSource.previewPath, templateId, content: editorDraft }),
+            body: JSON.stringify({ root: editorSource.root, resume: editorSource.resumePath, preview: editorSource.previewPath, sessionId: mainConversation.sessionId, templateId, content: editorDraft }),
           })
           const result = await readJsonResponse(res, '保存 Markdown')
           editorDiskContentRef.current = editorDraft
@@ -1810,7 +1834,10 @@ window.__ModuleLoader__.load({
           setView('preview')
           if (editorSource?.previewPath === nextPreviewPath) {
             if (editorDraft === editorDiskContentRef.current) {
-              fetch(`/dsh-resume/api/editor/source?preview=${encodeURIComponent(nextPreviewPath)}`, { cache: 'no-store' })
+              const query = new URLSearchParams({ preview: nextPreviewPath })
+              if (status?.root) query.set('root', status.root)
+              if (mainConversation.sessionId) query.set('sessionId', mainConversation.sessionId)
+              fetch(`/dsh-resume/api/editor/source?${query}`, { cache: 'no-store' })
                 .then((response) => readJsonResponse(response, '刷新 Markdown'))
                 .then((source) => {
                   editorDiskContentRef.current = source.content || ''
@@ -1834,7 +1861,7 @@ window.__ModuleLoader__.load({
         void reload()
         const timer = setTimeout(() => { void reloadTemplates(preferredId) }, 250)
         return () => clearTimeout(timer)
-      }, [reload, reloadTemplates, previewActivity?.signature])
+      }, [reload, reloadTemplates, previewActivity?.signature, status?.root, mainConversation.sessionId])
 
       useEffect(() => {
         const onLayoutMessage = (event) => {
@@ -1843,6 +1870,9 @@ window.__ModuleLoader__.load({
           if (metrics) {
             const metricPreview = String(event.data.previewPath || selected || '').replace(/\\/g, '/')
             if (selected && metricPreview && metricPreview !== selected.replace(/\\/g, '/')) return
+            const metricRoot = String(event.data.previewRoot || status?.root || '').replace(/\\/g, '/')
+            const currentRoot = String(status?.root || '').replace(/\\/g, '/')
+            if (currentRoot && metricRoot && metricRoot !== currentRoot) return
             setLayout(metrics)
             const visualAudit = summarizeVisualAudit(metrics)
             setFitState({
@@ -1860,22 +1890,42 @@ window.__ModuleLoader__.load({
             void fetch('/dsh-resume/api/metrics', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ previewPath: metricPreview, metrics }),
+              body: JSON.stringify({
+                previewPath: metricPreview,
+                previewRoot: metricRoot || status?.root,
+                renderId: event.data.renderId,
+                contentHash: event.data.contentHash,
+                sessionId: mainConversation.sessionId,
+                metrics,
+              }),
             }).catch(() => {})
           }
         }
         window.addEventListener('message', onLayoutMessage)
         return () => window.removeEventListener('message', onLayoutMessage)
-      }, [selected])
+      }, [selected, status?.root, mainConversation.sessionId])
 
       useEffect(() => {
-        if (!selected && status?.previewRel) setSelected(status.previewRel)
-        if (!selected && status?.previews?.length) setSelected(status.previews[0])
-      }, [status, selected])
+        if (!status?.root) return
+        const binding = { sessionId: mainConversation.sessionId || 'default', root: status.root }
+        const previous = lastWorkspaceBindingRef.current
+        if (previous.sessionId === binding.sessionId && previous.root === binding.root) return
+        lastWorkspaceBindingRef.current = binding
+        const nextPreview = status.previewRel || status.previews?.[0] || ''
+        setSelected(nextPreview)
+        setEditorSource(null)
+        setEditorDraft('')
+        setEditorPreviewUrl('')
+        setEditorExternalPending(false)
+        setLayout(null)
+        setFitState({ text: status.workspaceState === 'missing' ? '工作区不可用' : '等待排版信息', state: status.workspaceState === 'missing' ? 'error' : 'pending' })
+        setView(status.workspaceState === 'ready' && nextPreview ? 'preview' : 'start')
+        setHasResolvedInitialView(true)
+      }, [status?.root, status?.previewRel, status?.previews, status?.workspaceState, mainConversation.sessionId])
 
       useEffect(() => {
-        if (!status || hasResolvedInitialView) return
-        setView(status.previewRel || status.previews?.length ? 'preview' : 'start')
+        if (!status || hasResolvedInitialView || lastWorkspaceBindingRef.current.root) return
+        setView(status.workspaceState === 'ready' && (status.previewRel || status.previews?.length) ? 'preview' : 'start')
         setHasResolvedInitialView(true)
       }, [status, hasResolvedInitialView])
 
@@ -1915,7 +1965,10 @@ window.__ModuleLoader__.load({
         if (!editorSource?.previewPath) return
         setEditorBusy(true)
         try {
-          const res = await fetch(`/dsh-resume/api/editor/source?preview=${encodeURIComponent(editorSource.previewPath)}`, { cache: 'no-store' })
+          const query = new URLSearchParams({ preview: editorSource.previewPath })
+          if (status?.root) query.set('root', status.root)
+          if (mainConversation.sessionId) query.set('sessionId', mainConversation.sessionId)
+          const res = await fetch(`/dsh-resume/api/editor/source?${query}`, { cache: 'no-store' })
           const source = await readJsonResponse(res, '刷新 Markdown')
           editorDiskContentRef.current = source.content || ''
           setEditorSource(source)
@@ -1938,7 +1991,7 @@ window.__ModuleLoader__.load({
           const res = await fetch('/dsh-resume/api/onboarding', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ mode }),
+            body: JSON.stringify({ mode, sessionId: mainConversation.sessionId }),
           })
           const result = await readJsonResponse(res, '工作区初始化')
           if (result.rendered?.previewPath) setSelected(result.rendered.previewPath)
@@ -2431,8 +2484,10 @@ window.__ModuleLoader__.load({
         { className: 'cj-startView' },
         React.createElement('section', { className: 'cj-startCard' },
           React.createElement('div', { className: 'cj-startEyebrow' }, 'DSH RESUME WORKBENCH'),
-          React.createElement('div', { className: 'cj-startTitle' }, '开始制作你的投递版简历'),
-          React.createElement('div', { className: 'cj-startCopy' }, '不用先学习 Markdown、模板或排版规则。选择一个入口，插件会准备工作区、示例模板和 A4 预览。'),
+          React.createElement('div', { className: 'cj-startTitle' }, status?.workspaceState === 'missing' ? '当前工作区已不可用' : '开始制作你的投递版简历'),
+          React.createElement('div', { className: 'cj-startCopy' }, status?.workspaceState === 'missing'
+            ? '这个会话绑定的工作区可能已被移动或删除。插件不会偷偷切换到其他工作区；确认后可在原位置重新创建，或回到主对话选择新的工作区。'
+            : '不用先学习 Markdown、模板或排版规则。选择一个入口，插件会准备工作区、示例模板和 A4 预览。'),
           React.createElement('div', { className: 'cj-startActions' },
             React.createElement('button', { type: 'button', className: 'cj-startOption', onClick: () => startWorkspace('existing') }, React.createElement('div', { className: 'cj-startOptionTitle' }, '我已有简历'), React.createElement('div', { className: 'cj-startOptionCopy' }, '先创建工作区，再把已有内容交给 DeepSeek 优化。')),
             React.createElement('button', { type: 'button', className: 'cj-startOption', onClick: () => startWorkspace('blank') }, React.createElement('div', { className: 'cj-startOptionTitle' }, '从零开始'), React.createElement('div', { className: 'cj-startOptionCopy' }, '生成一份空白结构，逐步填写教育、技能和项目经历。')),
