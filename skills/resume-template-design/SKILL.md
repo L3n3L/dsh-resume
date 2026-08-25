@@ -13,6 +13,13 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 
 不要把它当成普通 Markdown 改写 Skill。除非用户明确要求，否则不要改变简历事实，不要为了塞满页面编造经历。
 
+## 图标协议
+
+- `[icon:xxx]` 只能使用已注册 token；禁止根据常识猜测不存在的 slug。
+- `school`、`code`、`work`、`email`、`phone`、`link` 是内置语义 token；品牌图标先调用 `jobhunt_icon_list` 查询。
+- 没有合适图标时不要添加。图标只服务联系方式、技能标签或小标题，不替代事实内容。
+- 如果 `jobhunt_write` 返回未注册图标，只修正该 token，不要重写其他简历事实。
+
 ## 不可违反的实现边界
 
 - 新模板必须使用 `renderer: "composition"`。

@@ -1363,13 +1363,14 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function layoutSettingsFromTemplate(template) {
+    function layoutSettingsFromTemplate(template, override = {}) {
+      const layoutOverride = override || {}
       return {
-        fontFamily: ['system-sans', 'modern-sans', 'serif'].includes(template?.typography?.fontFamily) ? template.typography.fontFamily : 'system-sans',
-        fontSize: Number(template?.typography?.fontSize) || 14,
-        lineHeight: Number(template?.typography?.lineHeight) || 1.55,
-        sectionGap: Number(template?.spacing?.sectionGap) || 20,
-        pageMargin: Number(template?.spacing?.pageMargin) || 48,
+        fontFamily: ['system-sans', 'modern-sans', 'serif'].includes(layoutOverride.fontFamily || template?.typography?.fontFamily) ? (layoutOverride.fontFamily || template?.typography?.fontFamily) : 'system-sans',
+        fontSize: Number(layoutOverride.fontSize ?? template?.typography?.fontSize) || 14,
+        lineHeight: Number(layoutOverride.lineHeight ?? template?.typography?.lineHeight) || 1.55,
+        sectionGap: Number(layoutOverride.sectionGap ?? template?.spacing?.sectionGap) || 20,
+        pageMargin: Number(layoutOverride.pageMargin ?? template?.spacing?.pageMargin) || 48,
       }
     }
 
@@ -1379,14 +1380,15 @@ window.__ModuleLoader__.load({
       ['serif', '衬线阅读'],
     ])
 
-    function visualTokensFromTemplate(template) {
+    function visualTokensFromTemplate(template, override = {}) {
+      const visualOverride = override || {}
       return {
-        accentColor: template?.visual?.accentColor || '#2563eb',
-        textColor: template?.visual?.textColor || '#1f2937',
-        mutedColor: template?.visual?.mutedColor || '#6b7280',
-        backgroundColor: template?.visual?.backgroundColor || '#ffffff',
-        cornerRadius: Number(template?.visual?.cornerRadius) || 0,
-        divider: template?.visual?.divider || 'solid',
+        accentColor: visualOverride.accentColor || template?.visual?.accentColor || '#2563eb',
+        textColor: visualOverride.textColor || template?.visual?.textColor || '#1f2937',
+        mutedColor: visualOverride.mutedColor || template?.visual?.mutedColor || '#6b7280',
+        backgroundColor: visualOverride.backgroundColor || template?.visual?.backgroundColor || '#ffffff',
+        cornerRadius: Number(visualOverride.cornerRadius ?? template?.visual?.cornerRadius) || 0,
+        divider: visualOverride.divider || template?.visual?.divider || 'solid',
       }
     }
 
@@ -1429,6 +1431,14 @@ window.__ModuleLoader__.load({
       const [templateId, setTemplateId] = useState('campus-standard')
       const [templateCategory, setTemplateCategory] = useState('全部')
       const [templateHistory, setTemplateHistory] = useState([])
+      const [presentation, setPresentation] = useState({ schemaVersion: 1, activeTemplateId: null, activePreviewPath: null, overrides: {} })
+      const [presentationRoot, setPresentationRoot] = useState('')
+      const presentationRef = useRef(presentation)
+      presentationRef.current = presentation
+      const presentationSaveTimerRef = useRef(null)
+      const presentationSaveQueueRef = useRef(new Map())
+      const presentationSaveSeqRef = useRef(0)
+      const presentationHydratedRef = useRef(false)
       const [templateDraft, setTemplateDraft] = useState('')
       const [templateMessage, setTemplateMessage] = useState('')
       const [templateVersions, setTemplateVersions] = useState([])
@@ -1440,6 +1450,9 @@ window.__ModuleLoader__.load({
       const [templateCssOpen, setTemplateCssOpen] = useState(false)
       const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
       const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
+      const presentationOverrideFor = (id) => presentationRef.current.overrides?.[id] || {}
+      const layoutForTemplate = (template) => layoutSettingsFromTemplate(template, presentationOverrideFor(template?.id).layout)
+      const visualForTemplate = (template) => visualTokensFromTemplate(template, presentationOverrideFor(template?.id).visual)
       const templateCategories = ['全部', '校招', '社招', 'Geek', '运营 / 产品', '商务', '设计 / 作品集', '暗黑', '学术 / 复试', '双栏']
       const visibleTemplateOptions = templateOptions.filter((template) => {
         if (templateCategory === '全部') return true
@@ -1485,6 +1498,100 @@ window.__ModuleLoader__.load({
       const chatInitialScrollRef = useRef(false)
       const chatPreserveScrollRef = useRef(null)
       const workshopPreviewRef = useRef(null)
+
+      const persistPresentation = (id, nextLayout, nextVisual, nextIconTuning, options = {}) => {
+        if (!status?.root || !id) return
+        if (presentationSaveTimerRef.current) clearTimeout(presentationSaveTimerRef.current)
+        const saveSeq = ++presentationSaveSeqRef.current
+        const body = {
+          root: status.root,
+          templateId: id,
+          activeTemplateId: options.activeTemplateId === false ? undefined : id,
+          activePreviewPath: options.activePreviewPath,
+          layout: nextLayout,
+          visual: nextVisual,
+          iconTuning: nextIconTuning,
+          reset: Boolean(options.reset),
+          activeOnly: Boolean(options.activeOnly),
+          clear: options.clear || [],
+        }
+        const queued = presentationSaveQueueRef.current.get(id)
+        if (options.activeOnly && queued && !queued.body.activeOnly) {
+          body.activeTemplateId = queued.body.activeTemplateId
+          body.activePreviewPath = options.activePreviewPath ?? queued.body.activePreviewPath
+          presentationSaveQueueRef.current.set(id, { ...queued, saveSeq, body: { ...queued.body, activePreviewPath: body.activePreviewPath } })
+        } else {
+          presentationSaveQueueRef.current.set(id, {
+            saveSeq,
+            body,
+          })
+        }
+        presentationSaveTimerRef.current = setTimeout(async () => {
+          presentationSaveTimerRef.current = null
+          const pending = [...presentationSaveQueueRef.current.values()]
+          presentationSaveQueueRef.current.clear()
+          for (const item of pending) {
+            try {
+              const res = await fetch('/dsh-resume/api/presentation', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(item.body),
+              })
+              if (!res.ok) continue
+              const result = await res.json()
+              if (item.saveSeq === presentationSaveSeqRef.current && result.presentation) setPresentation(result.presentation)
+            } catch {
+              // Preview tuning remains usable if the host is restarting; the next
+              // interaction can retry the persistence write.
+            }
+          }
+        }, 220)
+      }
+
+      useEffect(() => {
+        if (!status?.root || status.root === presentationRoot) return
+        let active = true
+        setPresentationRoot('')
+        presentationHydratedRef.current = false
+        fetch(`/dsh-resume/api/presentation?root=${encodeURIComponent(status.root)}`, { cache: 'no-store' })
+          .then((res) => res.ok ? res.json() : Promise.reject(new Error(`presentation ${res.status}`)))
+          .then((data) => {
+            if (!active) return
+            setPresentation(data.presentation || { schemaVersion: 1, activeTemplateId: null, activePreviewPath: null, overrides: {} })
+            setPresentationRoot(status.root)
+          })
+          .catch(() => {
+            if (!active) return
+            setPresentation({ schemaVersion: 1, activeTemplateId: null, activePreviewPath: null, overrides: {} })
+            setPresentationRoot(status.root)
+          })
+        return () => { active = false }
+      }, [status?.root, presentationRoot])
+
+      useEffect(() => {
+        if (!presentationRoot || presentationHydratedRef.current) return
+        const savedId = presentation.activeTemplateId
+        const canResolveSaved = !savedId || templateOptions.some((template) => template.id === savedId)
+        if (!canResolveSaved) return
+        const id = savedId || templateId
+        const nextTemplate = templateOptions.find((template) => template.id === id) || selectedTemplate
+        if (!nextTemplate) return
+        presentationHydratedRef.current = true
+        setTemplateId(id)
+        setLayoutSettings(layoutForTemplate(nextTemplate))
+        setVisualTokens(visualForTemplate(nextTemplate))
+        setIconTuning(presentationOverrideFor(id).iconTuning || {})
+      }, [presentationRoot, presentation.activeTemplateId, templateOptions.length])
+
+      useEffect(() => {
+        if (!presentationRoot || !presentation.activePreviewPath || !status?.previews?.includes(presentation.activePreviewPath)) return
+        setSelected(presentation.activePreviewPath)
+      }, [presentationRoot, presentation.activePreviewPath, status?.previews])
+
+      useEffect(() => {
+        if (!presentationRoot || !selected || !status?.root) return
+        persistPresentation(templateId, layoutSettings, visualTokens, iconTuning, { activeOnly: true, activePreviewPath: selected })
+      }, [selected, presentationRoot, status?.root, templateId])
 
       const mainContext = mainConversation.summary
 
@@ -1771,8 +1878,9 @@ window.__ModuleLoader__.load({
           const preferred = data.templates.find((template) => template.id === preferredId)
           if (preferred) {
             setTemplateId(preferred.id)
-            setLayoutSettings(layoutSettingsFromTemplate(preferred))
-            setVisualTokens(visualTokensFromTemplate(preferred))
+            setLayoutSettings(layoutForTemplate(preferred))
+            setVisualTokens(visualForTemplate(preferred))
+            setIconTuning(presentationOverrideFor(preferred.id).iconTuning || {})
             setVisualHistory([])
             setLayoutHistory([])
             setFitState({ text: `已同步新模板：${preferred.name}`, state: 'pending' })
@@ -2008,9 +2116,13 @@ window.__ModuleLoader__.load({
       const onTemplateChange = (value) => {
         if (value !== templateId) setTemplateHistory((history) => [...history, templateId].slice(-20))
         const nextTemplate = templateOptions.find((template) => template.id === value)
+        const nextOverride = presentationOverrideFor(value)
+        const nextLayout = layoutSettingsFromTemplate(nextTemplate, nextOverride.layout)
+        const nextVisual = visualTokensFromTemplate(nextTemplate, nextOverride.visual)
         setTemplateId(value)
-        setLayoutSettings(layoutSettingsFromTemplate(nextTemplate))
-        setVisualTokens(visualTokensFromTemplate(nextTemplate))
+        setLayoutSettings(nextLayout)
+        setVisualTokens(nextVisual)
+        setIconTuning(nextOverride.iconTuning || {})
         setVisualHistory([])
         setLayoutHistory([])
         setTemplatePickerOpen(false)
@@ -2018,6 +2130,7 @@ window.__ModuleLoader__.load({
         setFitState({ text: '正在应用模板', state: 'pending' })
         setLayout(null)
         setTemplateMessage('')
+        persistPresentation(value, nextLayout, nextVisual, nextOverride.iconTuning || {}, { activeOnly: true })
       }
 
       const undoTemplateChoice = () => {
@@ -2026,32 +2139,41 @@ window.__ModuleLoader__.load({
         setTemplateHistory((history) => history.slice(0, -1))
         setTemplateId(previous)
         const previousTemplate = templateOptions.find((template) => template.id === previous)
-        setLayoutSettings(layoutSettingsFromTemplate(previousTemplate))
-        setVisualTokens(visualTokensFromTemplate(previousTemplate))
+        const previousOverride = presentationOverrideFor(previous)
+        setLayoutSettings(layoutSettingsFromTemplate(previousTemplate, previousOverride.layout))
+        setVisualTokens(visualTokensFromTemplate(previousTemplate, previousOverride.visual))
+        setIconTuning(previousOverride.iconTuning || {})
         setVisualHistory([])
         setLayoutHistory([])
         setTemplateMessage('已撤销模板切换')
         setLayout(null)
+        persistPresentation(previous, layoutSettingsFromTemplate(previousTemplate, previousOverride.layout), visualTokensFromTemplate(previousTemplate, previousOverride.visual), previousOverride.iconTuning || {}, { activeOnly: true })
       }
 
       const updateVisualToken = (key, value) => {
         setVisualHistory((history) => [...history, visualTokens].slice(-20))
-        setVisualTokens((tokens) => ({ ...tokens, [key]: value }))
+        const nextVisual = { ...visualTokens, [key]: value }
+        setVisualTokens(nextVisual)
         setLayout(null)
         setFitState({ text: '视觉调整中，正在重新测量 A4…', state: 'pending' })
+        persistPresentation(templateId, layoutSettings, nextVisual, iconTuning)
       }
 
       const undoVisualToken = () => {
         if (!visualHistory.length) return
-        setVisualTokens(visualHistory[visualHistory.length - 1])
+        const previous = visualHistory[visualHistory.length - 1]
+        setVisualTokens(previous)
         setVisualHistory((history) => history.slice(0, -1))
         setLayout(null)
+        persistPresentation(templateId, layoutSettings, previous, iconTuning)
       }
 
       const resetVisualTokens = () => {
         setVisualHistory((history) => [...history, visualTokens].slice(-20))
-        setVisualTokens(visualTokensFromTemplate(selectedTemplate))
+        const nextVisual = visualTokensFromTemplate(selectedTemplate)
+        setVisualTokens(nextVisual)
         setLayout(null)
+        persistPresentation(templateId, layoutSettings, nextVisual, iconTuning, { clear: ['visual'] })
       }
 
       const toggleTemplateCompare = (id) => {
@@ -2065,12 +2187,7 @@ window.__ModuleLoader__.load({
         const defaultId = `${selectedTemplate.id}-custom`.replace(/[^a-z0-9-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
         const newId = window.prompt('为这套视觉调整设置一个新模板 ID（小写英文和短横线）', defaultId)
         if (!newId) return
-        const templateJson = JSON.stringify({
-          ...selectedTemplate,
-          id: newId,
-          name: `${selectedTemplate.name || '模板'} · 定制`,
-          visual: { ...(selectedTemplate.visual || {}), ...visualTokens },
-        })
+        const templateJson = templateCandidateJson(newId, `${selectedTemplate.name || '模板'} · 定制`)
         setTemplateMessage('正在校验并保存视觉变体…')
         try {
           const res = await fetch('/dsh-resume/api/templates/actions', {
@@ -2081,6 +2198,7 @@ window.__ModuleLoader__.load({
           const result = await res.json()
           if (!res.ok || !result.saved) throw new Error(result.error || result.errors?.join('；') || '保存视觉变体失败')
           await reloadTemplates(result.template.id)
+          persistPresentation(result.template.id, layoutSettings, visualTokens, iconTuning, { activeOnly: true })
           setTemplateMessage(`已保存「${result.template.name}」，可在模板库继续对比。`)
         } catch (err) {
           setTemplateMessage(`保存失败：${err?.message || err}`)
@@ -2112,6 +2230,9 @@ window.__ModuleLoader__.load({
         ...selectedTemplate,
         id,
         name,
+        typography: { ...(selectedTemplate.typography || {}), fontFamily: layoutSettings.fontFamily, fontSize: layoutSettings.fontSize, lineHeight: layoutSettings.lineHeight },
+        spacing: { ...(selectedTemplate.spacing || {}), sectionGap: layoutSettings.sectionGap, pageMargin: layoutSettings.pageMargin },
+        visual: { ...(selectedTemplate.visual || {}), ...visualTokens },
         templateCss: templateCssDraft,
       })
 
@@ -2160,6 +2281,7 @@ window.__ModuleLoader__.load({
           setTemplateCssDraft(result.template.templateCss || templateCssDraft)
           setTemplateCssSaved(result.template.templateCss || templateCssDraft)
           setTemplateCssUndo('')
+          persistPresentation(result.template.id, layoutSettings, visualTokens, iconTuning, { activeOnly: true })
           setTemplateMessage(asCopy || isBuiltin ? `已另存为「${result.template.name}」` : '当前 CSS 版本已保存')
         } catch (err) {
           setTemplateMessage(`保存失败：${err?.message || err}`)
@@ -2274,13 +2396,17 @@ window.__ModuleLoader__.load({
         setFitState({ text: '正在重新计算', state: 'pending' })
         setLayout((current) => current ? { ...current, pageCount: null } : current)
         setLayoutHistory((history) => [...history, layoutSettings].slice(-20))
-        setLayoutSettings((current) => ({ ...current, [key]: value }))
+        const nextLayout = { ...layoutSettings, [key]: value }
+        setLayoutSettings(nextLayout)
+        persistPresentation(templateId, nextLayout, visualTokens, iconTuning)
       }
 
       const resetLayoutSettings = () => {
         setFitState({ text: '正在恢复默认', state: 'pending' })
         setLayoutHistory((history) => [...history, layoutSettings].slice(-20))
-        setLayoutSettings(layoutSettingsFromTemplate(selectedTemplate))
+        const nextLayout = layoutSettingsFromTemplate(selectedTemplate)
+        setLayoutSettings(nextLayout)
+        persistPresentation(templateId, nextLayout, visualTokens, iconTuning, { clear: ['layout'] })
       }
 
       const undoLayout = () => {
@@ -2289,6 +2415,7 @@ window.__ModuleLoader__.load({
         setFitState({ text: '正在撤销调整', state: 'pending' })
         setLayoutSettings(previous)
         setLayoutHistory((history) => history.slice(0, -1))
+        persistPresentation(templateId, previous, visualTokens, iconTuning)
       }
 
       const iconNameFromElement = (element) => element?.dataset?.iconName || [...(element?.classList || [])].find((name) => name.startsWith('dsh-icon-'))?.slice('dsh-icon-'.length) || ''
@@ -2344,21 +2471,26 @@ window.__ModuleLoader__.load({
         const nextValue = key === 'scale'
           ? Math.min(1.5, Math.max(0.7, Number(value)))
           : Math.min(0.25, Math.max(-0.25, Number(value)))
-        setIconTuning((current) => ({
-          ...current,
-          [name]: { ...(current[name] || {}), [key]: nextValue },
-        }))
+        const nextTuning = {
+          ...iconTuning,
+          [name]: { ...(iconTuning[name] || {}), [key]: nextValue },
+        }
+        setIconTuning(nextTuning)
+        persistPresentation(templateId, layoutSettings, visualTokens, nextTuning)
       }
 
       const resetIconTuning = () => {
         setIconHistory((history) => [...history, iconTuning].slice(-20))
         setIconTuning({})
+        persistPresentation(templateId, layoutSettings, visualTokens, {}, { clear: ['iconTuning'] })
       }
 
       const undoIconTuning = () => {
         if (!iconHistory.length) return
-        setIconTuning(iconHistory[iconHistory.length - 1])
+        const previous = iconHistory[iconHistory.length - 1]
+        setIconTuning(previous)
         setIconHistory((history) => history.slice(0, -1))
+        persistPresentation(templateId, layoutSettings, visualTokens, previous)
       }
 
       const iconTuningValue = (name, key) => normalizeIconTuning({ ...(iconTuning['*'] || {}), ...(iconTuning[name] || {}) })[key]

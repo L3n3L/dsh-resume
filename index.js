@@ -24,6 +24,8 @@ import { auditTemplateCss, generateTemplateCandidate, validateDesignBrief } from
 import { listThemeFamilies } from './lib/theme-system.js'
 import { registerBundledSkills } from './lib/skill.js'
 import { withWorkspaceLock } from './lib/workspace-lock.js'
+import { inspectIconTokens, listIconTokens } from './lib/icons/registry.js'
+import { applyPresentationOverride, loadPresentation, savePresentationOverride } from './lib/presentation.js'
 
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer', 'skills']
@@ -58,7 +60,9 @@ Icon token rules:
 - [icon:xxx] is an intentional dsh-resume rendering token inside Markdown, not a standard Markdown link.
 - Preserve existing valid icon tokens exactly when editing resume content; do not delete, translate, or treat them as experience text.
 - Only add an icon token when it improves a contact line, skill label, or small heading decoration; never use icons to replace factual text.
-- Use only known icon slugs already present in the document or explicitly requested by the user. Unknown slugs remain plain text.
+- Never invent an icon slug. Use only a slug already present, explicitly requested by the user, or returned by jobhunt_icon_list. If no suitable icon exists, omit the token.
+- The semantic resume tokens school, code, work, email, phone, and link are supported. Brand slugs must come from jobhunt_icon_list; do not infer or fabricate brand names.
+- If jobhunt_write reports an unknown icon, remove or replace only that token and retry; do not rewrite unrelated resume facts.
 - Do not add size, offsetY, or CSS to Markdown. Icon size and vertical alignment are preview controls handled by the manual adjustment panel.
 
 Workflow:
@@ -72,7 +76,8 @@ Workflow:
 8) use resume.layout.json and jobhunt_layout_validate for semantic modules such as photo, summary, contact, and skill-groups; keep local images under jobhunt/assets.
 9) treat font family, font size, line height, page margin, section gap, and icon size/offset as preview/layout settings. Do not write them into Markdown or add inline CSS to resume content.
 10) after jobhunt_render, call jobhunt_layout_metrics for browser A4 results. If metrics are pending, continue the task and let the open preview report them; do not invent page numbers or ask for redundant confirmation.
-11) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
+11) when AI or the user accepts a template tuning result, persist it with jobhunt_presentation_save for the current workspace and templateId; do not assume a preview URL query is durable.
+12) summarize changes, unresolved evidence gaps, JD match choices, template choice, and page status; ask the user to review in Settings → 求职简历 and export themselves`
 
 function resolveAndRememberRoot(args, exec) {
   const root = resolveJobhuntRoot(exec, args?.rootDir)
@@ -168,6 +173,22 @@ export async function apply(ctx) {
     async execute(args, exec) {
       const root = resolveAndRememberRoot(args, exec)
       return { templates: await listAvailableTemplates(root) }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'jobhunt_icon_list',
+    description: 'List registered dsh-resume icon tokens. Use a query for a brand or concept before adding a new [icon:xxx] token; never invent slugs.',
+    parameters: {
+      query: { type: 'string', description: 'Optional slug or label filter, e.g. github, react, education.' },
+    },
+    output: textResult(),
+    async execute(args) {
+      const icons = listIconTokens(args?.query || '')
+      return {
+        icons,
+        usage: 'Use exactly [icon:slug] with a returned slug. Semantic tokens include school, code, work, email, phone, and link.',
+      }
     },
   }))
 
@@ -351,15 +372,50 @@ export async function apply(ctx) {
   }))
 
   ctx.tools.register(defineTool({
+    name: 'jobhunt_presentation_save',
+    description: 'Persist accepted per-workspace resume presentation overrides for one template. Saves layout, visual tokens, icon tuning, and active template selection without modifying the built-in template.',
+    parameters: {
+      templateId: { type: 'string', required: true, description: 'Template id whose workspace override should be saved.' },
+      layoutJson: { type: 'string', description: 'Optional JSON: fontFamily, fontSize, lineHeight, sectionGap, pageMargin.' },
+      visualJson: { type: 'string', description: 'Optional JSON: accentColor, textColor, mutedColor, backgroundColor, cornerRadius, divider.' },
+      iconTuningJson: { type: 'string', description: 'Optional JSON keyed by icon slug or *, with scale and offsetY.' },
+      activePreviewPath: { type: 'string', description: 'Optional preview path to reopen for this workspace, e.g. companies/frontend/preview.html.' },
+      reset: { type: 'boolean', description: 'Remove this template override and restore its built-in defaults.' },
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
+    },
+    output: textResult(),
+    async execute(args, exec) {
+      const parseOptional = (value, fallback = {}) => {
+        if (value === undefined || value === null || value === '') return fallback
+        try { return JSON.parse(value) } catch { throw new Error('presentation JSON fields must be valid JSON') }
+      }
+      const root = resolveAndRememberRoot(args, exec)
+      const result = await withWorkspaceLock(root, () => savePresentationOverride(root, {
+        templateId: args.templateId,
+        layout: parseOptional(args.layoutJson),
+        visual: parseOptional(args.visualJson),
+        iconTuning: parseOptional(args.iconTuningJson),
+        activePreviewPath: args.activePreviewPath,
+        reset: Boolean(args.reset),
+        activeTemplateId: args.templateId,
+      }))
+      return { saved: true, ...result }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'jobhunt_template_autotune',
-    description: 'Suggest one bounded visual-template adjustment from real browser A4 metrics. Use at most three rounds, then save the returned template JSON if the user accepts it.',
+    description: 'Suggest one bounded visual-template adjustment from real browser A4 metrics. Use at most three rounds. When templateId is supplied, persist the accepted layout override by default; pass persist=false for proposal-only mode.',
     parameters: {
       templateJson: { type: 'string', required: true, description: 'Current TemplateSpec JSON.' },
       metricsJson: { type: 'string', required: true, description: 'Metrics returned by jobhunt_layout_metrics.' },
       round: { type: 'number', description: 'Adjustment round, from 1 to 3.' },
+      templateId: { type: 'string', description: 'Optional current template id for workspace persistence.' },
+      persist: { type: 'boolean', description: 'Optional. Defaults to true when templateId is provided; set false to return a proposal without saving.' },
+      rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
     output: textResult(),
-    async execute(args) {
+    async execute(args, exec) {
       let template
       let metrics
       try {
@@ -368,7 +424,25 @@ export async function apply(ctx) {
       } catch {
         return { changed: false, valid: false, errors: ['templateJson and metricsJson must be valid JSON'] }
       }
-      return autoTuneTemplate(template, metrics.metrics || metrics, Number(args.round) || 1)
+      const result = autoTuneTemplate(template, metrics.metrics || metrics, Number(args.round) || 1)
+      const shouldPersist = Boolean(args.templateId) && args.persist !== false
+      if (shouldPersist && result.changed && result.template) {
+        const root = resolveAndRememberRoot(args, exec)
+        const saved = await withWorkspaceLock(root, () => savePresentationOverride(root, {
+          templateId: args.templateId,
+          layout: {
+            fontFamily: result.template.typography?.fontFamily,
+            fontSize: result.template.typography?.fontSize,
+            lineHeight: result.template.typography?.lineHeight,
+            sectionGap: result.template.spacing?.sectionGap,
+            pageMargin: result.template.spacing?.pageMargin,
+          },
+          visual: result.template.visual,
+          activeTemplateId: args.templateId,
+        }))
+        return { ...result, persisted: true, presentation: saved.presentation }
+      }
+      return { ...result, persisted: false }
     },
   }))
 
@@ -383,13 +457,30 @@ export async function apply(ctx) {
     output: textResult(),
     async execute(args, exec) {
       const root = resolveAndRememberRoot(args, exec)
-      return await withWorkspaceLock(root, () => writeJobhuntFile(root, args.path, args.content))
+      return await withWorkspaceLock(root, async () => {
+        const relPath = String(args.path || '').replace(/\\/g, '/')
+        const isResume = /(^|\/)resume\.md$/i.test(relPath)
+        const iconReport = isResume ? inspectIconTokens(args.content) : null
+        if (iconReport?.unknown.length) {
+          return {
+            saved: false,
+            path: relPath,
+            error: `resume contains unregistered icon token(s): ${iconReport.unknown.map((slug) => `[icon:${slug}]`).join(', ')}`,
+            unknownIcons: iconReport.unknown,
+            hint: 'Remove or replace only the unknown token, then retry. Call jobhunt_icon_list to query valid slugs.',
+          }
+        }
+        return {
+          ...(await writeJobhuntFile(root, args.path, args.content)),
+          iconWarnings: iconReport?.unknown || [],
+        }
+      })
     },
   }))
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_render',
-    description: 'Render a resume markdown file with a CSS template into preview.html. User reviews/exports in Settings → 求职简历. This is not final PDF export.',
+    description: 'Render a resume markdown file with a CSS template into preview.html. Reuses the workspace active template and saved presentation tuning when available; pass templateId to choose explicitly. User reviews/exports in Settings → 求职简历. This is not final PDF export.',
     parameters: {
       resumePath: { type: 'string', description: 'Resume md relative to jobhunt/. Default: resume.md' },
       templateCssPath: { type: 'string', description: 'Template css relative to jobhunt/. Default: templates/default.css' },
@@ -401,16 +492,24 @@ export async function apply(ctx) {
     async execute(args, exec) {
       const root = resolveAndRememberRoot(args, exec)
       let templateSpec
-      if (args.templateId) {
+      let initialIconTuning = {}
+      const presentation = await loadPresentation(root)
+      const effectiveTemplateId = args.templateId || presentation.activeTemplateId
+      if (effectiveTemplateId) {
         try {
-          templateSpec = await loadTemplate(root, args.templateId)
+          templateSpec = applyPresentationOverride(await loadTemplate(root, effectiveTemplateId), presentation, effectiveTemplateId)
+          initialIconTuning = presentation.overrides?.[effectiveTemplateId]?.iconTuning || {}
         } catch (err) {
-          const available = await listAvailableTemplates(root).catch(() => [])
-          return {
-            rendered: false,
-            error: `templateId "${args.templateId}" could not be loaded: ${err?.code === 'ENOENT' ? 'not found' : (err?.message || String(err))}`,
-            availableTemplateIds: available.map((t) => t.id),
-            hint: 'Call jobhunt_template_list for the current catalog before rendering.',
+          if (!args.templateId) {
+            templateSpec = undefined
+          } else {
+            const available = await listAvailableTemplates(root).catch(() => [])
+            return {
+              rendered: false,
+              error: `templateId "${args.templateId}" could not be loaded: ${err?.code === 'ENOENT' ? 'not found' : (err?.message || String(err))}`,
+              availableTemplateIds: available.map((t) => t.id),
+              hint: 'Call jobhunt_template_list for the current catalog before rendering.',
+            }
           }
         }
       }
@@ -419,6 +518,7 @@ export async function apply(ctx) {
         templateCssPath: args.templateCssPath,
         outPath: args.outPath,
         templateSpec,
+        initialIconTuning,
       })
       rememberPreview(root, rendered.previewPath, rendered)
       return {

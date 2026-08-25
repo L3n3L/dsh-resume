@@ -14,6 +14,8 @@ import { listRendererIds, renderTemplateLayout, resolveRendererId } from '../lib
 import { initJobhunt, readJobhuntFile, writeJobhuntFile } from '../lib/workspace.js'
 import { activeWorkspaceLockCount, withWorkspaceLock } from '../lib/workspace-lock.js'
 import { getLatestMetrics, previewState, registerPreviewRoutes, rememberPreview, rememberWorkspaceRoot } from '../lib/preview-api.js'
+import { inspectIconTokens, listIconTokens } from '../lib/icons/registry.js'
+import { applyPresentationOverride, loadPresentation, savePresentationOverride } from '../lib/presentation.js'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -184,6 +186,60 @@ test('workspace text writes are atomic and leave no temporary files', async () =
     assert.equal((await readJobhuntFile(root, 'resume.md')).content, content)
     const entries = await fs.readdir(root, { withFileTypes: true })
     assert.equal(entries.some((entry) => entry.name.endsWith('.tmp')), false)
+  } finally {
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('presentation overrides persist per template and can reset one layer', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-presentation-test-'))
+  try {
+    await initJobhunt(root)
+    await savePresentationOverride(root, {
+      templateId: 'campus-standard',
+      activeTemplateId: 'campus-standard',
+      layout: { fontSize: 13, lineHeight: 1.42, sectionGap: 14, pageMargin: 38 },
+      visual: { accentColor: '#123456' },
+      iconTuning: { github: { scale: 1.2, offsetY: 0.04 } },
+    })
+    const saved = await loadPresentation(root)
+    assert.equal(saved.activeTemplateId, 'campus-standard')
+    assert.equal(saved.overrides['campus-standard'].layout.fontSize, 13)
+    assert.equal(saved.overrides['campus-standard'].visual.accentColor, '#123456')
+    const template = getTemplatePreset('campus-standard')
+    const merged = applyPresentationOverride(template, saved, 'campus-standard')
+    assert.equal(merged.typography.fontSize, 13)
+    assert.equal(merged.spacing.pageMargin, 38)
+    assert.equal(merged.visual.accentColor, '#123456')
+    await savePresentationOverride(root, {
+      templateId: 'business-ledger-plus',
+      activeTemplateId: 'business-ledger-plus',
+      activePreviewPath: 'companies\\frontend\\preview.html',
+      layout: { fontSize: 16 },
+    })
+    const isolated = await loadPresentation(root)
+    assert.equal(isolated.activeTemplateId, 'business-ledger-plus')
+    assert.equal(isolated.activePreviewPath, 'companies/frontend/preview.html')
+    assert.equal(isolated.overrides['business-ledger-plus'].layout.fontSize, 16)
+    assert.equal(isolated.overrides['business-ledger-plus'].visual.accentColor, undefined)
+    await savePresentationOverride(root, {
+      templateId: 'business-ledger-plus',
+      activePreviewPath: '../outside.html',
+      visual: { accentColor: '#not-a-color' },
+    })
+    const sanitized = await loadPresentation(root)
+    assert.equal(sanitized.activePreviewPath, null)
+    assert.deepEqual(sanitized.overrides['business-ledger-plus'].visual, {})
+    await savePresentationOverride(root, {
+      templateId: 'campus-standard',
+      layout: {},
+      visual: {},
+      iconTuning: {},
+      clear: ['layout'],
+    })
+    const resetLayout = await loadPresentation(root)
+    assert.deepEqual(resetLayout.overrides['campus-standard'].layout, {})
+    assert.equal(resetLayout.overrides['campus-standard'].visual.accentColor, '#123456')
   } finally {
     await fs.rm(root, { recursive: true, force: true })
   }
@@ -521,7 +577,7 @@ test('legacy layouts normalize without adding hero metadata', () => {
   assert.equal(Object.hasOwn(legacy.ir, 'hero'), false)
 })
 
-test('safe icon tokens become local semantic markup and unknown tokens stay text', () => {
+test('registered semantic and brand icon tokens become local markup', () => {
   const source = '# 林知远\n\n## 联系方式\n\n邮箱 [icon:email] · GitHub [icon:github] · [icon:unknown]'
   const template = getTemplatePreset('campus-standard')
   const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
@@ -529,8 +585,17 @@ test('safe icon tokens become local semantic markup and unknown tokens stay text
   assert.match(html, /class="dsh-icon dsh-icon-github"[^>]*aria-label="GitHub"/)
   assert.match(html, /class="dsh-icon dsh-icon-email"[^>]*data-icon-name="email"[^>]*data-icon-index="0"/)
   assert.match(html, /class="dsh-icon dsh-icon-github"[^>]*data-icon-name="github"[^>]*data-icon-index="1"/)
-  assert.match(html, /\[icon:unknown\]/)
+  assert.match(html, /class="dsh-icon dsh-icon-unknown"/)
+  assert.doesNotMatch(html, /\[icon:unknown\]/)
   assert.doesNotMatch(html, /https?:\/\//)
+})
+
+test('icon registry exposes semantic tokens and reports invented slugs', () => {
+  const report = inspectIconTokens('[icon:school] [icon:code] [icon:github] [icon:not-real]')
+  assert.deepEqual(report.used, ['school', 'code', 'github'])
+  assert.deepEqual(report.unknown, ['not-real'])
+  assert.ok(listIconTokens('school').some((icon) => icon.slug === 'school'))
+  assert.ok(listIconTokens('github').some((icon) => icon.slug === 'github'))
 })
 
 test('header icons render and nested lists keep only the outer bullet class', () => {
