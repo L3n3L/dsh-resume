@@ -69,6 +69,8 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   const names = listed.result.tools.map((tool) => tool.name)
   assert.deepEqual(names, [
     'mcp_health',
+    'workspace_info',
+    'resume_guide',
     'resume_init',
     'resume_read',
     'resume_write',
@@ -85,6 +87,24 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   const payload = JSON.parse(health.result.content[0].text)
   assert.equal(payload.healthy, true)
   assert.deepEqual(payload.capabilities, ['tools/list', 'tools/call'])
+
+  const guide = await server.request('tools/call', { name: 'resume_guide', arguments: { topic: 'workflow' } })
+  assert.equal(guide.result.isError, undefined)
+  const guidePayload = JSON.parse(guide.result.content[0].text)
+  assert.equal(guidePayload.guide, 'dsh-resume-workflow')
+  assert.equal(guidePayload.version, '1.1.0')
+  assert.ok(guidePayload.sections.workflow.some((step) => step.tools.includes('resume_check')))
+
+  const priorities = await server.request('tools/call', { name: 'resume_guide', arguments: { topic: 'priorities' } })
+  assert.equal(priorities.result.isError, undefined)
+  const priorityPayload = JSON.parse(priorities.result.content[0].text)
+  assert.ok(priorityPayload.sections.priorities.order.includes('目标岗位相关性与证据密度'))
+  assert.match(priorityPayload.sections.priorities.conflictRule, /一页/)
+
+  const budget = await server.request('tools/call', { name: 'resume_guide', arguments: { topic: 'contentBudget' } })
+  assert.equal(budget.result.isError, undefined)
+  const budgetPayload = JSON.parse(budget.result.content[0].text)
+  assert.match(budgetPayload.sections.contentBudget.experience, /3–5/)
 
   const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-'))
   t.after(() => fs.rm(fixtureRoot, { recursive: true, force: true }))

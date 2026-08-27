@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import test from 'node:test'
 
+import { bindWorkspaceRoot, rememberWorkspaceRoot } from '../lib/preview-api.js'
 import { createResumeMcpHttpHandler, mcpStatus, registerMcpRoutes, setMcpEnabled } from '../lib/mcp-http.js'
 
 function fakeResponse() {
@@ -107,4 +111,24 @@ test('HTTP MCP handler accepts a basic legacy initialize request', async (t) => 
   const payload = JSON.parse(dataLine.slice('data: '.length))
   assert.equal(payload.jsonrpc, '2.0')
   assert.ok(payload.result?.serverInfo?.name)
+})
+
+test('running HTTP MCP keeps its original session workspace until explicit rebind', async (t) => {
+  const firstRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-bound-a-'))
+  const secondRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-bound-b-'))
+  try {
+    bindWorkspaceRoot(firstRoot, 'mcp-binding-test')
+    await setMcpEnabled(false)
+    const started = await setMcpEnabled(true, { sessionId: 'mcp-binding-test' })
+    assert.equal(started.workspaceRoot, path.normalize(firstRoot))
+    bindWorkspaceRoot(secondRoot, 'mcp-binding-test')
+    const changed = mcpStatus()
+    assert.equal(changed.workspaceRoot, path.normalize(firstRoot))
+    assert.equal(changed.needsRebind, true)
+  } finally {
+    await setMcpEnabled(false)
+    rememberWorkspaceRoot(null, 'mcp-binding-test')
+    await fs.rm(firstRoot, { recursive: true, force: true })
+    await fs.rm(secondRoot, { recursive: true, force: true })
+  }
 })

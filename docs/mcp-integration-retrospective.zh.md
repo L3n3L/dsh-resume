@@ -1,7 +1,7 @@
 # dsh-resume MCP 对接复盘与实施方案
 
-> 状态：方案确认，进入第一阶段实现
-> 日期：2026-08-27
+> 状态：工作区绑定方案已实现，进入运行态验收
+> 日期：2026-08-28
 > 基线：`353f576 fix: persist resume presentation overrides`
 > 仓库：`E:\vsws\deepseek-harness-plugins\1-插件源码\dsh-campus-job`
 
@@ -52,11 +52,30 @@ OpenAI 的插件能力模型支持由插件组合 Skill、MCP Server 和可选 U
 - MCP 不能修改 `apply(ctx)` 的注入列表和现有工具命名。
 - `lib/` 中被 MCP 复用的函数必须保持无 UI 副作用、路径受控、结果可序列化。
 - DSH UI 和 MCP 不允许对同一个简历文件进行无锁并发写入。
+- 工作区必须由用户在插件页显式选择并绑定为全局当前工作区；HTTP MCP 只能跟随当前选择，不能通过 `rootDir` 静默换目录。
+- 工作区身份写入 `.dsh-workspace/workspace.json`，全局当前工作区和最近列表写入 DSH_HOME 下的 `dsh-resume/workspace-bindings.json`，换会话和重启后恢复。
 - `mcp-server` 进入发布包，既可作为独立 stdio 入口，也被 HTTP 控制层复用；DSH 不启用 MCP 时不会创建 MCP Server 实例。
 
 ## 4. 左侧栏设计
 
-左侧栏新增一个“MCP 服务”入口，第一阶段只做状态和生命周期控制，不把所有 MCP 工具堆成按钮。
+左侧栏新增“工作区”和“MCP 服务”入口。工作区入口负责目录选择与绑定，MCP 入口只做服务状态和生命周期控制，不把所有 MCP 工具堆成按钮。
+
+### 工作区状态
+
+| 状态 | 用户看到的内容 | 可用操作 |
+| --- | --- | --- |
+| 可用 | 当前名称、绝对路径、稳定 ID | 打开、恢复默认 |
+| 未初始化 | 目录存在但还没有简历骨架 | 新建并绑定 |
+| 不存在 | 绑定目录已被移动或删除 | 选择新文件夹、恢复默认 |
+| 已有其他文件但没有简历 | 文件数量提示和确认条 | 确认登记（只写工作区清单）、取消 |
+
+切换工作区是用户侧动作。切换后 DSH 预览、模板、文件监听和 HTTP MCP 使用同一目录；不会删除原工作区文件。用户不需要输入绝对路径，普通流程使用原生文件夹选择器和最近工作区列表。
+
+工作区选择的保护规则：空文件夹会自动准备基础文件；已有 `resume.md` 的目录直接绑定；已有其他文件但没有 `resume.md` 的目录不会被静默初始化，先让用户确认，确认后只登记工作区身份，不覆盖或补写原文件；文件夹选择器取消时保持原工作区不变。正在编辑且有未保存 Markdown 草稿时，切换前会再次确认，避免草稿被误丢弃。
+
+版本管理与工作区绑定：`resume.md` 是主简历内容源，投递版本保存在 `companies/<岗位>/resume.md`；每次「保存版本」同时记录内容路径、模板 ID、字体/字号/行距/页边距、视觉 Token 和图标微调。旧工作区只有预览文件时会显示为“尚未保存版本记录”，首次保存才写入版本登记；改名不改路径，归档不删除原文件。
+
+排版草稿与共享模板解耦：手动调整、AI 试调和模板 CSS 编辑默认只更新当前页面的临时草稿。普通排版参数在版本保存时写入简历版本；模板结构/CSS 只有在用户确认保存时才复制成新模板。打印可直接按已保存模板输出，也可先提交草稿为新模板，不能静默改变其他简历的模板。
 
 ### 状态展示
 
@@ -87,6 +106,7 @@ OpenAI 的插件能力模型支持由插件组合 Skill、MCP Server 和可选 U
 | 工具 | 默认权限 | 作用 |
 | --- | --- | --- |
 | `resume_init` | 创建缺失文件 | 初始化工作区骨架，不覆盖已有文件 |
+| `resume_guide` | 只读 | 返回简历制作工作流、权限、内容质量、图标和排版规则 |
 | `resume_read` | 只读 | 读取工作区内允许的文本文件 |
 | `resume_write` | 明确写入 | 写入 md/css/txt/json，并校验简历图标 token |
 | `resume_check` | 只读 | 检查简历结构、联系方式、过长要点和证据缺口 |
@@ -96,6 +116,7 @@ OpenAI 的插件能力模型支持由插件组合 Skill、MCP Server 和可选 U
 | `template_list` | 只读 | 列出内置模板和已保存模板 |
 | `template_validate` | 只读 | 校验模板结构和 CSS 边界 |
 | `icon_list` | 只读 | 查询可用图标 slug，避免模型编造图标名 |
+| `workspace_info` | 只读 | 返回当前 HTTP MCP 绑定的工作区身份和路径 |
 
 写入能力后置。进入第二阶段后，写入工具必须要求明确目标路径和操作意图，并继续复用现有工作区锁；不提供泛化的 `write_file` 工具。
 
@@ -127,6 +148,7 @@ MCP 本身不会自动省 token。节省来自：
 
 - 用 `resume_metrics` 直接取结构化指标，而不是让模型反复读取整份 HTML；
 - 用 `template_list` 和 `icon_list` 查询有限结果，而不是把整个目录注入上下文；
+- 用短 `initialize` 规则引导首次调用 `resume_guide`，把完整攻略按需放入上下文；
 - 工具描述短、参数稳定、结果可预测；
 - Skill 只负责调用顺序和决策规则，不重复复制所有项目说明。
 
@@ -149,12 +171,14 @@ MCP 本身不会自动省 token。节省来自：
 
 - [x] 新增独立 `mcp-server/` 入口；
 - [x] 实现健康检查、`resume_check`、`resume_render`、`resume_metrics`、`layout_validate`、`template_list`、`icon_list`；
+- [x] 增加 `initialize` 核心规则和 `resume_guide` 按需工作流指南；
 - [x] 补齐 `resume_init`、`resume_read`、`resume_write`，形成 MCP 最小简历制作闭环；
 - [x] 使用标准 MCP 基础工具能力，不自动接入 DSH 主初始化链路；
 - [x] 左侧栏显示状态并提供手动启动/停止/重启；
 - [x] 增加 DSH 回归测试和 MCP 握手/工具发现 smoke test；
 - [x] MCP 写入复用工作区跨进程锁，避免与 DSH 并发覆盖；
 - [x] 跨 Node 进程锁测试通过，模拟 DSH 与 MCP 同时访问同一工作区；
+- [x] 增加工作区清单、全局绑定、原生文件夹选择入口和 HTTP MCP rootDir 边界；
 - 不修改现有 DSH 工具语义。
 
 ### 阶段 2：Codex Skill 编排
@@ -187,6 +211,7 @@ MCP 本身不会自动省 token。节省来自：
 - 启用后能启动并完成健康检查；
 - 重启后不会产生重复实例；
 - 能对当前工作区执行检查、渲染和指标读取；
+- 首次使用时能通过 `resume_guide` 获得完整制作攻略；
 - MCP 故障不会卡住预览页面；
 - 返回结果不包含不必要的整份文件和会话上下文。
 
@@ -214,7 +239,7 @@ npm test
 npm run mcp
 ```
 
-左侧栏控制的是 DSH 本地 Web Server 上的 Streamable HTTP 端点 `/dsh-resume/mcp`。端点默认返回 503，直到用户点击“启动 MCP”；停止后不会自动重启。`npm run mcp` 使用 stdio 承载同一套工具，适合明确配置为 stdio 的宿主，标准输出只保留 JSON-RPC 消息，日志写入标准错误。浏览器代码不直接执行 Node 进程。
+左侧栏控制的是 DSH 本地 Web Server 上的 Streamable HTTP 端点 `/dsh-resume/mcp`。端点默认返回 503，直到用户点击“启动 MCP”；停止后不会自动重启。连接后，支持该字段的宿主会收到短版 `initialize` 规则；所有兼容基础 tools 的宿主都可以通过 `tools/list` 发现并调用 `resume_guide`，因此不依赖客户端是否展示 `initialize.instructions`。`npm run mcp` 使用 stdio 承载同一套工具，适合明确配置为 stdio 的宿主，标准输出只保留 JSON-RPC 消息，日志写入标准错误。浏览器代码不直接执行 Node 进程。
 
 当前 smoke test 已覆盖 `initialize`、`notifications/initialized`、`tools/list`、`mcp_health`，以及初始化工作区、写入/读取简历、检查和渲染的最小闭环。浏览器 A4 指标仍由 DSH 预览运行时产生，独立 MCP 进程目前只返回明确的 pending 状态，不伪造页数或溢出结论。
 

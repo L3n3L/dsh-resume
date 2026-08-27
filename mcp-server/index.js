@@ -10,13 +10,14 @@ import { resumeQualityCheck } from '../lib/quality.js'
 import { renderPreview } from '../lib/renderer.js'
 import { applyPresentationOverride, loadPresentation } from '../lib/presentation.js'
 import { listAvailableTemplates, loadTemplate } from '../lib/template-presets.js'
+import { getResumeGuide, RESUME_MCP_INSTRUCTIONS } from '../lib/resume-guide.js'
 import { withWorkspaceLock } from '../lib/workspace-lock.js'
-import { initJobhunt, readJobhuntFile, resolveJobhuntRoot, writeJobhuntFile } from '../lib/workspace.js'
+import { getWorkspaceInfo, initJobhunt, readJobhuntFile, resolveJobhuntRoot, writeJobhuntFile } from '../lib/workspace.js'
 
 const SERVER_NAME = 'dsh-resume'
 const SERVER_VERSION = '0.1.0'
 
-const rootDirSchema = z.string().optional().describe('Optional absolute path or cwd-relative jobhunt workspace root.')
+const rootDirSchema = z.string().optional().describe('Standalone MCP only: optional absolute path or cwd-relative jobhunt workspace root. The DSH HTTP MCP is bound to the workspace selected in the DSH sidebar.')
 
 function jsonResult(value) {
   return {
@@ -47,8 +48,15 @@ async function readResume(root, resumePath) {
   return { path, content }
 }
 
-export function createResumeMcpServer() {
-  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION })
+export function createResumeMcpServer(options = {}) {
+  const allowRootOverride = options.allowRootOverride !== false
+  const resolveBoundRoot = typeof options.resolveRoot === 'function' ? options.resolveRoot : null
+  const rootInput = allowRootOverride ? { rootDir: rootDirSchema } : {}
+  const resolveToolRoot = (rootDir) => {
+    if (!allowRootOverride && rootDir) throw new Error('当前 DSH MCP 已绑定到插件页选择的工作区，不能通过 rootDir 切换目录。请先在 DSH 左侧栏切换工作区。')
+    return resolveBoundRoot ? resolveBoundRoot() : workspaceRoot(rootDir)
+  }
+  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION, instructions: RESUME_MCP_INSTRUCTIONS })
 
   server.registerTool(
     'mcp_health',
@@ -63,17 +71,38 @@ export function createResumeMcpServer() {
       transport: 'stdio',
       capabilities: ['tools/list', 'tools/call'],
       cwd: process.cwd(),
+      workspaceRoot: resolveToolRoot(),
     }),
+  )
+
+  server.registerTool(
+    'workspace_info',
+    {
+      description: 'Return the current dsh-resume workspace identity and binding. Read-only; the DSH HTTP MCP always reports the workspace selected in the plugin sidebar.',
+      inputSchema: z.object({}),
+    },
+    async () => jsonResult(await getWorkspaceInfo(resolveToolRoot())),
+  )
+
+  server.registerTool(
+    'resume_guide',
+    {
+      description: 'Return the dsh-resume workflow guide. Call this before the first resume task or after context has been reset; read-only.',
+      inputSchema: z.object({
+        topic: z.enum(['all', 'workflow', 'modes', 'priorities', 'contentBudget', 'content', 'layout', 'icons', 'permissions']).optional().describe('Optional guide section. Defaults to all sections.'),
+      }),
+    },
+    async ({ topic }) => jsonResult(getResumeGuide(topic || 'all')),
   )
 
   server.registerTool(
     'resume_init',
     {
       description: 'Create the dsh-resume jobhunt workspace skeleton and demo files if they do not exist.',
-      inputSchema: z.object({ rootDir: rootDirSchema }),
+      inputSchema: z.object(rootInput),
     },
     async ({ rootDir }) => {
-      const root = workspaceRoot(rootDir)
+      const root = resolveToolRoot(rootDir)
       const result = await withWorkspaceLock(root, () => initJobhunt(root))
       return jsonResult({ ...result, message: 'Workspace initialized without overwriting existing user files.' })
     },
@@ -85,11 +114,11 @@ export function createResumeMcpServer() {
       description: 'Read a text file relative to the dsh-resume jobhunt workspace. Read-only.',
       inputSchema: z.object({
         path: z.string().min(1).describe('Relative path under the jobhunt workspace, such as resume.md or profile.md.'),
-        rootDir: rootDirSchema,
+        ...rootInput,
       }),
     },
     async ({ path, rootDir }) => {
-      const root = workspaceRoot(rootDir)
+      const root = resolveToolRoot(rootDir)
       const result = await readJobhuntFile(root, path)
       return jsonResult({ root, ...result })
     },
@@ -102,11 +131,11 @@ export function createResumeMcpServer() {
       inputSchema: z.object({
         path: z.string().min(1).describe('Relative path under jobhunt/. Allowed extensions are md, css, txt, and json.'),
         content: z.string().describe('Complete file content to save.'),
-        rootDir: rootDirSchema,
+        ...rootInput,
       }),
     },
     async ({ path, content, rootDir }) => {
-      const root = workspaceRoot(rootDir)
+      const root = resolveToolRoot(rootDir)
       return jsonResult(await withWorkspaceLock(root, async () => {
         const isResume = /(^|\/)resume\.md$/i.test(String(path).replace(/\\/g, '/'))
         const iconReport = isResume ? inspectIconTokens(content) : null
@@ -136,11 +165,11 @@ export function createResumeMcpServer() {
       description: 'Run a deterministic local preflight on a resume Markdown file. Read-only.',
       inputSchema: z.object({
         resumePath: z.string().optional().describe('Resume Markdown path relative to the jobhunt root. Defaults to resume.md.'),
-        rootDir: rootDirSchema,
+        ...rootInput,
       }),
     },
     async ({ resumePath, rootDir }) => {
-      const root = workspaceRoot(rootDir)
+      const root = resolveToolRoot(rootDir)
       const resume = await readResume(root, resumePath)
       return jsonResult({ root, resumePath: resume.path, ...resumeQualityCheck(resume.content) })
     },
@@ -155,11 +184,11 @@ export function createResumeMcpServer() {
         templateCssPath: z.string().optional().describe('Template CSS path relative to the jobhunt root. Defaults to templates/default.css.'),
         templateId: z.string().optional().describe('Optional built-in or saved composition template id.'),
         outPath: z.string().optional().describe('Preview HTML path relative to the jobhunt root. Defaults beside the resume.'),
-        rootDir: rootDirSchema,
+        ...rootInput,
       }),
     },
     async ({ resumePath, templateCssPath, templateId, outPath, rootDir }) => {
-      const root = workspaceRoot(rootDir)
+      const root = resolveToolRoot(rootDir)
       let templateSpec
       let initialIconTuning = {}
       const presentation = await loadPresentation(root)
@@ -200,11 +229,11 @@ export function createResumeMcpServer() {
       description: 'Return compact render metadata and explain whether browser-measured A4 metrics are available to this standalone MCP process.',
       inputSchema: z.object({
         previewPath: z.string().optional().describe('Preview HTML path relative to the jobhunt root. Defaults to preview.html.'),
-        rootDir: rootDirSchema,
+        ...rootInput,
       }),
     },
     async ({ previewPath, rootDir }) => jsonResult({
-      root: workspaceRoot(rootDir),
+      root: resolveToolRoot(rootDir),
       previewPath: previewPath || 'preview.html',
       available: false,
       status: 'pending',
@@ -218,11 +247,11 @@ export function createResumeMcpServer() {
       description: 'Validate a resume layout JSON file against the dsh-resume layout schema. Read-only.',
       inputSchema: z.object({
         layoutPath: z.string().optional().describe('Layout JSON path relative to the jobhunt root. Defaults to resume.layout.json.'),
-        rootDir: rootDirSchema,
+        ...rootInput,
       }),
     },
     async ({ layoutPath, rootDir }) => {
-      const root = workspaceRoot(rootDir)
+      const root = resolveToolRoot(rootDir)
       const layout = await readJobhuntFile(root, layoutPath || 'resume.layout.json')
       let parsed
       try {
@@ -239,10 +268,10 @@ export function createResumeMcpServer() {
     'template_list',
     {
       description: 'List available dsh-resume composition templates with compact metadata. Read-only.',
-      inputSchema: z.object({ rootDir: rootDirSchema }),
+      inputSchema: z.object(rootInput),
     },
     async ({ rootDir }) => {
-      const root = workspaceRoot(rootDir)
+      const root = resolveToolRoot(rootDir)
       const templates = await listAvailableTemplates(root)
       return jsonResult({ root, templates: templates.map(templateSummary) })
     },
