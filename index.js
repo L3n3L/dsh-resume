@@ -26,6 +26,7 @@ import { registerBundledSkills } from './lib/skill.js'
 import { withWorkspaceLock } from './lib/workspace-lock.js'
 import { inspectIconTokens, listIconTokens } from './lib/icons/registry.js'
 import { applyPresentationOverride, loadPresentation, savePresentationOverride } from './lib/presentation.js'
+import { registerMcpRoutes } from './lib/mcp-http.js'
 
 export const name = 'dsh-resume'
 export const inject = ['tools', 'systemPrompt', 'webServer', 'skills']
@@ -103,6 +104,7 @@ export async function apply(ctx) {
   }))
 
   ctx.effect(() => registerPreviewRoutes(ctx))
+  ctx.effect(() => registerMcpRoutes(ctx))
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_init',

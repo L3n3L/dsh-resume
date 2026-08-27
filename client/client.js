@@ -616,7 +616,7 @@ window.__ModuleLoader__.load({
 .cj-solidAction:hover { background: #23375f; }
 .cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 218px; overflow: hidden; }
 .cj-workbenchBody[data-view="preview"] { grid-template-columns: 120px minmax(0, 1fr); }
-.cj-workbenchBody[data-view="start"], .cj-workbenchBody[data-view="templates"], .cj-workbenchBody[data-view="workshop"], .cj-workbenchBody[data-view="files"], .cj-workbenchBody[data-view="guide"] { grid-template-columns: 120px minmax(0, 1fr); }
+.cj-workbenchBody[data-view="start"], .cj-workbenchBody[data-view="templates"], .cj-workbenchBody[data-view="workshop"], .cj-workbenchBody[data-view="files"], .cj-workbenchBody[data-view="guide"], .cj-workbenchBody[data-view="mcp"] { grid-template-columns: 120px minmax(0, 1fr); }
 .cj-nav {
   display: flex;
   flex-direction: column;
@@ -653,6 +653,20 @@ window.__ModuleLoader__.load({
 .cj-mainBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
 .cj-mainHeading { font-size: 13px; font-weight: 700; color: #26334d; }
 .cj-mainHint { margin-top: 2px; color: #8b95a7; font-size: 11px; }
+.cj-mcpPanel { max-width: 720px; padding: 20px; border: 1px solid #e1e6ee; border-radius: 14px; background: #fff; box-shadow: 0 4px 14px rgba(15,23,42,.04); }
+.cj-mcpStatusRow { display: flex; align-items: center; gap: 10px; }
+.cj-mcpDot { width: 9px; height: 9px; border-radius: 50%; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148,163,184,.14); }
+.cj-mcpDot[data-state="running"] { background: #16a34a; box-shadow: 0 0 0 4px rgba(22,163,74,.14); }
+.cj-mcpDot[data-state="error"] { background: #dc2626; box-shadow: 0 0 0 4px rgba(220,38,38,.14); }
+.cj-mcpTitle { color: #26334d; font-size: 15px; font-weight: 700; }
+.cj-mcpState { margin-left: auto; color: #66738a; font-size: 12px; }
+.cj-mcpCopy { margin: 16px 0 0; color: #66738a; font-size: 12px; line-height: 20px; }
+.cj-mcpActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.cj-mcpMeta { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 7px 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #edf0f4; color: #6b778d; font-size: 11px; line-height: 18px; }
+.cj-mcpMeta strong { color: #8a94a6; font-weight: 600; }
+.cj-mcpMeta code { overflow-wrap: anywhere; color: #42516a; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.cj-mcpMessage { margin-top: 14px; color: #536078; font-size: 11px; line-height: 18px; }
+.cj-mcpMessage[data-state="error"] { color: #b91c1c; }
 .cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
 .cj-templateGallery { display: flex; gap: 8px; min-height: 104px; overflow-x: auto; padding: 1px 1px 4px; }
 .cj-templateGallery[data-library="true"] { flex-wrap: wrap; align-content: flex-start; min-height: 0; overflow: visible; gap: 12px; }
@@ -1418,6 +1432,9 @@ window.__ModuleLoader__.load({
       const [startupMessage, setStartupMessage] = useState('')
       const [startupError, setStartupError] = useState(false)
       const [startupMode, setStartupMode] = useState('demo')
+      const [mcpState, setMcpState] = useState({ enabled: false, healthy: false, transport: 'streamable-http', endpoint: '/dsh-resume/mcp', version: '0.1.0', startedAt: null, lastError: null })
+      const [mcpBusy, setMcpBusy] = useState(false)
+      const [mcpMessage, setMcpMessage] = useState('')
       const [hasResolvedInitialView, setHasResolvedInitialView] = useState(false)
       const [layout, setLayout] = useState(null)
       const [layoutSettings, setLayoutSettings] = useState(() => layoutSettingsFromTemplate({}))
@@ -1498,6 +1515,54 @@ window.__ModuleLoader__.load({
       const chatInitialScrollRef = useRef(false)
       const chatPreserveScrollRef = useRef(null)
       const workshopPreviewRef = useRef(null)
+
+      const refreshMcpStatus = async () => {
+        try {
+          const res = await fetch('/dsh-resume/api/mcp', { cache: 'no-store' })
+          if (!res.ok) throw new Error(`MCP 状态 ${res.status}`)
+          setMcpState(await res.json())
+        } catch (error) {
+          setMcpState((current) => ({ ...current, healthy: false, lastError: String(error?.message || error) }))
+        }
+      }
+
+      const controlMcp = async (action) => {
+        if (mcpBusy) return
+        setMcpBusy(true)
+        setMcpMessage(action === 'start' ? '正在启动 MCP…' : action === 'stop' ? '正在停止 MCP…' : '正在重启 MCP…')
+        try {
+          const res = await fetch('/dsh-resume/api/mcp/control', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action }),
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || `MCP 控制失败（${res.status}）`)
+          setMcpState(data)
+          setMcpMessage(action === 'stop' ? 'MCP 已停止。' : 'MCP 已启动，等待 Agent 连接。')
+        } catch (error) {
+          setMcpMessage(`操作失败：${error?.message || error}`)
+        } finally {
+          setMcpBusy(false)
+        }
+      }
+
+      useEffect(() => {
+        let active = true
+        const load = async () => {
+          try {
+            const res = await fetch('/dsh-resume/api/mcp', { cache: 'no-store' })
+            if (!res.ok) throw new Error(`MCP 状态 ${res.status}`)
+            const data = await res.json()
+            if (active) setMcpState(data)
+          } catch (error) {
+            if (active) setMcpState((current) => ({ ...current, healthy: false, lastError: String(error?.message || error) }))
+          }
+        }
+        load()
+        const timer = window.setInterval(load, 5000)
+        return () => { active = false; window.clearInterval(timer) }
+      }, [])
 
       const persistPresentation = (id, nextLayout, nextVisual, nextIconTuning, options = {}) => {
         if (!status?.root || !id) return
@@ -2596,6 +2661,7 @@ window.__ModuleLoader__.load({
         ['templates', '▤', '模板库'],
         ['workshop', '✦', '模板工坊'],
         ['guide', '✓', '排版检查'],
+        ['mcp', '⌘', 'MCP 服务'],
       ]
       const renderTemplateCard = (template) => React.createElement(
           'div',
@@ -2762,6 +2828,32 @@ window.__ModuleLoader__.load({
             { id: 'identity', status: 'info', message: '等待选择投递版后开始检查' },
             { id: 'evidence', status: 'info', message: '检查会在本地完成，不上传简历内容' },
           ]).map((item, index) => React.createElement('div', { className: 'cj-guideRow', key: item.id }, React.createElement('span', { className: `cj-qualityStatus cj-quality-${item.status}` }, item.status === 'pass' ? '✓' : item.status === 'error' ? '!' : item.status === 'warn' ? '!' : '·'), React.createElement('span', null, React.createElement('strong', null, String(index + 1).padStart(2, '0') + '　' + item.message), item.detail ? React.createElement('small', null, item.detail) : null))),
+        ),
+      )
+      const mcpView = React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('div', { className: 'cj-mainBar' }, React.createElement('div', null, React.createElement('div', { className: 'cj-mainHeading' }, 'MCP 服务'), React.createElement('div', { className: 'cj-mainHint' }, '让兼容的 Agent 读取和处理当前简历工作区。'))),
+        React.createElement('section', { className: 'cj-mcpPanel' },
+          React.createElement('div', { className: 'cj-mcpStatusRow' },
+            React.createElement('span', { className: 'cj-mcpDot', 'data-state': mcpState.lastError ? 'error' : mcpState.enabled && mcpState.healthy ? 'running' : 'stopped' }),
+            React.createElement('strong', { className: 'cj-mcpTitle' }, '简历 MCP'),
+            React.createElement('span', { className: 'cj-mcpState' }, mcpState.enabled ? (mcpState.healthy ? '运行中' : '异常') : '未启动'),
+          ),
+          React.createElement('p', { className: 'cj-mcpCopy' }, 'MCP 默认保持停止。只有你点击“启动 MCP”后，Codex 或其他兼容宿主才能连接简历工具。停止 MCP 不影响 DSH 预览、模板和手动调整。'),
+          React.createElement('div', { className: 'cj-mcpActions' },
+            React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => controlMcp('start'), disabled: mcpBusy || mcpState.enabled }, mcpBusy ? '处理中…' : '启动 MCP'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => controlMcp('restart'), disabled: mcpBusy || !mcpState.enabled }, '重启'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => controlMcp('stop'), disabled: mcpBusy || !mcpState.enabled }, '停止'),
+            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: refreshMcpStatus, disabled: mcpBusy }, '刷新状态'),
+          ),
+          React.createElement('div', { className: 'cj-mcpMeta' },
+            React.createElement('strong', null, '传输'), React.createElement('code', null, mcpState.transport || 'streamable-http'),
+            React.createElement('strong', null, '地址'), React.createElement('code', null, mcpState.endpoint || '/dsh-resume/mcp'),
+            React.createElement('strong', null, '版本'), React.createElement('code', null, mcpState.version || '0.1.0'),
+          ),
+          mcpState.lastError ? React.createElement('div', { className: 'cj-mcpMessage', 'data-state': 'error' }, `最近错误：${mcpState.lastError}`) : null,
+          mcpMessage ? React.createElement('div', { className: 'cj-mcpMessage' }, mcpMessage) : null,
         ),
       )
       const iconRows = [{ name: '*', label: '全部图标', count: iconInventory.reduce((total, item) => total + item.count, 0) }, ...iconInventory]
@@ -2988,7 +3080,7 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'cj-workbenchBody', 'data-view': view },
           React.createElement('nav', { className: 'cj-nav', 'aria-label': '简历工作台导航' }, React.createElement('div', { className: 'cj-navLabel' }, 'WORKSPACE'), ...navItems.map(([id, icon, label]) => React.createElement('button', { key: id, type: 'button', className: 'cj-navItem', 'data-active': view === id ? 'true' : 'false', onClick: () => setView(id) }, React.createElement('span', { className: 'cj-navIcon' }, icon), label)), React.createElement('div', { className: 'cj-navFoot' }, React.createElement('div', null, 'Agent 负责改稿与排版。\n你负责最终确认。'), onClose ? React.createElement('button', { type: 'button', className: 'cj-closeAction', onClick: onClose, 'aria-label': '退出求职简历工作台' }, '退出工作台') : null)),
-          React.createElement('main', { className: `cj-main cj-main-${view}` }, view === 'start' ? startView : view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : view === 'workshop' ? workshopView : guideView),
+          React.createElement('main', { className: `cj-main cj-main-${view}` }, view === 'start' ? startView : view === 'preview' ? previewView : view === 'files' ? filesView : view === 'templates' ? templatesView : view === 'workshop' ? workshopView : view === 'mcp' ? mcpView : guideView),
         ),
       )
     }
