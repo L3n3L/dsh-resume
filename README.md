@@ -108,6 +108,19 @@ dsh web
 
 打开「求职简历」工作台左侧的「MCP 服务」，点击「启动 MCP」后，插件才会启用本地 Streamable HTTP 端点 `/dsh-resume/mcp`。点击「停止」后不会自动重启，也不会影响 DSH 的预览、模板和手动调整。
 
+启动后点击「复制配置」，把面板生成的 JSON 粘贴到其他 Agent 的 MCP 配置中即可。典型配置如下：
+
+```json
+{
+  "mcpServers": {
+    "dsh-resume": {
+      "type": "streamable-http",
+      "url": "http://127.0.0.1:3099/dsh-resume/mcp"
+    }
+  }
+}
+```
+
 兼容宿主仍需要按自身方式连接面板显示的本地端点；插件不会在未授权时自动把 MCP 注入所有 Agent。需要 stdio 方式时，也可以在插件目录执行 `npm run mcp`，使用同一套简历工具。
 
 ## 工作台怎么工作

@@ -665,6 +665,9 @@ window.__ModuleLoader__.load({
 .cj-mcpMeta { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 7px 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #edf0f4; color: #6b778d; font-size: 11px; line-height: 18px; }
 .cj-mcpMeta strong { color: #8a94a6; font-weight: 600; }
 .cj-mcpMeta code { overflow-wrap: anywhere; color: #42516a; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.cj-mcpConfig { margin-top: 18px; padding-top: 16px; border-top: 1px solid #edf0f4; }
+.cj-mcpConfigHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #536078; font-size: 12px; }
+.cj-mcpConfigCode { margin: 10px 0 0; overflow-x: auto; padding: 12px; border-radius: 9px; background: #f5f7fa; color: #42516a; font: 11px/18px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .cj-mcpMessage { margin-top: 14px; color: #536078; font-size: 11px; line-height: 18px; }
 .cj-mcpMessage[data-state="error"] { color: #b91c1c; }
 .cj-fileSelect { min-width: 0; max-width: 270px; height: 30px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; padding: 0 9px; font-size: 11px; }
@@ -1563,6 +1566,43 @@ window.__ModuleLoader__.load({
         const timer = window.setInterval(load, 5000)
         return () => { active = false; window.clearInterval(timer) }
       }, [])
+
+      const mcpEndpointUrl = (() => {
+        try {
+          return new URL(mcpState.endpoint || '/dsh-resume/mcp', window.location.origin).toString()
+        } catch {
+          return mcpState.endpoint || '/dsh-resume/mcp'
+        }
+      })()
+      const mcpConfigText = JSON.stringify({
+        mcpServers: {
+          'dsh-resume': {
+            type: 'streamable-http',
+            url: mcpEndpointUrl,
+          },
+        },
+      }, null, 2)
+      const copyMcpConfig = async () => {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(mcpConfigText)
+          } else {
+            const textarea = document.createElement('textarea')
+            textarea.value = mcpConfigText
+            textarea.setAttribute('readonly', 'true')
+            textarea.style.position = 'fixed'
+            textarea.style.opacity = '0'
+            document.body.appendChild(textarea)
+            textarea.select()
+            const copied = document.execCommand('copy')
+            textarea.remove()
+            if (!copied) throw new Error('当前浏览器不允许复制')
+          }
+          setMcpMessage('配置已复制，可粘贴到其他 Agent 的 MCP 配置中。')
+        } catch (error) {
+          setMcpMessage(`复制失败，请手动复制下方配置：${error?.message || error}`)
+        }
+      }
 
       const persistPresentation = (id, nextLayout, nextVisual, nextIconTuning, options = {}) => {
         if (!status?.root || !id) return
@@ -2851,6 +2891,10 @@ window.__ModuleLoader__.load({
             React.createElement('strong', null, '传输'), React.createElement('code', null, mcpState.transport || 'streamable-http'),
             React.createElement('strong', null, '地址'), React.createElement('code', null, mcpState.endpoint || '/dsh-resume/mcp'),
             React.createElement('strong', null, '版本'), React.createElement('code', null, mcpState.version || '0.1.0'),
+          ),
+          React.createElement('div', { className: 'cj-mcpConfig' },
+            React.createElement('div', { className: 'cj-mcpConfigHead' }, React.createElement('strong', null, '给其他 Agent 的配置'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: copyMcpConfig, disabled: mcpBusy || !mcpState.enabled }, '复制配置')),
+            React.createElement('pre', { className: 'cj-mcpConfigCode' }, mcpConfigText),
           ),
           mcpState.lastError ? React.createElement('div', { className: 'cj-mcpMessage', 'data-state': 'error' }, `最近错误：${mcpState.lastError}`) : null,
           mcpMessage ? React.createElement('div', { className: 'cj-mcpMessage' }, mcpMessage) : null,
