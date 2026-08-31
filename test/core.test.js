@@ -317,6 +317,12 @@ test('folder picker cancellation leaves the global workspace unchanged', async (
   }
 })
 
+test('Windows folder picker keeps the native dialog visible', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'lib/workspace-picker.js'), 'utf8')
+  assert.match(source, /windowsHide: false/)
+  assert.doesNotMatch(source, /['"]-NonInteractive['"]/, 'GUI picker must not be launched as non-interactive')
+})
+
 test('workspace mutations serialize per root while independent roots can proceed', async () => {
   const firstRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-lock-a-'))
   const secondRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-lock-b-'))
