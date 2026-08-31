@@ -717,12 +717,17 @@ test('manual preview refresh re-reads disk without overwriting a local draft', a
 
 test('opening a resume version pins and persists its preview path', async () => {
   const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const apiSource = await fs.readFile(path.join(repoRoot, 'lib/preview-api.js'), 'utf8')
   assert.match(clientSource, /const explicitPreviewRef = useRef\('\'\)/)
   assert.match(clientSource, /const persistActivePreview = \(version\)/)
   assert.match(clientSource, /activePreviewPath: version\.previewPath/)
   assert.match(clientSource, /activeOnly: true/)
   assert.match(clientSource, /explicitPreviewRef\.current = version\?\.previewPath \|\| ''/)
   assert.match(clientSource, /void persistActivePreview\(version\)/)
+  assert.match(clientSource, /const nextPreviewPath = result\.version\?\.previewPath \|\| result\.rendered\?\.previewPath \|\| selected/)
+  assert.match(clientSource, /if \(nextPreviewPath && explicitPreviewRef\.current && explicitPreviewRef\.current !== nextPreviewPath\) return/)
+  assert.match(clientSource, /\[status\?\.root, status\?\.workspaceState, mainConversation\.sessionId\]/)
+  assert.match(apiSource, /const currentPreview = persistedPreview \|\| \(/)
 })
 
 test('resume writing guidance protects evidence and treats one page as a soft target', async () => {

@@ -2121,7 +2121,9 @@ window.__ModuleLoader__.load({
           setVersionMessage(`已创建「${result.version?.name || name}」，并绑定当前模板与排版参数。`)
           setEditorSource(null)
           setEditorPreviewUrl('')
-          setSelected(result.version?.previewPath || result.rendered?.previewPath || selected)
+          const nextPreviewPath = result.version?.previewPath || result.rendered?.previewPath || selected
+          explicitPreviewRef.current = nextPreviewPath
+          setSelected(nextPreviewPath)
           setView('preview')
           setTick((n) => n + 1)
           void reload()
@@ -2376,6 +2378,9 @@ window.__ModuleLoader__.load({
         handledPreviewActivity.current = previewActivity.signature
         const preferredId = templateIdFromText(previewActivity.text)
         const nextPreviewPath = previewActivity.previewPath || previewPathFromText(previewActivity.text)
+        // A stale tool event from another version must not steal the preview
+        // after the user has explicitly selected a version.
+        if (nextPreviewPath && explicitPreviewRef.current && explicitPreviewRef.current !== nextPreviewPath) return
         const canReadLatestEditorSource = Boolean(nextPreviewPath && editorSource?.previewPath === nextPreviewPath && editorDraft === editorDiskContentRef.current)
         setLayout(null)
         setFitState({ text: '检测到新的预览，正在刷新 A4 和排版指标…', state: 'pending' })
@@ -2474,7 +2479,7 @@ window.__ModuleLoader__.load({
         setFitState({ text: status.workspaceState === 'missing' ? '工作区不可用' : '等待排版信息', state: status.workspaceState === 'missing' ? 'error' : 'pending' })
         setView(status.workspaceState === 'ready' && nextPreview ? 'preview' : 'start')
         setHasResolvedInitialView(true)
-      }, [status?.root, status?.previewRel, status?.previews, status?.workspaceState, mainConversation.sessionId])
+      }, [status?.root, status?.workspaceState, mainConversation.sessionId])
 
       useEffect(() => {
         if (!status || hasResolvedInitialView || lastWorkspaceBindingRef.current.root) return
