@@ -715,6 +715,16 @@ test('manual preview refresh re-reads disk without overwriting a local draft', a
   assert.match(clientSource, /reloadEditorFromDisk\(\{ force: true \}\)/)
 })
 
+test('opening a resume version pins and persists its preview path', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /const explicitPreviewRef = useRef\('\'\)/)
+  assert.match(clientSource, /const persistActivePreview = \(version\)/)
+  assert.match(clientSource, /activePreviewPath: version\.previewPath/)
+  assert.match(clientSource, /activeOnly: true/)
+  assert.match(clientSource, /explicitPreviewRef\.current = version\?\.previewPath \|\| ''/)
+  assert.match(clientSource, /void persistActivePreview\(version\)/)
+})
+
 test('resume writing guidance protects evidence and treats one page as a soft target', async () => {
   const quality = resumeQualityCheck('# 张三\n\n## 项目经历\n\n- 负责前端开发，完成上线\n')
   assert.match(quality.target, /可读性优先/)
@@ -730,6 +740,21 @@ test('resume prompt allows evidence-grounded strengthening without fabrication',
   assert.match(source, /A single A4 page is a campus-recruiting preference/)
   assert.match(source, /evidence atoms/)
   assert.match(source, /The agent may adjust these settings/)
+})
+
+test('resume prompt preserves campus section order and explicitly requested projects', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(source, /education.*internship\/work experience.*project experience.*skills.*awards/i)
+  assert.match(clientSource, /教育经历.*实习\/工作经历.*项目经历.*专业技能.*荣誉奖项/)
+  for (const text of [source, clientSource]) {
+    assert.match(text, /用户.*要求.*三个.*项目|three projects/i)
+    assert.match(text, /不得.*静默.*合并.*改名.*删除|do not silently merge, rename, or drop projects/i)
+  }
+  const guide = await import('../lib/resume-guide.js')
+  const payload = guide.getResumeGuide('structure')
+  assert.deepEqual(payload.sections.structure.defaultCampusOrder, ['profile', 'education', 'experience', 'projects', 'skills', 'awards'])
+  assert.match(payload.sections.structure.projectRetention, /不得静默删除/)
 })
 
 test('template APIs keep gallery reads and mutations bound to the requested workspace root', async () => {

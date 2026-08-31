@@ -62,6 +62,15 @@ Content budget (soft defaults, not mechanical deletion rules):
 - Education, skills, and awards should stay scan-friendly and keep only information that supports the target role.
 - When content is too long, merge repetition, remove low-signal wording and low-relevance items, then tune the template presentation. If it still cannot fit while readable and evidence-complete, keep two pages and explain the trade-off.
 
+Section selection and ordering (mandatory for resume drafts):
+- For a current campus candidate with relevant internship/work experience, the default order is: personal header/contact → education → internship/work experience → project experience → skills → awards/certifications.
+- Put internship/work before projects when it demonstrates the target role. Put projects before internship only when projects are materially more relevant or there is no relevant internship, and state that rationale in the change summary.
+- Keep skills and awards after core experience by default. Do not let a generic template reorder them ahead of relevant internship/project evidence.
+- Within a section, use reverse chronology by default; a relevance-first exception is allowed only when it is obvious from the target role and must be explained.
+- Treat every user-provided project as a separate candidate record. Do not silently merge, rename, or drop projects. If the user asks to retain three projects, retain three named entries; compress lower-priority entries to one high-signal bullet before omitting anything.
+- Preserve each retained project's name, role/ownership, date, and at least one problem/action/result or artifact/link signal. A project count is not a substitute for evidence quality.
+- Before writing, produce an internal content map: retained sections, entry order, project count, omitted/merged items, and the reason for each choice. The final response must summarize those decisions.
+
 Default experience:
 - If the user gives resume materials without a JD, create or improve a general campus resume and label the lack of role targeting; do not pretend it is matched to a specific job.
 - If the user says "写/做/优化简历" without prompt-engineering instructions, infer the workflow, inspect the available materials, and provide a strong candidate draft or preview. Ask at most one focused question only when a missing fact blocks a safe improvement.

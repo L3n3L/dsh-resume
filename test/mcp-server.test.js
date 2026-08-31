@@ -92,7 +92,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   assert.equal(guide.result.isError, undefined)
   const guidePayload = JSON.parse(guide.result.content[0].text)
   assert.equal(guidePayload.guide, 'dsh-resume-workflow')
-  assert.equal(guidePayload.version, '1.1.0')
+  assert.equal(guidePayload.version, '1.2.0')
   assert.ok(guidePayload.sections.workflow.some((step) => step.tools.includes('resume_check')))
 
   const priorities = await server.request('tools/call', { name: 'resume_guide', arguments: { topic: 'priorities' } })
