@@ -14,7 +14,7 @@ window.__ModuleLoader__.load({
     }
     const { useCallback, useEffect, useMemo, useRef, useState } = React
 
-    const inject = ['slots', 'sessions']
+    const inject = ['slots', 'sessions', 'workspaces']
     const CSS_ID = 'dsh-resume/panel.v4.css'
     let clientContext = null
 
@@ -1678,8 +1678,8 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const bindWorkspace = async (action = 'pick', selectedRoot = '') => {
-        if (workspaceBusy) return
+      const bindWorkspace = async (action = 'pick', selectedRoot = '', options = {}) => {
+        if (workspaceBusy && !options.fromPicker) return
         setWorkspaceConfirm('')
         setWorkspaceSwitchRequest(null)
         setWorkspaceCandidate(null)
@@ -1735,6 +1735,41 @@ window.__ModuleLoader__.load({
         }
       }
 
+      // Use the same DSH workspace picker that powers the sidebar. The plugin
+      // must not launch its own PowerShell/OS dialog: that creates a second
+      // picker surface and, on Windows, can leave this panel stuck on
+      // "处理中…" while the real dialog is hidden behind the app.
+      const pickWorkspaceWithDsh = async () => {
+        if (workspaceBusy) return
+        setWorkspaceConfirm('')
+        setWorkspaceSwitchRequest(null)
+        setWorkspaceCandidate(null)
+        setWorkspaceBusy(true)
+        setWorkspaceMessageState('pending')
+        setWorkspaceMessage('正在打开 DSH 文件夹选择器…')
+        try {
+          const workspaces = clientContext?.workspaces
+          if (typeof workspaces?.pickDirectory !== 'function') throw new Error('当前 DSH 未提供工作区选择器，请先更新 DSH')
+          const picked = await workspaces.pickDirectory()
+          if (!picked) {
+            setWorkspaceMessageState('')
+            setWorkspaceMessage('已取消选择，当前工作区未改变。')
+            return
+          }
+          await bindWorkspace('pick', picked, { fromPicker: true })
+        } catch (error) {
+          setWorkspaceMessageState('error')
+          setWorkspaceMessage(`选择工作区失败：${error?.message || error}`)
+        } finally {
+          setWorkspaceBusy(false)
+        }
+      }
+
+      const beginWorkspaceSwitch = (action = 'pick', selectedRoot = '') => {
+        if (action === 'pick' && !selectedRoot) return void pickWorkspaceWithDsh()
+        return void bindWorkspace(action, selectedRoot)
+      }
+
       const requestWorkspaceSwitch = (action = 'pick', selectedRoot = '') => {
         if (workspaceBusy) return
         setWorkspaceCandidate(null)
@@ -1748,7 +1783,7 @@ window.__ModuleLoader__.load({
           setWorkspaceConfirm(action)
           return
         }
-        void bindWorkspace(action, selectedRoot)
+        void beginWorkspaceSwitch(action, selectedRoot)
       }
 
       const persistPresentation = (id, nextLayout, nextVisual, nextIconTuning, options = {}) => {
@@ -3212,11 +3247,11 @@ window.__ModuleLoader__.load({
             React.createElement('div', { className: 'cj-workspaceMeta' }, status?.workspaceId ? `工作区 ID：${status.workspaceId}` : '这是旧工作区，绑定后会生成稳定的工作区 ID。', status?.registered ? '已登记' : '尚未登记'),
           ),
           React.createElement('div', { className: 'cj-workspaceField' }, React.createElement('span', null, '切换工作区'), React.createElement('div', { className: 'cj-workspaceActions' },
-            React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => requestWorkspaceSwitch('pick'), disabled: workspaceBusy }, workspaceBusy ? '处理中…' : '选择文件夹'),
+          React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => requestWorkspaceSwitch('pick'), disabled: workspaceBusy }, workspaceBusy ? '处理中…' : '选择文件夹'),
             !status?.defaultWorkspace?.initialized ? React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => requestWorkspaceSwitch('create-default'), disabled: workspaceBusy }, '创建默认简历库') : null,
             status?.defaultWorkspace?.initialized && status?.root && status.root !== status.defaultWorkspace.root ? React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => requestWorkspaceSwitch('reset-default'), disabled: workspaceBusy }, '回到默认简历库') : null,
           )),
-          workspaceSwitchRequest ? React.createElement('div', { className: 'cj-workspaceConfirm', role: 'alert' }, React.createElement('strong', null, '当前有未保存的内容或排版修改'), '：切换后这份临时草稿会被放弃，已保存的简历文件和模板不会受影响。', React.createElement('div', { className: 'cj-workspaceConfirmActions' }, React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => { const next = workspaceSwitchRequest; setWorkspaceSwitchRequest(null); void bindWorkspace(next.action, next.selectedRoot) }, disabled: workspaceBusy }, '继续切换'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setWorkspaceSwitchRequest(null), disabled: workspaceBusy }, '取消'))) : null,
+          workspaceSwitchRequest ? React.createElement('div', { className: 'cj-workspaceConfirm', role: 'alert' }, React.createElement('strong', null, '当前有未保存的内容或排版修改'), '：切换后这份临时草稿会被放弃，已保存的简历文件和模板不会受影响。', React.createElement('div', { className: 'cj-workspaceConfirmActions' }, React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => { const next = workspaceSwitchRequest; setWorkspaceSwitchRequest(null); void beginWorkspaceSwitch(next.action, next.selectedRoot) }, disabled: workspaceBusy }, '继续切换'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => setWorkspaceSwitchRequest(null), disabled: workspaceBusy }, '取消'))) : null,
           workspaceCandidate ? React.createElement('div', { className: 'cj-workspaceConfirm', role: 'alert' }, React.createElement('strong', null, '确认使用这个文件夹？'), `：检测到 ${workspaceCandidate.fileCount || 0} 个已有文件，但没有 resume.md。继续后只会登记为简历工作区，不会自动改动已有文件。`, React.createElement('div', { className: 'cj-workspaceConfirmActions' }, React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: () => bindWorkspace('bind', workspaceCandidate.root), disabled: workspaceBusy }, '继续使用'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => { setWorkspaceCandidate(null); setWorkspaceMessage('已取消，当前工作区未改变。'); setWorkspaceMessageState('') }, disabled: workspaceBusy }, '取消'))) : null,
           workspaceConfirm ? React.createElement('div', { className: 'cj-workspaceConfirm', role: 'alert' }, workspaceConfirm === 'create-default'
             ? React.createElement(React.Fragment, null, React.createElement('strong', null, '创建默认简历库'), '：将在默认位置准备基础简历文件，不会删除当前简历。')

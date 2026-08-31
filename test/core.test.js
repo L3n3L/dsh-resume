@@ -232,7 +232,7 @@ test('picked non-empty folder requires confirmation and bind does not overwrite 
     setGlobalWorkspaceRoot(previousGlobal)
     await fs.writeFile(path.join(root, 'notes.txt'), 'keep me', 'utf8')
     const routes = []
-    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } }, { pickWorkspaceDirectory: async () => root })
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
     const workspaceRoute = routes.find((route) => route.path === '/dsh-resume/api/workspace')
     const response = () => ({ result: null, status: 0, writeHead(status) { this.status = status }, end(body) { this.result = JSON.parse(body) } })
     const request = (body) => ({
@@ -242,7 +242,7 @@ test('picked non-empty folder requires confirmation and bind does not overwrite 
       async *[Symbol.asyncIterator]() { yield Buffer.from(JSON.stringify(body)) },
     })
     const candidate = response()
-    await workspaceRoute.handler(request({ action: 'pick', sessionId: 'picked-nonempty-test' }), candidate)
+    await workspaceRoute.handler(request({ action: 'pick', root, sessionId: 'picked-nonempty-test' }), candidate)
     assert.equal(candidate.status, 200)
     assert.equal(candidate.result.requiresConfirmation, true)
     assert.equal(candidate.result.candidate.fileCount, 1)
@@ -293,12 +293,12 @@ test('explicit workspace selection is global across sessions and keeps recent ch
   }
 })
 
-test('folder picker cancellation leaves the global workspace unchanged', async () => {
+test('server rejects an unselected picker request without changing the global workspace', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-picker-current-'))
   try {
     setGlobalWorkspaceRoot(root)
     const routes = []
-    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } }, { pickWorkspaceDirectory: async () => null })
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
     const workspaceRoute = routes.find((route) => route.path === '/dsh-resume/api/workspace')
     const response = () => ({ result: null, writeHead(status) { this.status = status }, end(body) { this.result = JSON.parse(body) } })
     const request = {
@@ -309,7 +309,8 @@ test('folder picker cancellation leaves the global workspace unchanged', async (
     }
     const cancelled = response()
     await workspaceRoute.handler(request, cancelled)
-    assert.equal(cancelled.result.cancelled, true)
+    assert.equal(cancelled.status, 400)
+    assert.match(cancelled.result.error, /DSH.*选择文件夹/)
     assert.equal(getGlobalWorkspaceRoot(), path.normalize(root))
   } finally {
     setGlobalWorkspaceRoot(null)
@@ -317,10 +318,11 @@ test('folder picker cancellation leaves the global workspace unchanged', async (
   }
 })
 
-test('Windows folder picker keeps the native dialog visible', async () => {
-  const source = await fs.readFile(path.join(repoRoot, 'lib/workspace-picker.js'), 'utf8')
-  assert.match(source, /windowsHide: false/)
-  assert.doesNotMatch(source, /['"]-NonInteractive['"]/, 'GUI picker must not be launched as non-interactive')
+test('workspace picker is delegated to DSH instead of a plugin-owned OS dialog', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /workspaces.*pickDirectory/s)
+  assert.match(clientSource, /正在打开 DSH 文件夹选择器/)
+  await assert.rejects(fs.access(path.join(repoRoot, 'lib/workspace-picker.js')))
 })
 
 test('workspace mutations serialize per root while independent roots can proceed', async () => {
