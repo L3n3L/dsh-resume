@@ -17,6 +17,14 @@ window.__ModuleLoader__.load({
     const inject = ['slots', 'sessions', 'workspaces']
     const CSS_ID = 'dsh-resume/panel.v4.css'
     let clientContext = null
+    // Workspace selection is an app-level interaction, not a per-panel one.
+    // Keep the request outside PreviewWorkbench so a stale HMR instance or a
+    // second plugin surface cannot open another chooser concurrently.
+    const workspacePickerState = (() => {
+      const key = '__dshResumeWorkspacePicker__'
+      if (typeof window === 'undefined') return { promise: null }
+      return window[key] || (window[key] = { promise: null })
+    })()
 
     function textFromValue(value, depth = 0) {
       if (depth > 3 || value == null) return ''
@@ -1741,27 +1749,36 @@ window.__ModuleLoader__.load({
       // "处理中…" while the real dialog is hidden behind the app.
       const pickWorkspaceWithDsh = async () => {
         if (workspaceBusy) return
+        if (workspacePickerState.promise) return workspacePickerState.promise
         setWorkspaceConfirm('')
         setWorkspaceSwitchRequest(null)
         setWorkspaceCandidate(null)
         setWorkspaceBusy(true)
         setWorkspaceMessageState('pending')
         setWorkspaceMessage('正在打开 DSH 文件夹选择器…')
-        try {
-          const workspaces = clientContext?.workspaces
-          if (typeof workspaces?.pickDirectory !== 'function') throw new Error('当前 DSH 未提供工作区选择器，请先更新 DSH')
-          const picked = await workspaces.pickDirectory()
-          if (!picked) {
-            setWorkspaceMessageState('')
-            setWorkspaceMessage('已取消选择，当前工作区未改变。')
-            return
+        const request = (async () => {
+          try {
+            const workspaces = clientContext?.workspaces
+            if (typeof workspaces?.pickDirectory !== 'function') throw new Error('当前 DSH 未提供工作区选择器，请先更新 DSH')
+            const picked = await workspaces.pickDirectory()
+            if (!picked) {
+              setWorkspaceMessageState('')
+              setWorkspaceMessage('已取消选择，当前工作区未改变。')
+              return
+            }
+            await bindWorkspace('pick', picked, { fromPicker: true })
+          } catch (error) {
+            setWorkspaceMessageState('error')
+            setWorkspaceMessage(`选择工作区失败：${error?.message || error}`)
+          } finally {
+            setWorkspaceBusy(false)
           }
-          await bindWorkspace('pick', picked, { fromPicker: true })
-        } catch (error) {
-          setWorkspaceMessageState('error')
-          setWorkspaceMessage(`选择工作区失败：${error?.message || error}`)
+        })()
+        workspacePickerState.promise = request
+        try {
+          await request
         } finally {
-          setWorkspaceBusy(false)
+          if (workspacePickerState.promise === request) workspacePickerState.promise = null
         }
       }
 

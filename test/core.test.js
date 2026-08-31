@@ -322,6 +322,8 @@ test('workspace picker is delegated to DSH instead of a plugin-owned OS dialog',
   const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
   assert.match(clientSource, /workspaces.*pickDirectory/s)
   assert.match(clientSource, /正在打开 DSH 文件夹选择器/)
+  assert.match(clientSource, /workspacePickerState.*promise/s)
+  assert.match(clientSource, /if \(workspacePickerState\.promise\) return workspacePickerState\.promise/)
   await assert.rejects(fs.access(path.join(repoRoot, 'lib/workspace-picker.js')))
 })
 
