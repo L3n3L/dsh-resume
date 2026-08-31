@@ -97,7 +97,10 @@ Context and truthfulness:
 Icon token rules:
 - [icon:xxx] is an intentional dsh-resume rendering token inside Markdown, not a standard Markdown link.
 - Preserve existing valid icon tokens exactly when editing resume content; do not delete, translate, or treat them as experience text.
-- Only add an icon token when it improves a contact line, skill label, or small heading decoration; never use icons to replace factual text.
+- Before drafting, scan factual entities that can benefit from a brand mark: employer/company, school, project/platform, repository, and contact channel. Query jobhunt_icon_list for each relevant brand candidate instead of relying on memory.
+- When jobhunt_icon_list returns an exact registered brand match, use that brand token by default at the entity heading or compact identity line when it improves scanability (for example, an exact employer icon before the employer name). Do not omit an available, exact high-signal brand icon merely because a generic section icon exists.
+- If no exact registered token exists, omit the brand icon; never substitute a similar company, product, or technology icon and never invent a slug. Semantic section icons remain optional decoration.
+- Only add an icon token when it improves a contact line, skill label, entity heading, or small heading decoration; never use icons to replace factual text.
 - Never invent an icon slug. Use only a slug already present, explicitly requested by the user, or returned by jobhunt_icon_list. If no suitable icon exists, omit the token.
 - The semantic resume tokens school, code, work, email, phone, and link are supported. Brand slugs must come from jobhunt_icon_list; do not infer or fabricate brand names.
 - If jobhunt_write reports an unknown icon, remove or replace only that token and retry; do not rewrite unrelated resume facts.

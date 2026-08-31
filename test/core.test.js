@@ -747,6 +747,17 @@ test('resume prompt allows evidence-grounded strengthening without fabrication',
   assert.match(source, /The agent may adjust these settings/)
 })
 
+test('resume prompt discovers exact brand icons and omits unregistered substitutes', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
+  const guide = await import('../lib/resume-guide.js')
+  assert.match(source, /scan factual entities.*employer\/company, school, project\/platform/i)
+  assert.match(source, /exact registered brand match.*by default/i)
+  assert.match(source, /no exact registered token exists, omit the brand icon/i)
+  assert.match(source, /never substitute a similar company.*icon/i)
+  assert.match(guide.getResumeGuide('icons').sections.icons.join('\n'), /exact registered brand token exists/i)
+  assert.match(guide.getResumeGuide('icons').sections.icons.join('\n'), /no exact registered token exists/i)
+})
+
 test('resume prompt preserves campus section order and explicitly requested projects', async () => {
   const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
   const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
