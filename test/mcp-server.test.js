@@ -79,6 +79,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
     'resume_check',
     'resume_render',
     'resume_metrics',
+    'resume_finalize',
     'layout_validate',
     'template_list',
     'template_family_list',
@@ -104,7 +105,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   assert.equal(guide.result.isError, undefined)
   const guidePayload = JSON.parse(guide.result.content[0].text)
   assert.equal(guidePayload.guide, 'dsh-resume-workflow')
-  assert.equal(guidePayload.version, '1.7.1')
+   assert.equal(guidePayload.version, '1.8.0')
   assert.match(guidePayload.contract, /简历业务主契约/)
   assert.ok(guidePayload.sections.workflow.some((step) => step.tools.includes('resume_check')))
 
@@ -141,7 +142,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
 
   const prepared = await call('resume_prepare', { rootDir: fixtureRoot, resumePath: 'resume.md', templateId: 'campus-standard' })
   assert.equal(prepared.prepared, true)
-    assert.equal(prepared.guide.version, '1.7.1')
+    assert.equal(prepared.guide.version, '1.8.0')
   assert.equal(prepared.preflight.passed, true)
 
   const copied = await call('template_copy', { rootDir: fixtureRoot, sourceId: 'campus-standard', newId: 'mcp-test-template', name: 'MCP 测试模板' })
@@ -241,6 +242,66 @@ test('MCP workflow gate guides verification without blocking iterations and bloc
     const stalePresentation = payload(await tool('presentation_save')({ templateId: 'campus-standard' }))
     assert.equal(stalePresentation.workflowRequired, true)
     assert.equal(stalePresentation.nextTool, 'resume_prepare')
+  } finally {
+    await fs.rm(fixtureRoot, { recursive: true, force: true })
+  }
+})
+
+test('MCP finalization blocks early completion, accepts matching metrics, and invalidates after another write', async () => {
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-finalize-'))
+  let currentMetrics = { available: false, status: 'pending' }
+  try {
+    const server = createResumeMcpServer({
+      resolveRoot: () => fixtureRoot,
+      resolveMetrics: () => currentMetrics,
+    })
+    const tool = (name) => server._registeredTools[name].handler
+    const payload = (result) => JSON.parse(result.content[0].text)
+
+    await tool('resume_init')({})
+    await tool('resume_prepare')({ resumePath: 'resume.md' })
+    const original = payload(await tool('resume_read')({ path: 'resume.md' })).content
+    await tool('resume_write')({ path: 'resume.md', content: `${original}\n\n- Finalization gate regression test\n` })
+    await tool('resume_check')({ resumePath: 'resume.md' })
+    const rendered = payload(await tool('resume_render')({ resumePath: 'resume.md' }))
+
+    const early = payload(await tool('resume_finalize')({ resumePath: 'resume.md' }))
+    assert.equal(early.accepted, false)
+    assert.equal(early.completionAllowed, false)
+    assert.ok(early.blockers.some((blocker) => blocker.code === 'matching_metrics_required'))
+
+    currentMetrics = {
+      available: true,
+      status: 'measured',
+      renderId: rendered.renderId,
+      contentHash: rendered.contentHash,
+      previewPath: rendered.previewPath,
+      metrics: { pageCount: 1, overflow: false, sparse: false, fit: true },
+    }
+    const measured = payload(await tool('resume_metrics')({ previewPath: rendered.previewPath }))
+    assert.equal(measured.identityMatched, true)
+    assert.equal(measured.decision.state, 'accepted')
+
+    const accepted = payload(await tool('resume_finalize')({ resumePath: 'resume.md', previewPath: rendered.previewPath }))
+    assert.equal(accepted.accepted, true)
+    assert.equal(accepted.completionAllowed, true)
+
+    currentMetrics = {
+      ...currentMetrics,
+      metrics: { pageCount: 2, overflow: true, sparse: false, fit: false },
+    }
+    const overfull = payload(await tool('resume_metrics')({ previewPath: rendered.previewPath }))
+    assert.equal(overfull.decision.state, 'overfull')
+    const blockedOverfull = payload(await tool('resume_finalize')({ resumePath: 'resume.md', previewPath: rendered.previewPath }))
+    assert.equal(blockedOverfull.accepted, false)
+    assert.ok(blockedOverfull.blockers.some((blocker) => blocker.code === 'layout_overfull'))
+
+    const changed = payload(await tool('resume_write')({ path: 'resume.md', content: `${original}\n\n- New draft after acceptance\n` }))
+    assert.equal(changed.saved, true)
+    const invalidated = payload(await tool('resume_finalize')({ resumePath: 'resume.md' }))
+    assert.equal(invalidated.accepted, false)
+    assert.equal(invalidated.completionAllowed, false)
+    assert.ok(invalidated.blockers.some((blocker) => blocker.code === 'resume_check_required'))
   } finally {
     await fs.rm(fixtureRoot, { recursive: true, force: true })
   }

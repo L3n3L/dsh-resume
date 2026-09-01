@@ -2519,6 +2519,12 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         const onLayoutMessage = (event) => {
+          if (event.data?.source === 'dsh-resume-metrics-error') {
+            const metricPreview = String(event.data.previewPath || selected || '').replace(/\\/g, '/')
+            if (selected && metricPreview && metricPreview !== selected.replace(/\\/g, '/')) return
+            setFitState({ text: `A4 指标回传失败：${event.data.error || '请重新打开预览后重试'}`, state: 'error' })
+            return
+          }
           if (event.data?.source !== 'dsh-resume-preview') return
           const metrics = event.data.metrics || null
           if (metrics) {
@@ -2552,7 +2558,11 @@ window.__ModuleLoader__.load({
                 sessionId: mainConversation.sessionId,
                 metrics,
               }),
-            }).catch(() => {})
+            }).then((response) => {
+              if (!response.ok) throw new Error(`HTTP ${response.status}`)
+            }).catch((error) => {
+              setFitState({ text: `A4 指标回传失败：${error?.message || '请重新打开预览后重试'}`, state: 'error' })
+            })
           }
         }
         window.addEventListener('message', onLayoutMessage)

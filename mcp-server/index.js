@@ -93,6 +93,15 @@ function layoutDecision(metrics = {}) {
   return { state: 'sparse', next: '一页但信息密度偏低；先用当前模板的模块承载和版面流向补足真实信息，不添加装饰性空内容。' }
 }
 
+function metricIdentity(metrics = {}) {
+  const measured = metrics.metrics || {}
+  return {
+    renderId: String(metrics.renderId || measured.renderId || ''),
+    contentHash: String(metrics.contentHash || measured.contentHash || ''),
+    previewPath: String(metrics.previewPath || metrics.previewRel || measured.previewPath || '').replace(/\\/g, '/'),
+  }
+}
+
 function entryTitles(content) {
   return String(content || '')
     .split(/\r?\n/)
@@ -128,6 +137,15 @@ export function createWorkflowState() {
     checked: false,
     rendered: false,
     requiresVerification: false,
+    status: 'unprepared',
+    renderId: null,
+    previewPath: null,
+    renderContentHash: null,
+    renderSourceHash: null,
+    lastQuality: null,
+    lastMetrics: null,
+    lastDecision: null,
+    completionAllowed: false,
     lastMutation: null,
   }
 }
@@ -150,7 +168,11 @@ export function createResumeMcpServer(options = {}) {
     if (!allowRootOverride && rootDir) throw new Error('当前 DSH MCP 已绑定到插件页选择的工作区，不能通过 rootDir 切换目录。请先在 DSH 左侧栏切换工作区。')
     return resolveBoundRoot ? resolveBoundRoot() : workspaceRoot(rootDir)
   }
-  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION, instructions: RESUME_MCP_INSTRUCTIONS })
+  const server = new McpServer({
+    name: SERVER_NAME,
+    version: SERVER_VERSION,
+    instructions: `${RESUME_MCP_INSTRUCTIONS}\nFinal delivery rule: after any mutation, the Agent must call resume_check → resume_render → resume_metrics → resume_finalize. Only resume_finalize returning accepted=true and completionAllowed=true permits claiming the resume is complete; otherwise continue or report the exact blocker.`,
+  })
 
   async function requirePrepared(root, resumePath, action) {
     const path = normalizeResumePath(resumePath || workflow.resumePath || 'resume.md')
@@ -200,13 +222,22 @@ export function createResumeMcpServer(options = {}) {
     workflow.checked = false
     workflow.rendered = false
     workflow.requiresVerification = true
+    workflow.status = 'draft'
+    workflow.renderId = null
+    workflow.previewPath = null
+    workflow.renderContentHash = null
+    workflow.renderSourceHash = null
+    workflow.lastQuality = null
+    workflow.lastMetrics = null
+    workflow.lastDecision = null
+    workflow.completionAllowed = false
     workflow.lastMutation = { tool, path, at: new Date().toISOString() }
   }
 
   function markVerified(kind) {
     if (kind === 'check') workflow.checked = true
     if (kind === 'render') workflow.rendered = true
-    if (workflow.checked && workflow.rendered) workflow.requiresVerification = false
+    workflow.requiresVerification = true
   }
 
   server.registerTool(
@@ -270,6 +301,15 @@ export function createResumeMcpServer(options = {}) {
       workflow.checked = true
       workflow.rendered = false
       workflow.requiresVerification = false
+      workflow.status = 'prepared'
+      workflow.renderId = null
+      workflow.previewPath = null
+      workflow.renderContentHash = null
+      workflow.renderSourceHash = null
+      workflow.lastQuality = preflight
+      workflow.lastMetrics = null
+      workflow.lastDecision = null
+      workflow.completionAllowed = false
       workflow.lastMutation = null
       const guide = getResumeGuide('workflow')
       return jsonResult({
@@ -372,7 +412,7 @@ export function createResumeMcpServer(options = {}) {
           ...(await writeJobhuntFile(root, path, content)),
           iconWarnings: [],
           verificationRecommended: true,
-          nextTools: ['resume_read', 'resume_check', 'resume_render', 'resume_metrics'],
+          nextTools: ['resume_read', 'resume_check', 'resume_render', 'resume_metrics', 'resume_finalize'],
           ...(coreChangeWarnings.length ? { contentWarnings: [{ code: 'core-entry-changed', entries: coreChangeWarnings, message: '检测到已有经历/项目标题语义发生变化；已允许保存，请结合用户意图和检查结果确认。' }] } : { contentWarnings: [] }),
           ...(changeSummary ? { changeSummary } : {}),
         }
@@ -395,9 +435,11 @@ export function createResumeMcpServer(options = {}) {
       const root = resolveToolRoot(rootDir)
       const resume = await readResume(root, resumePath)
       if (workflow.prepared && workflow.root === root && workflow.resumePath === resume.path && workflow.resumeHash === contentHash(resume.content)) {
+        const quality = resumeQualityCheck(resume.content)
+        workflow.lastQuality = quality
         markVerified('check')
       }
-      return jsonResult({ root, resumePath: resume.path, ...resumeQualityCheck(resume.content) })
+      return jsonResult({ root, resumePath: resume.path, ...resumeQualityCheck(resume.content), completionAllowed: false, nextTool: 'resume_render' })
     },
   )
 
@@ -440,6 +482,13 @@ export function createResumeMcpServer(options = {}) {
       })
       const previewRuntime = onRendered ? await onRendered(rendered) : null
       markVerified('render')
+      workflow.renderId = rendered.renderId
+      workflow.previewPath = rendered.previewPath
+      workflow.renderContentHash = rendered.contentHash
+      workflow.renderSourceHash = workflow.resumeHash
+      workflow.lastMetrics = null
+      workflow.lastDecision = null
+      workflow.status = 'verification_pending'
       return jsonResult({
         root,
         resumePath: rendered.resumePath,
@@ -450,7 +499,9 @@ export function createResumeMcpServer(options = {}) {
         bytes: rendered.bytes,
         templateId: effectiveTemplateId || null,
         ...(previewRuntime ? { previewRuntime } : {}),
-        message: 'Preview rendered. Use the DSH preview panel or a browser to inspect A4 metrics; this tool does not export PDF.',
+        completionAllowed: false,
+        nextTool: 'resume_metrics',
+        message: 'Preview rendered. Call resume_metrics for the current render; final delivery remains blocked until resume_finalize accepts real A4 metrics.',
       })
     },
   )
@@ -458,7 +509,7 @@ export function createResumeMcpServer(options = {}) {
   server.registerTool(
     'resume_metrics',
     {
-      description: 'Return the latest browser-measured A4 metrics when hosted by DSH; standalone MCP returns pending because it has no browser preview runtime.',
+      description: 'Return the latest browser-measured A4 metrics for the current render. Pending, stale, sparse, or overfull metrics never count as final delivery; call resume_finalize after an accepted measurement.',
       inputSchema: z.object({
         previewPath: z.string().optional().describe('Preview HTML path relative to the jobhunt root. Defaults to preview.html.'),
         ...rootInput,
@@ -466,19 +517,105 @@ export function createResumeMcpServer(options = {}) {
     },
     async ({ previewPath, rootDir }) => {
       const root = resolveToolRoot(rootDir)
-      const requestedPreviewPath = previewPath || 'preview.html'
+      const requestedPreviewPath = previewPath || workflow.previewPath || 'preview.html'
       if (resolveMetrics) {
         const measured = await resolveMetrics({ root, previewPath: requestedPreviewPath })
-        return jsonResult({ root, previewPath: requestedPreviewPath, ...measured, decision: layoutDecision(measured) })
+        const decision = layoutDecision(measured)
+        const identity = metricIdentity(measured)
+        const identityMatches = Boolean(
+          workflow.rendered
+          && identity.renderId
+          && identity.contentHash
+          && identity.renderId === String(workflow.renderId || '')
+          && identity.contentHash === String(workflow.renderContentHash || workflow.resumeHash || '')
+          && (!identity.previewPath || identity.previewPath === String(workflow.previewPath || requestedPreviewPath).replace(/\\/g, '/')),
+        )
+        workflow.lastMetrics = { ...measured, identityMatched: identityMatches }
+        workflow.lastDecision = decision
+        workflow.completionAllowed = false
+        workflow.status = decision.state === 'accepted' && identityMatches ? 'ready' : decision.state === 'pending' ? 'verification_pending' : decision.state === 'accepted' ? 'verification_stale' : 'needs_revision'
+        return jsonResult({
+          root,
+          previewPath: requestedPreviewPath,
+          ...measured,
+          decision,
+          identityMatched: identityMatches,
+          completionAllowed: false,
+          nextTool: decision.state === 'accepted' && identityMatches ? 'resume_finalize' : 'resume_metrics',
+        })
       }
       const pending = {
         root,
         previewPath: requestedPreviewPath,
         available: false,
         status: 'pending',
-        message: 'Browser-measured A4 metrics are owned by the DSH preview runtime and are not shared through the standalone stdio MCP process yet.',
+          message: 'Browser-measured A4 metrics are owned by the DSH preview runtime. Open the HTTP previewUrl returned by resume_render; standalone stdio MCP cannot invent page count.',
       }
-      return jsonResult({ ...pending, decision: layoutDecision(pending) })
+      workflow.lastMetrics = { ...pending, identityMatched: false }
+      workflow.lastDecision = layoutDecision(pending)
+      workflow.status = 'verification_pending'
+      workflow.completionAllowed = false
+      return jsonResult({ ...pending, decision: workflow.lastDecision, completionAllowed: false, nextTool: 'resume_metrics' })
+    },
+  )
+
+  server.registerTool(
+    'resume_finalize',
+    {
+      description: 'Perform the final resume delivery gate. This is read-only and never changes files. It returns accepted only after current content has been checked, current preview has been rendered, and matching browser A4 metrics prove one readable page without overflow or sparse layout.',
+      inputSchema: z.object({
+        resumePath: z.string().optional().describe('Resume Markdown path relative to the jobhunt root. Defaults to the prepared resume.'),
+        previewPath: z.string().optional().describe('Preview path relative to the jobhunt root. Defaults to the latest prepared render.'),
+        ...rootInput,
+      }),
+    },
+    async ({ resumePath, previewPath, rootDir }) => {
+      const root = resolveToolRoot(rootDir)
+      const gate = await requirePrepared(root, resumePath, 'resume_finalize')
+      if (!gate.ok) return jsonResult(gate.result)
+      const quality = resumeQualityCheck(gate.resume.content)
+      const currentPreview = String(previewPath || workflow.previewPath || '').replace(/\\/g, '/')
+      const blockers = []
+      if (!workflow.checked || workflow.resumeHash !== contentHash(gate.resume.content)) blockers.push({ code: 'resume_check_required', message: '当前简历内容尚未完成匹配版本的 resume_check。' })
+      if (!workflow.rendered || !workflow.renderId || workflow.renderSourceHash !== contentHash(gate.resume.content) || (currentPreview && currentPreview !== String(workflow.previewPath || '').replace(/\\/g, '/'))) {
+        blockers.push({ code: 'resume_render_required', message: '当前简历内容或预览版本已变化，必须重新 resume_render。' })
+      }
+      if (!workflow.lastMetrics || workflow.lastMetrics.identityMatched !== true) blockers.push({ code: 'matching_metrics_required', message: '尚未收到与当前 renderId/contentHash 匹配的真实浏览器指标；请打开 HTTP previewUrl 后重试 resume_metrics。' })
+      const decision = workflow.lastDecision || layoutDecision(workflow.lastMetrics || {})
+      if (decision.state !== 'accepted') blockers.push({ code: `layout_${decision.state}`, message: decision.next })
+      if (!quality.passed) blockers.push({ code: 'content_preflight_failed', message: '简历内容检查未通过，请先处理 resume_check 返回的问题。' })
+      if (blockers.length) {
+        workflow.status = decision.state === 'pending' ? 'verification_pending' : 'needs_revision'
+        workflow.completionAllowed = false
+        return jsonResult({
+          accepted: false,
+          blocked: true,
+          status: workflow.status,
+          completionAllowed: false,
+          root,
+          resumePath: gate.path,
+          previewPath: currentPreview || workflow.previewPath,
+          blockers,
+          nextTools: ['resume_check', 'resume_render', 'resume_metrics', 'resume_finalize'],
+        })
+      }
+      workflow.status = 'accepted'
+      workflow.requiresVerification = false
+      workflow.completionAllowed = true
+      return jsonResult({
+        accepted: true,
+        blocked: false,
+        status: 'accepted',
+        completionAllowed: true,
+        root,
+        resumePath: gate.path,
+        previewPath: currentPreview || workflow.previewPath,
+        contentHash: workflow.resumeHash,
+        renderId: workflow.renderId,
+        metrics: workflow.lastMetrics,
+        decision,
+        message: '当前版本已完成 A4 和内容验收，可以向用户汇报为已完成。',
+      })
     },
   )
 

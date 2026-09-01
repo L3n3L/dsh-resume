@@ -623,6 +623,7 @@ test('preview document carries an explicit preview path for metrics association'
   assert.match(html, /data-preview-path="companies\/frontend\/preview\.html"/)
   assert.match(html, /resumeDocument = document\.querySelector\('\.resume-document'\)/)
   assert.match(html, /fetch\('\/dsh-resume\/api\/metrics'/)
+  assert.match(html, /dsh-resume-metrics-error/)
   assert.match(html, /safeColor = \(value, fallback\)/)
   assert.match(html, /query\.get\('backgroundColor'\)/)
   assert.match(html, /dsh-resume-token-preview/)
