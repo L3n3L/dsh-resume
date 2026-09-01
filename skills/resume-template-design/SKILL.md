@@ -11,7 +11,15 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 
 当用户提出以下意图时使用：生成模板、重做模板、参考某种视觉、模板不精致、模板相似、调整 A4 密度、比较候选模板、验收截图。
 
-不要把它当成普通 Markdown 改写 Skill。除非用户明确要求，否则不要改变简历事实，不要为了塞满页面编造经历。
+不要把它当成普通 Markdown 改写 Skill。模板工作不应擅自改变事实，但可以配合主 Agent 把有依据的经历写得更职业化、更有成果感；不为了塞满页面编造经历。
+
+## 内容契约的视觉接口
+
+简历正文的岗位判断、证据优先级、模块顺序、项目保留和压缩规则，以 dsh-resume 的 `resume_guide` 主契约为唯一权威；本 Skill 不再维护第二套写作规则。模板只负责把已经决定的内容排得清楚，不得通过换模板改变内容取舍。
+
+当内容与页面发生冲突时，视觉层优先微调当前模板，再迭代或更换模板；只有可读模板方案仍无法承载时，才回到主契约压缩低信号文本。所有排版调整都应保持关键证据和可读字号，不能用失真的排版掩盖内容问题。
+
+“压缩”优先指结构和呈现的压缩：单栏页面可用 `flow.layout: "balanced-footer"` 将核心经历保持全宽，把技能、荣誉等支撑模块并列放入剩余行；随后才调整字号、行距、页边距和模块间距。不得先删除或改写实习与关键项目的证据，也不得用人为底部留白冒充版面完成。
 
 ## 图标协议
 
@@ -37,7 +45,7 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 先明确四件事：
 
 1. 目标岗位和使用场景：校招、工程、产品、设计、运营、学术或社招；
-2. 信息密度：紧凑、标准或舒展，以及是否必须一页；
+2. 信息密度：紧凑、标准或舒展，以及一页是偏好还是明确硬要求；
 3. 内容主角：教育、项目成果、时间线、个人品牌、技能或案例；
 4. 一个可复述的视觉语言：例如“深色信息头 + 金色时间线”，而不是“换成蓝色”。
 
@@ -62,7 +70,7 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 {
   "page": { "size": "A4", "column": "single", "density": "compact", "margin": { "top": 34, "right": 40, "bottom": 34, "left": 40 } },
   "header": { "variant": "masthead", "alignment": "left", "identity": "stacked", "contact": "inline" },
-  "flow": { "order": ["profile", "summary", "experience", "projects", "education", "skills"], "keepEntryTogether": true, "avoidSectionOrphans": true },
+  "flow": { "layout": "balanced-footer", "order": ["profile", "summary", "experience", "projects", "education", "skills", "awards"], "keepEntryTogether": true, "avoidSectionOrphans": true },
   "modules": { "section": "numbered-rail", "experience": "timeline", "projects": "feature-first", "skills": "grouped-chips" },
   "visual": { "family": "editorial", "typeScale": "display", "ruleStyle": "hairline", "accentMode": "marker" }
 }
@@ -93,7 +101,7 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 - 首屏是否知道“这个人是谁、投什么岗位”；
 - 项目标题、角色、日期、技术栈和结果是否一眼可扫；
 - 模块是否有节奏，正文是否过松或挤成墙；
-- 是否恰好一页，不能溢出，也不能留下明显无意义的底部空白；
+- 如果用户明确要求一页，是否恰好一页、没有溢出且没有明显无意义的底部空白；如果没有明确要求，优先检查内容完整性和可读性，不把一页当成硬闸门；
 - 双栏/网格是否真的形成信息组织，而不是两列重复单栏；
 - 深色模板是否有足够对比度，打印是否能读。
 

@@ -14,6 +14,7 @@
     "index.js",
     "client",
     "lib",
+    "mcp-server",
     "cordis.patch.yml",
     "README.md",
     "DESIGN.zh.md",
@@ -46,7 +47,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "mcp": "node mcp-server/index.js"
   },
   "dsh": {
     "bundle": {
@@ -68,7 +70,9 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
-    "markdown-it": "^14.1.0"
+    "@modelcontextprotocol/server": "^2.0.0",
+    "markdown-it": "^14.1.0",
+    "zod": "^4.4.3"
   },
   "author": "L3n3L"
 }
