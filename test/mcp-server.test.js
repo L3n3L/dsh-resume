@@ -80,6 +80,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
     'resume_render',
     'resume_metrics',
     'resume_finalize',
+    'resume_save_version',
     'layout_validate',
     'template_list',
     'template_family_list',
@@ -105,7 +106,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   assert.equal(guide.result.isError, undefined)
   const guidePayload = JSON.parse(guide.result.content[0].text)
   assert.equal(guidePayload.guide, 'dsh-resume-workflow')
-   assert.equal(guidePayload.version, '1.8.0')
+   assert.equal(guidePayload.version, '1.9.0')
   assert.match(guidePayload.contract, /简历业务主契约/)
   assert.ok(guidePayload.sections.workflow.some((step) => step.tools.includes('resume_check')))
 
@@ -142,7 +143,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
 
   const prepared = await call('resume_prepare', { rootDir: fixtureRoot, resumePath: 'resume.md', templateId: 'campus-standard' })
   assert.equal(prepared.prepared, true)
-    assert.equal(prepared.guide.version, '1.8.0')
+    assert.equal(prepared.guide.version, '1.9.0')
   assert.equal(prepared.preflight.passed, true)
 
   const copied = await call('template_copy', { rootDir: fixtureRoot, sourceId: 'campus-standard', newId: 'mcp-test-template', name: 'MCP 测试模板' })
@@ -177,6 +178,20 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   const rendered = await call('resume_render', { rootDir: fixtureRoot })
   assert.equal(rendered.previewPath, 'preview.html')
   assert.ok(rendered.bytes > 0)
+
+  const delivery = await call('resume_save_version', {
+    rootDir: fixtureRoot,
+    resumePath: 'resume.md',
+    mode: 'copy',
+    name: 'MCP 测试投递版',
+    templateId: 'mcp-test-template',
+  })
+  assert.equal(delivery.saved, true)
+  assert.equal(delivery.version.kind, 'delivery')
+  assert.equal(delivery.version.presentation.templateId, 'mcp-test-template')
+  assert.match(delivery.version.resumePath, /^companies\/mcp-测试投递版\/resume\.md$/)
+  const copiedResume = await call('resume_read', { rootDir: fixtureRoot, path: delivery.version.resumePath })
+  assert.equal(copiedResume.content, resumeContent)
 
   server.child.stdin.end()
   await once(server.child, 'close')

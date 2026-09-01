@@ -8,12 +8,13 @@ import * as z from 'zod/v4'
 import { inspectIconTokens, listIconTokens } from '../lib/icons/registry.js'
 import { validateLayoutSpec } from '../lib/layout-schema.js'
 import { resumeQualityCheck } from '../lib/quality.js'
-import { renderPreview } from '../lib/renderer.js'
+import { renderPreview, renderPreviewUnlocked } from '../lib/renderer.js'
 import { applyPresentationOverride, getPresentationOverride, loadPresentation, savePresentationOverride } from '../lib/presentation.js'
 import { autoTuneTemplate } from '../lib/autotune.js'
 import { auditTemplateCss, generateTemplateCandidate, validateDesignBrief } from '../lib/template-generation.js'
 import { listThemeFamilies } from '../lib/theme-system.js'
 import { copyTemplate, listAvailableTemplates, listTemplateVersions, loadTemplate, restoreLatestTemplate, restoreTemplateVersion, saveTemplate, validateTemplate } from '../lib/template-presets.js'
+import { loadResumeVersionRegistry, makeVersionRecord, nextDeliveryPaths, previewPathForResume, saveResumeVersionRegistry, versionPresentationSnapshot } from '../lib/resume-versions.js'
 import { getResumeGuide, RESUME_MCP_INSTRUCTIONS } from '../lib/resume-guide.js'
 import { withWorkspaceLock } from '../lib/workspace-lock.js'
 import { getWorkspaceInfo, initJobhunt, readJobhuntFile, resolveJobhuntRoot, writeJobhuntFile } from '../lib/workspace.js'
@@ -171,7 +172,7 @@ export function createResumeMcpServer(options = {}) {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
-    instructions: `${RESUME_MCP_INSTRUCTIONS}\nFinal delivery rule: after any mutation, the Agent must call resume_check → resume_render → resume_metrics → resume_finalize. Only resume_finalize returning accepted=true and completionAllowed=true permits claiming the resume is complete; otherwise continue or report the exact blocker.`,
+    instructions: `${RESUME_MCP_INSTRUCTIONS}\nFinal delivery rule: after any mutation, the Agent must call resume_check → resume_render → resume_metrics → resume_finalize. Only resume_finalize returning accepted=true and completionAllowed=true permits claiming the resume is complete; otherwise continue or report the exact blocker. Version rule: MCP writes remain drafts by default. Only when the user explicitly asks to save/duplicate a delivery version may the Agent call resume_save_version; it binds content, template, template lineage, and presentation parameters, then the returned version path must be verified again.`,
   })
 
   async function requirePrepared(root, resumePath, action) {
@@ -615,6 +616,111 @@ export function createResumeMcpServer(options = {}) {
         metrics: workflow.lastMetrics,
         decision,
         message: '当前版本已完成 A4 和内容验收，可以向用户汇报为已完成。',
+      })
+    },
+  )
+
+  server.registerTool(
+    'resume_save_version',
+    {
+      description: 'Explicitly persist the current prepared resume as a delivery version, including its content, selected template, template revision lineage, and per-resume presentation parameters. This is never automatic after resume_write; use mode=copy for an isolated delivery file or mode=current to update the current version record.',
+      inputSchema: z.object({
+        name: z.string().optional().describe('Human-readable delivery version name. Defaults to the existing name or 投递版本.'),
+        mode: z.enum(['current', 'copy']).optional().describe('current updates the prepared resume version record; copy creates a new companies/<name>/resume.md delivery file.'),
+        resumePath: z.string().optional().describe('Prepared resume Markdown path relative to the jobhunt root.'),
+        templateId: z.string().optional().describe('Template to bind to this version. Defaults to the currently active template.'),
+        ...rootInput,
+      }),
+    },
+    async ({ name, mode, resumePath, templateId, rootDir }) => {
+      const root = resolveToolRoot(rootDir)
+      const gate = await requirePrepared(root, resumePath, 'resume_save_version')
+      if (!gate.ok) return jsonResult(gate.result)
+      const saveMode = mode === 'copy' ? 'copy' : 'current'
+      const requestedName = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 80)
+      const presentation = await loadPresentation(root)
+      const effectiveTemplateId = String(templateId || presentation.activeTemplateId || '').trim() || null
+      const result = await withWorkspaceLock(root, async () => {
+        const registry = await loadResumeVersionRegistry(root)
+        const sourcePath = gate.path
+        const previous = registry.versions.find((version) => version.resumePath === sourcePath)
+        let targetResumePath = sourcePath
+        let targetPreviewPath = previewPathForResume(targetResumePath)
+        let savedFile = null
+        const versionName = requestedName || previous?.name || '投递版本'
+        if (saveMode === 'copy') {
+          let copyPaths = nextDeliveryPaths(versionName, registry)
+          let suffix = 2
+          while (true) {
+            try {
+              await readJobhuntFile(root, copyPaths.resumePath)
+              copyPaths = nextDeliveryPaths(`${versionName}-${suffix++}`, registry)
+            } catch (error) {
+              if (error?.code === 'ENOENT') break
+              throw error
+            }
+          }
+          targetResumePath = copyPaths.resumePath
+          targetPreviewPath = copyPaths.previewPath
+          savedFile = await writeJobhuntFile(root, targetResumePath, gate.resume.content)
+        }
+        let template = null
+        if (effectiveTemplateId) {
+          template = applyPresentationOverride(
+            await loadTemplate(root, effectiveTemplateId),
+            presentation,
+            effectiveTemplateId,
+            sourcePath,
+          )
+        }
+        const snapshot = versionPresentationSnapshot({
+          templateId: effectiveTemplateId,
+          presentation,
+          resumePath: sourcePath,
+          template,
+        })
+        const rendered = await renderPreviewUnlocked(root, {
+          resumePath: targetResumePath,
+          outPath: targetPreviewPath,
+          templateSpec: template,
+          initialIconTuning: snapshot.iconTuning || {},
+        })
+        const version = makeVersionRecord({
+          id: saveMode === 'current' ? previous?.id : undefined,
+          name: versionName,
+          resumePath: targetResumePath,
+          previewPath: targetPreviewPath,
+          content: gate.resume.content,
+          presentation: snapshot,
+          previous: saveMode === 'current' ? previous : undefined,
+        })
+        const withoutSamePath = registry.versions.filter((item) => item.resumePath !== targetResumePath)
+        await saveResumeVersionRegistry(root, { ...registry, versions: [version, ...withoutSamePath] })
+        return { savedFile, rendered, version, snapshot }
+      })
+      const contentHashValue = contentHash(gate.resume.content)
+      markMutation('resume_save_version', result.version.resumePath, contentHashValue)
+      workflow.prepared = true
+      workflow.root = root
+      workflow.resumePath = result.version.resumePath
+      workflow.resumeHash = contentHashValue
+      workflow.checked = false
+      workflow.rendered = true
+      workflow.renderId = result.rendered.renderId
+      workflow.previewPath = result.rendered.previewPath
+      workflow.renderContentHash = result.rendered.contentHash
+      workflow.renderSourceHash = contentHashValue
+      workflow.status = 'verification_pending'
+      return jsonResult({
+        saved: true,
+        mode: saveMode,
+        root,
+        version: result.version,
+        rendered: result.rendered,
+        ...(result.savedFile ? { savedFile: result.savedFile } : {}),
+        verificationRecommended: true,
+        nextTools: ['resume_check', 'resume_render', 'resume_metrics', 'resume_finalize'],
+        message: '投递版本已保存，内容、模板和排版参数已绑定；请对新版本重新完成 A4 验收。',
       })
     },
   )

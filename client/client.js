@@ -1919,6 +1919,12 @@ window.__ModuleLoader__.load({
       }, [reloadResumeVersions])
 
       useEffect(() => {
+        if (!status?.root) return undefined
+        const timer = window.setInterval(() => { void reloadResumeVersions() }, 1500)
+        return () => window.clearInterval(timer)
+      }, [reloadResumeVersions, status?.root])
+
+      useEffect(() => {
         if (!status?.root || status.root === presentationRoot) return
         let active = true
         setPresentationRoot('')
