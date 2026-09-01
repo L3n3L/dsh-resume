@@ -18,6 +18,7 @@ import { inspectIconTokens, listIconTokens } from '../lib/icons/registry.js'
 import { applyPresentationOverride, loadPresentation, presentationWithOverride, savePresentationOverride } from '../lib/presentation.js'
 import { listResumeVersions, loadResumeVersionRegistry } from '../lib/resume-versions.js'
 import { resumeQualityCheck } from '../lib/quality.js'
+import { RESUME_AGENT_CONTRACT } from '../lib/resume-guide.js'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -100,6 +101,38 @@ test('status follows the last explicitly touched workspace when no root is provi
     await statusRoute.handler({ method: 'GET', url: '/dsh-resume/api/status' }, response)
     assert.equal(response.status, 200)
     assert.equal(response.result.root, path.normalize(root))
+  } finally {
+    rememberWorkspaceRoot(null)
+    previewState.clear()
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('external MCP renders register metrics without stealing the selected preview', async () => {
+  previewState.clear()
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-preview-selection-'))
+  try {
+    await initJobhunt(root)
+    await fs.writeFile(path.join(root, 'preview.html'), '<!doctype html>')
+    await fs.mkdir(path.join(root, 'companies/other'), { recursive: true })
+    await fs.writeFile(path.join(root, 'companies/other/preview.html'), '<!doctype html>')
+    await savePresentationOverride(root, {
+      templateId: 'campus-standard',
+      activeTemplateId: 'campus-standard',
+      activePreviewPath: 'preview.html',
+      activeOnly: true,
+    })
+    assert.equal((await loadPresentation(root)).activePreviewPath, 'preview.html')
+    const routes = []
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
+    const statusRoute = routes.find((route) => route.path === '/dsh-resume/api/status')
+    rememberPreview(root, 'preview.html', { renderId: 'selected-render', contentHash: 'selected-hash' })
+    rememberPreview(root, 'companies/other/preview.html', { renderId: 'external-render', contentHash: 'external-hash' }, { activate: false })
+    const response = { result: null, writeHead(status) { this.status = status }, end(body) { this.result = JSON.parse(body) } }
+    await statusRoute.handler({ method: 'GET', url: `/dsh-resume/api/status?root=${encodeURIComponent(root)}` }, response)
+    assert.equal(response.result.previewRel, 'preview.html')
+    assert.equal(response.result.renderId, 'selected-render')
+    assert.equal(getLatestMetrics(root, 'companies/other/preview.html').renderId, 'external-render')
   } finally {
     rememberWorkspaceRoot(null)
     previewState.clear()
@@ -751,19 +784,23 @@ test('resume writing guidance protects evidence and treats one page as a soft ta
 
 test('resume prompt allows evidence-grounded strengthening without fabrication', async () => {
   const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
-  assert.match(source, /Limited, defensible strengthening/)
-  assert.match(source, /A single A4 page is a campus-recruiting preference/)
-  assert.match(source, /evidence atoms/)
-  assert.match(source, /The agent may adjust these settings/)
+  assert.match(source, /RESUME_AGENT_CONTRACT/)
+  assert.match(RESUME_AGENT_CONTRACT, /有限、可解释的职业化强化/)
+  assert.match(RESUME_AGENT_CONTRACT, /一页是校招常见偏好/)
+  assert.match(RESUME_AGENT_CONTRACT, /证据台账/)
+  assert.match(RESUME_AGENT_CONTRACT, /字号、大小、offsetY、CSS 属于排版设置/)
+  assert.match(RESUME_AGENT_CONTRACT, /先微调当前模板/)
+  assert.match(RESUME_AGENT_CONTRACT, /实在无法承载|才压缩文本/)
 })
 
 test('resume prompt discovers exact brand icons and omits unregistered substitutes', async () => {
   const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
   const guide = await import('../lib/resume-guide.js')
-  assert.match(source, /scan factual entities.*employer\/company, school, project\/platform/i)
-  assert.match(source, /exact registered brand match.*by default/i)
-  assert.match(source, /no exact registered token exists, omit the brand icon/i)
-  assert.match(source, /never substitute a similar company.*icon/i)
+  assert.match(RESUME_AGENT_CONTRACT, /精确 token/)
+  assert.match(RESUME_AGENT_CONTRACT, /例如已确认的智联招聘使用 \[icon:zhaopin\]/)
+  assert.match(RESUME_AGENT_CONTRACT, /找不到精确匹配就省略/)
+  assert.match(RESUME_AGENT_CONTRACT, /不能猜 slug/)
+  assert.match(source, /jobhunt_icon_list/)
   assert.match(guide.getResumeGuide('icons').sections.icons.join('\n'), /exact registered brand token exists/i)
   assert.match(guide.getResumeGuide('icons').sections.icons.join('\n'), /no exact registered token exists/i)
 })
@@ -771,16 +808,24 @@ test('resume prompt discovers exact brand icons and omits unregistered substitut
 test('resume prompt preserves campus section order and explicitly requested projects', async () => {
   const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
   const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
-  assert.match(source, /education.*internship\/work experience.*project experience.*skills.*awards/i)
+  assert.match(RESUME_AGENT_CONTRACT, /教育经历 → 实习\/工作经历 → 项目经历 → 专业技能 → 荣誉奖项/)
   assert.match(clientSource, /教育经历.*实习\/工作经历.*项目经历.*专业技能.*荣誉奖项/)
-  for (const text of [source, clientSource]) {
-    assert.match(text, /用户.*要求.*三个.*项目|three projects/i)
+  for (const text of [clientSource, RESUME_AGENT_CONTRACT]) {
+    assert.match(text, /用户.*明确.*保留.*项目.*逐个保留|用户.*要求.*三个.*项目|three projects/i)
     assert.match(text, /不得.*静默.*合并.*改名.*删除|do not silently merge, rename, or drop projects/i)
   }
   const guide = await import('../lib/resume-guide.js')
   const payload = guide.getResumeGuide('structure')
   assert.deepEqual(payload.sections.structure.defaultCampusOrder, ['profile', 'education', 'experience', 'projects', 'skills', 'awards'])
   assert.match(payload.sections.structure.projectRetention, /不得静默删除/)
+})
+
+test('resume prompt is role-agnostic and uses the target role as a lens', () => {
+  assert.match(RESUME_AGENT_CONTRACT, /通用，唯一权威/)
+  assert.match(RESUME_AGENT_CONTRACT, /不要默认候选人是 AI 产品经理/)
+  assert.match(RESUME_AGENT_CONTRACT, /岗位类型只决定/)
+  assert.match(RESUME_AGENT_CONTRACT, /研发岗位突出系统/)
+  assert.match(RESUME_AGENT_CONTRACT, /不得把不存在的职责补进去/)
 })
 
 test('template APIs keep gallery reads and mutations bound to the requested workspace root', async () => {
@@ -1193,6 +1238,7 @@ test('new single-column templates expose and consume the page design specificati
   assert.equal(pageSpec.flow.keepEntryTogether, true)
   assert.equal(validateCompositionPageSpec(pageSpec).valid, true)
   assert.equal(validateCompositionPageSpec({ page: { column: 'split' } }).valid, false)
+  assert.equal(validateCompositionPageSpec({ flow: { layout: 'not-a-flow' } }).valid, false)
 
   const html = renderTemplateLayout({
     template: result.template,
@@ -1230,6 +1276,27 @@ test('generic composition renderer owns page structure for stack, split, and gri
     assert.match(html, /dsh-composed-layout/, brief.name)
     assert.match(html, new RegExp(marker), brief.name)
   }
+})
+
+test('campus single-column flow packs supporting modules into the remaining row', () => {
+  const template = getTemplatePreset('campus-standard')
+  const pageSpec = template.composition.pageSpec
+  assert.equal(pageSpec.flow.layout, 'balanced-footer')
+  assert.equal(validateCompositionPageSpec(pageSpec).valid, true)
+  const html = renderTemplateLayout({
+    template,
+    layout: template.layout,
+    header: '<header class="header-block"></header>',
+    ordered: [
+      { id: 'projects', sourceId: 'projects', type: 'projects', html: '<section data-module-id="projects"></section>' },
+      { id: 'skills', sourceId: 'skills', type: 'skills', html: '<section data-module-id="skills"></section>' },
+      { id: 'awards', sourceId: 'section-6', type: 'custom-section', html: '<section data-module-id="section-6"></section>' },
+    ],
+  })
+  assert.match(html, /data-page-flow-layout="balanced-footer"/)
+  assert.match(html, /data-flow-layout="balanced-footer"/)
+  assert.match(html, /data-module-source="skills" data-module-type="skills"/)
+  assert.match(html, /data-module-source="section-6" data-module-type="custom-section"/)
 })
 
 test('new visual directions are selected from design briefs', () => {

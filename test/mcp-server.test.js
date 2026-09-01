@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process'
 import test from 'node:test'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createResumeMcpServer } from '../mcp-server/index.js'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
 const PACKAGE_ROOT = path.resolve(ROOT, '..')
@@ -79,6 +80,16 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
     'resume_metrics',
     'layout_validate',
     'template_list',
+    'template_family_list',
+    'template_validate',
+    'template_generate',
+    'template_save',
+    'template_copy',
+    'template_versions',
+    'template_restore',
+    'layout_save',
+    'presentation_save',
+    'template_autotune',
     'icon_list',
   ])
 
@@ -92,7 +103,8 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   assert.equal(guide.result.isError, undefined)
   const guidePayload = JSON.parse(guide.result.content[0].text)
   assert.equal(guidePayload.guide, 'dsh-resume-workflow')
-  assert.equal(guidePayload.version, '1.3.0')
+  assert.equal(guidePayload.version, '1.6.0')
+  assert.match(guidePayload.contract, /简历业务主契约/)
   assert.ok(guidePayload.sections.workflow.some((step) => step.tools.includes('resume_check')))
 
   const priorities = await server.request('tools/call', { name: 'resume_guide', arguments: { topic: 'priorities' } })
@@ -118,6 +130,22 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   const initializedWorkspace = await call('resume_init', { rootDir: fixtureRoot })
   assert.ok(initializedWorkspace.created.includes('resume.md'))
 
+  const templates = await call('template_list', { rootDir: fixtureRoot })
+  assert.ok(templates.templates.some((template) => template.id === 'campus-standard'))
+  const copied = await call('template_copy', { rootDir: fixtureRoot, sourceId: 'campus-standard', newId: 'mcp-test-template', name: 'MCP 测试模板' })
+  assert.equal(copied.saved, true)
+  assert.equal(copied.template.id, 'mcp-test-template')
+  const copiedTemplate = await call('resume_read', { rootDir: fixtureRoot, path: 'templates/mcp-test-template.json' })
+  const validated = await call('template_validate', { rootDir: fixtureRoot, templateJson: copiedTemplate.content })
+  assert.equal(validated.valid, true)
+  const savedPresentation = await call('presentation_save', {
+    rootDir: fixtureRoot,
+    templateId: 'mcp-test-template',
+    layoutJson: JSON.stringify({ fontSize: 13.5, lineHeight: 1.5, sectionGap: 16, pageMargin: 38 }),
+    iconTuningJson: JSON.stringify({ github: { scale: 1, offsetY: 0 } }),
+  })
+  assert.equal(savedPresentation.saved, true)
+
   const resumeContent = '# 测试候选人\n\n## 项目经历\n\n- 完成简历制作闭环测试\n'
   const saved = await call('resume_write', { rootDir: fixtureRoot, path: 'resume.md', content: resumeContent })
   assert.equal(saved.saved, true)
@@ -135,4 +163,31 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
 
   server.child.stdin.end()
   await once(server.child, 'close')
+})
+
+test('MCP render can register preview state and return shared browser metrics when hosted by DSH', async () => {
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-runtime-'))
+  try {
+    const server = createResumeMcpServer({
+      resolveRoot: () => fixtureRoot,
+      onRendered: (rendered) => ({ registered: true, renderId: rendered.renderId }),
+      resolveMetrics: ({ previewPath }) => ({ available: true, status: 'measured', previewPath, metrics: { pageCount: 1, fit: true } }),
+    })
+    const tool = (name) => server._registeredTools[name].handler
+    await tool('resume_init')({})
+    await tool('resume_write')({ path: 'resume.md', content: '# 测试候选人\n\n## 项目经历\n\n- 完成简历制作闭环测试\n' })
+
+    const rendered = await tool('resume_render')({ resumePath: 'resume.md' })
+    const renderedPayload = JSON.parse(rendered.content[0].text)
+    assert.equal(renderedPayload.previewRuntime.registered, true)
+    assert.equal(renderedPayload.previewRuntime.renderId, renderedPayload.renderId)
+
+    const measured = await tool('resume_metrics')({ previewPath: 'preview.html' })
+    const measuredPayload = JSON.parse(measured.content[0].text)
+    assert.equal(measuredPayload.available, true)
+    assert.equal(measuredPayload.metrics.pageCount, 1)
+    assert.equal(measuredPayload.metrics.fit, true)
+  } finally {
+    await fs.rm(fixtureRoot, { recursive: true, force: true })
+  }
 })

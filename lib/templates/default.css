@@ -73,6 +73,19 @@ html, body {
 .dsh-composed-layout { min-width: 0; }
 .dsh-composed-modules { min-width: 0; }
 .dsh-composed-modules.dsh-layout-stack { display: grid; gap: var(--resume-section-gap); }
+.dsh-composed-modules.dsh-layout-stack[data-flow-layout="balanced-footer"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: max(16px, var(--resume-section-gap));
+  row-gap: var(--resume-section-gap);
+  align-items: start;
+}
+.dsh-composed-modules.dsh-layout-stack[data-flow-layout="balanced-footer"] > [data-module-source]:not([data-module-source="skills"]):not([data-module-type="custom-section"]) {
+  grid-column: 1 / -1;
+}
+.dsh-composed-modules.dsh-layout-stack[data-flow-layout="balanced-footer"] > [data-module-source="skills"],
+.dsh-composed-modules.dsh-layout-stack[data-flow-layout="balanced-footer"] > [data-module-type="custom-section"] {
+  grid-column: span 1;
+}
 .dsh-composed-modules.dsh-layout-grid { display: grid; grid-template-columns: repeat(var(--layout-grid-columns, 2), minmax(0, 1fr)); gap: var(--layout-gap, 20px); align-items: start; }
 .dsh-composed-modules.dsh-layout-split { min-width: 0; }
 .dsh-entry-rail { position: relative; min-width: 0; break-inside: avoid; }

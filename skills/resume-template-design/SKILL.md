@@ -13,29 +13,13 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 
 不要把它当成普通 Markdown 改写 Skill。模板工作不应擅自改变事实，但可以配合主 Agent 把有依据的经历写得更职业化、更有成果感；不为了塞满页面编造经历。
 
-## 简历内容优先级与篇幅预算
+## 内容契约的视觉接口
 
-模板为内容服务。遇到“更满”“刚好一页”“更像某类简历”等目标时，按以下顺序决策：
+简历正文的岗位判断、证据优先级、模块顺序、项目保留和压缩规则，以 dsh-resume 的 `resume_guide` 主契约为唯一权威；本 Skill 不再维护第二套写作规则。模板只负责把已经决定的内容排得清楚，不得通过换模板改变内容取舍。
 
-1. 事实有依据且表达可以被用户解释；
-2. 目标岗位相关性和证据密度；
-3. HR 快速扫描的清晰度；
-4. 字体、行距、留白和模块完整性；
-5. 页数，一页只是校招偏好；
-6. 图标、颜色和其他装饰。
+当内容与页面发生冲突时，视觉层优先微调当前模板，再迭代或更换模板；只有可读模板方案仍无法承载时，才回到主契约压缩低信号文本。所有排版调整都应保持关键证据和可读字号，不能用失真的排版掩盖内容问题。
 
-写作可以使用更有力度的动词、明确个人负责范围、合并同义事实，并把动作和结果连接起来。允许基于原始材料做有限度的合理强化，但不能凭空新增数字、规模、职责、技术栈、结果或项目范围；拿不准的强化表达交给用户确认。
-
-起草时使用软预算：最相关的实习/工作通常 3～5 条要点，次要经历 1～3 条；最强项目通常 2～3 条要点，次要项目 1～2 条；每条尽量控制在渲染后的 1～2 行。压缩时先保留背景、个人负责范围、动作、方法/技术、结果/指标、产物/链接等证据原子，再合并重复、删除低信号和低相关内容，最后才调排版。如果仍无法在可读且证据完整的前提下放入一页，应保留多页。
-
-### 校招内容结构硬规则
-
-- 当前学生且有目标岗位相关实习时，默认模块顺序为：个人信息 → 教育经历 → 实习/工作经历 → 项目经历 → 专业技能 → 荣誉奖项。
-- 只有项目与目标岗位明显更相关，或没有相关实习时，才把项目放到实习前；调整必须在交付说明中写出理由。
-- 技能和荣誉是辅助证据，默认不能排在相关实习和项目之前；模板的 `moduleOrder` 不能覆盖内容决策。
-- 用户明确要求保留的项目必须逐个保留为具名条目。页面不足时先压缩次要项目到一条高信号要点，不得静默合并或删除。
-- 每个保留项目至少保留名称、角色/负责范围、时间和问题—行动—结果或链接中的关键证据。
-- 写入前建立内容地图，记录模块顺序、保留项目数、合并/省略项和原因；交付时同步说明。
+“压缩”优先指结构和呈现的压缩：单栏页面可用 `flow.layout: "balanced-footer"` 将核心经历保持全宽，把技能、荣誉等支撑模块并列放入剩余行；随后才调整字号、行距、页边距和模块间距。不得先删除或改写实习与关键项目的证据，也不得用人为底部留白冒充版面完成。
 
 ## 图标协议
 
@@ -86,7 +70,7 @@ description: Design, improve, compare, or visually validate dsh-resume templates
 {
   "page": { "size": "A4", "column": "single", "density": "compact", "margin": { "top": 34, "right": 40, "bottom": 34, "left": 40 } },
   "header": { "variant": "masthead", "alignment": "left", "identity": "stacked", "contact": "inline" },
-  "flow": { "order": ["profile", "summary", "experience", "projects", "education", "skills"], "keepEntryTogether": true, "avoidSectionOrphans": true },
+  "flow": { "layout": "balanced-footer", "order": ["profile", "summary", "experience", "projects", "education", "skills", "awards"], "keepEntryTogether": true, "avoidSectionOrphans": true },
   "modules": { "section": "numbered-rail", "experience": "timeline", "projects": "feature-first", "skills": "grouped-chips" },
   "visual": { "family": "editorial", "typeScale": "display", "ruleStyle": "hairline", "accentMode": "marker" }
 }

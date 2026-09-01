@@ -232,6 +232,8 @@ AI 助手位于当前预览工作台右侧，拿到的是当前简历上下文�
 
 外部 Agent 通过 MCP 连接时不会自动读取 DSH 的 Skill。MCP 会在连接初始化时提供短版规则，并提供只读工具 `resume_guide`；Agent 首次制作简历时应先调用它，获取内容真实性、JD 匹配、写入权限、图标和 A4 排版流程。
 
+MCP 的模板能力与 DSH 内置工具保持同一套业务边界：`template_list`、`template_family_list`、`template_validate`、`template_generate`、`template_save`、`template_copy`、`template_versions`、`template_restore`、`layout_save`、`presentation_save` 和 `template_autotune`。模板结构修改通过复制后保存，内置模板不会被覆盖；字号、行距、页边距、颜色和图标微调通过呈现参数保存，不改 Markdown。核心实习和关键项目不得为了“一页”先被压缩，先用模板结构和排版承载。
+
 | 工具 | 用途 |
 | --- | --- |
 | `jobhunt_init` | 初始化求职工作区 |
