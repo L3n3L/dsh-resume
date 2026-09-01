@@ -722,7 +722,7 @@ window.__ModuleLoader__.load({
 .cj-templateCategory:hover { border-color: #9a78dd; color: #6844b7; }
 .cj-templateCategory[data-active="true"] { border-color: #162442; background: #162442; color: #fff; }
 .cj-templateEmpty { padding: 28px 12px; border: 1px dashed #dbe0e9; border-radius: 10px; color: #8a94a6; text-align: center; font-size: 12px; }
-.cj-templateCard { all: unset; box-sizing: border-box; display: block; flex: 0 0 190px; cursor: pointer; padding: 8px; border: 1px solid #e1e6ee; border-radius: 12px; background: #fff; }
+.cj-templateCard { all: unset; box-sizing: border-box; display: flex; flex: 0 0 206px; min-height: 306px; flex-direction: column; cursor: pointer; overflow: hidden; border: 1px solid #e1e6ee; border-radius: 14px; background: #fff; }
 .cj-templateCard:hover { border-color: #9db5e8; box-shadow: 0 3px 12px rgba(45,80,150,.08); }
 .cj-templateCard[data-active="true"] { border-color: #3559a8; box-shadow: 0 0 0 2px rgba(53,89,168,.12); }
 .cj-templateCard[data-compared="true"] { border-color: #9a78dd; box-shadow: 0 0 0 2px rgba(154,120,221,.14); }
@@ -742,20 +742,30 @@ window.__ModuleLoader__.load({
 .cj-templatePaper-terminal .cj-thumbRule { background: var(--thumb-accent, #c2410c); }
 .cj-templatePaper-two-column .cj-thumbLines { left: 64px; right: 28px; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
 .cj-templatePaper-two-column:after { content: ''; position: absolute; top: 29px; right: 9px; width: 18px; height: 3px; background: currentColor; box-shadow: 0 8px 0 #d7dde7, 0 16px 0 #d7dde7; }
-.cj-templateThumb { position: relative; height: 184px; overflow: hidden; border: 1px solid #e7eaf0; border-radius: 5px; background: #eef1f5; }
+.cj-templateThumb { position: relative; height: 146px; flex: 0 0 146px; overflow: hidden; border-bottom: 1px solid #e7eaf0; background: #eef1f5; }
 .cj-templateThumb iframe { position: absolute; top: 0; left: 50%; width: 794px; height: 1123px; border: 0; background: #fff; transform: translateX(-50%) scale(.2); transform-origin: top center; pointer-events: none; }
 .cj-templateThumb[data-loading="true"] { background: linear-gradient(90deg, #eef1f5 25%, #f8fafc 40%, #eef1f5 60%); background-size: 300% 100%; animation: cj-thumbLoading 1.2s ease-in-out infinite; }
 .cj-templateThumb[data-loading="true"] iframe { opacity: 1; }
 @keyframes cj-thumbLoading { from { background-position: 100% 0; } to { background-position: -100% 0; } }
-.cj-comparePreview .cj-templateThumb { height: 116px; }
+.cj-comparePreview .cj-templateThumb { height: 116px; flex-basis: 116px; }
 .cj-comparePreview .cj-templateThumb iframe { transform: translateX(-50%) scale(.12); }
-.cj-templateName { margin-top: 7px; overflow: hidden; color: #26334d; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.cj-templateCardBody { display: flex; min-height: 111px; flex-direction: column; gap: 4px; padding: 10px 11px 0; }
+.cj-templateName { margin: 0; overflow: hidden; color: #26334d; font-size: 12px; font-weight: 700; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .cj-templateCardFooter { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .cj-templateCardFooter .cj-templateName { min-width: 0; flex: 1; }
 .cj-compareButton { all: unset; flex: 0 0 auto; cursor: pointer; padding: 3px 5px; border-radius: 5px; color: #6f5aa5; font-size: 10px; }
 .cj-compareButton:hover, .cj-compareButton[data-active="true"] { background: #f0eafa; color: #6844a6; }
-.cj-templateTags { margin-top: 3px; overflow: hidden; color: #5571aa; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.cj-templateDescription { min-height: 30px; margin-top: 4px; overflow: hidden; color: #8a94a6; font-size: 10px; line-height: 15px; }
+.cj-templateTags { overflow: hidden; color: #5571aa; font-size: 10px; line-height: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.cj-templateMeta { display: flex; min-width: 0; align-items: center; gap: 5px; overflow: hidden; color: #8a94a6; font-size: 9px; line-height: 15px; white-space: nowrap; }
+.cj-templateMetaBadge { flex: 0 0 auto; padding: 2px 5px; border: 1px solid #dbe4f3; border-radius: 999px; background: #f4f7fc; color: #5571aa; line-height: 12px; }
+.cj-templateMetaSource { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cj-templateDescription { display: -webkit-box; min-height: 30px; margin: 0; overflow: hidden; color: #8a94a6; font-size: 10px; line-height: 15px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.cj-templateCardActions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: auto; padding: 10px 11px 11px; border-top: 1px solid #edf0f4; }
+.cj-templateCardActions .cj-ghostAction, .cj-templateCardActions .cj-solidAction { min-width: 0; width: 100%; height: 28px; overflow: hidden; border-radius: 7px; padding: 0 6px; text-align: center; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 28px; }
+.cj-templateCardActions .cj-ghostAction { border: 1px solid #e0e6ef; background: #fafbfe; }
+.cj-templateCardActions .cj-ghostAction:hover { background: #edf0f5; }
+.cj-templateCardActions .cj-solidAction { background: #14213d; color: #fff; }
+.cj-templateCardActions .cj-solidAction:hover { background: #23375f; }
 .cj-workshop { padding: 14px; border: 1px solid #e3e7ee; border-radius: 12px; background: #fbfcfe; }
 .cj-workshopTitle { color: #26334d; font-size: 13px; font-weight: 700; }
 .cj-workshopHint { margin-top: 5px; color: #7b8496; font-size: 11px; line-height: 17px; }
@@ -3271,13 +3281,15 @@ window.__ModuleLoader__.load({
           'div',
           { key: template.id, className: 'cj-templateCard', 'data-active': template.id === templateId ? 'true' : 'false', 'data-compared': templateCompareIds.includes(template.id) ? 'true' : 'false', role: 'button', tabIndex: 0, onClick: () => { onTemplateChange(template.id); setView('preview') }, onKeyDown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onTemplateChange(template.id); setView('preview') } }, 'aria-label': `应用模板并预览：${template.name}` },
           templateThumbnail(template),
-          React.createElement('div', { className: 'cj-templateCardFooter' }, React.createElement('div', { className: 'cj-templateName' }, template.name), React.createElement('button', { type: 'button', className: 'cj-compareButton', 'data-active': templateCompareIds.includes(template.id) ? 'true' : 'false', onClick: (event) => { event.stopPropagation(); toggleTemplateCompare(template.id) } }, templateCompareIds.includes(template.id) ? '已加入' : '＋对比')),
-          React.createElement('div', { className: 'cj-templateTags' }, [rendererLabel(template.renderer), template.layout?.mode === 'two-column' ? '双栏' : '单栏', ...(template.tags || []).filter((tag) => tag !== '单栏' && tag !== '双栏')].slice(0, 3).join(' · ')),
-          React.createElement('div', { className: 'cj-templateMeta' }, template.metadata?.immutable ? '内置 · 不可变' : `自定义 · 修订 v${template.metadata?.revision || 1}`, template.metadata?.sourceTemplateId ? ` · 来源 ${template.metadata.sourceTemplateId}` : ''),
-          React.createElement('div', { className: 'cj-templateDescription' }, template.description || '原创视觉预设，适合投递版简历。'),
+          React.createElement('div', { className: 'cj-templateCardBody' },
+            React.createElement('div', { className: 'cj-templateCardFooter' }, React.createElement('div', { className: 'cj-templateName' }, template.name), React.createElement('button', { type: 'button', className: 'cj-compareButton', 'data-active': templateCompareIds.includes(template.id) ? 'true' : 'false', onClick: (event) => { event.stopPropagation(); toggleTemplateCompare(template.id) } }, templateCompareIds.includes(template.id) ? '已加入' : '＋对比')),
+            React.createElement('div', { className: 'cj-templateTags' }, [rendererLabel(template.renderer), template.layout?.mode === 'two-column' ? '双栏' : '单栏', ...(template.tags || []).filter((tag) => tag !== '单栏' && tag !== '双栏')].slice(0, 3).join(' · ')),
+            React.createElement('div', { className: 'cj-templateMeta' }, React.createElement('span', { className: 'cj-templateMetaBadge' }, template.metadata?.immutable ? '内置模板' : `修订 v${template.metadata?.revision || 1}`), template.metadata?.sourceTemplateId ? React.createElement('span', { className: 'cj-templateMetaSource' }, `源自 ${template.metadata.sourceTemplateId}`) : null),
+            React.createElement('div', { className: 'cj-templateDescription' }, template.description || '原创视觉预设，适合投递版简历。'),
+          ),
           React.createElement('div', { className: 'cj-templateCardActions' },
             React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: (event) => { event.stopPropagation(); setTemplateId(template.id); setView('workshop') } }, '查看版本'),
-            React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: (event) => { event.stopPropagation(); onTemplateChange(template.id); setView('preview') } }, '应用到当前简历'),
+            React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: (event) => { event.stopPropagation(); onTemplateChange(template.id); setView('preview') } }, '应用到当前简历'),
           ),
         )
       const createTemplateGallery = (options) => React.createElement(
