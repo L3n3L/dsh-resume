@@ -9,7 +9,7 @@ import { TEMPLATE_DEFAULTS, validateCompositionPageSpec, validateCssText, valida
 import { auditTemplateCss, generateTemplateCandidate, normalizeDesignBrief } from '../lib/template-generation.js'
 import { blockPreset, listThemeFamilies, resolveThemeFamily } from '../lib/theme-system.js'
 import { normalizeLayoutSpec, validateLayoutSpec } from '../lib/layout-schema.js'
-import { getTemplatePreset, listAvailableTemplates, listTemplatePresets, loadTemplate, saveTemplate } from '../lib/template-presets.js'
+import { copyTemplate, getTemplatePreset, listAvailableTemplates, listTemplatePresets, listTemplateVersions, loadTemplate, restoreTemplateVersion, saveTemplate } from '../lib/template-presets.js'
 import { listRendererIds, renderTemplateLayout, resolveRendererId } from '../lib/renderers/registry.js'
 import { ensureWorkspaceManifest, getWorkspaceInfo, initJobhunt, listJobhunt, readJobhuntFile, resolveWorkspaceInput, writeJobhuntFile } from '../lib/workspace.js'
 import { activeWorkspaceLockCount, withWorkspaceLock } from '../lib/workspace-lock.js'
@@ -103,6 +103,33 @@ test('status follows the last explicitly touched workspace when no root is provi
     assert.equal(response.result.root, path.normalize(root))
   } finally {
     rememberWorkspaceRoot(null)
+    previewState.clear()
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('status restores render identity from an existing preview after a server restart', async () => {
+  previewState.clear()
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-preview-hydration-'))
+  try {
+    await initJobhunt(root)
+    await fs.writeFile(path.join(root, 'preview.html'), '<main class="resume-document" data-render-id="disk-render" data-content-hash="disk-hash"></main>', 'utf8')
+    await savePresentationOverride(root, {
+      templateId: 'campus-standard',
+      activeTemplateId: 'campus-standard',
+      activePreviewPath: 'preview.html',
+      activeOnly: true,
+    })
+    const routes = []
+    registerPreviewRoutes({ webServer: { register(definition) { routes.push(definition); return () => {} } } })
+    const statusRoute = routes.find((route) => route.path === '/dsh-resume/api/status')
+    const response = { result: null, writeHead(status) { this.status = status }, end(body) { this.result = JSON.parse(body) } }
+    await statusRoute.handler({ method: 'GET', url: `/dsh-resume/api/status?root=${encodeURIComponent(root)}` }, response)
+    assert.equal(response.status, 200)
+    assert.equal(response.result.renderId, 'disk-render')
+    assert.equal(response.result.contentHash, 'disk-hash')
+    assert.equal(getLatestMetrics(root, 'preview.html').status, 'pending')
+  } finally {
     previewState.clear()
     await fs.rm(root, { recursive: true, force: true })
   }
@@ -594,7 +621,8 @@ test('preview document carries an explicit preview path for metrics association'
     templateSpec: TEMPLATE_DEFAULTS,
   })
   assert.match(html, /data-preview-path="companies\/frontend\/preview\.html"/)
-  assert.match(html, /previewPath: document\.querySelector\('\.resume-document'\)/)
+  assert.match(html, /resumeDocument = document\.querySelector\('\.resume-document'\)/)
+  assert.match(html, /fetch\('\/dsh-resume\/api\/metrics'/)
   assert.match(html, /safeColor = \(value, fallback\)/)
   assert.match(html, /query\.get\('backgroundColor'\)/)
   assert.match(html, /dsh-resume-token-preview/)
@@ -702,10 +730,11 @@ test('independent template CSS is safe, persisted separately, and restored with 
     assert.doesNotMatch(await fs.readFile(path.join(root, 'templates/independent-style.json'), 'utf8'), /templateCss/)
     assert.equal((await loadTemplate(root, 'independent-style')).templateCss, template.templateCss)
 
-    await saveTemplate(root, { ...template, templateCss: '.dsh-resume-section{outline:3px solid #db2777;}' })
+    await saveTemplate(root, { ...template, templateCss: '.dsh-resume-section{outline:3px solid #db2777;}' }, { replaceExisting: true })
     const versions = await fs.readdir(path.join(root, '.dsh-resume/history/templates/independent-style'))
     assert.equal(versions.length, 1)
     assert.match(await fs.readFile(path.join(root, '.dsh-resume/history/templates/independent-style', versions[0]), 'utf8'), /outline:2px solid/)
+    assert.equal((await loadTemplate(root, 'independent-style')).metadata.revision, 2)
   } finally {
     await fs.rm(root, { recursive: true, force: true })
   }
@@ -773,12 +802,12 @@ test('opening a resume version pins and persists its preview path', async () => 
   assert.match(apiSource, /const currentPreview = persistedPreview \|\| \(/)
 })
 
-test('resume writing guidance protects evidence and treats one page as a soft target', async () => {
+test('resume writing guidance protects evidence and treats one page as a hard delivery target', async () => {
   const quality = resumeQualityCheck('# 张三\n\n## 项目经历\n\n- 负责前端开发，完成上线\n')
-  assert.match(quality.target, /可读性优先/)
-  assert.match(quality.target, /软目标/)
-  assert.deepEqual(quality.writingGuidance.priority.slice(0, 3), ['证据有依据的职业化强化表达', '目标岗位相关性', 'HR 扫描清晰度'])
-  assert.equal(quality.writingGuidance.budget.primaryExperienceBullets, '3–5')
+  assert.match(quality.target, /HR 可读性优先/)
+  assert.match(quality.target, /硬交付指标/)
+  assert.deepEqual(quality.writingGuidance.priority.slice(0, 3), ['一页 A4 交付', '教育与实习完整性', '入选项目的岗位相关证据'])
+  assert.equal(quality.writingGuidance.budget.primaryExperienceBullets, '默认 3 条，按证据密度 2–4 条浮动；实习经历默认全部保留')
   assert.match(quality.writingGuidance.evidenceRule, /证据原子/)
 })
 
@@ -786,11 +815,11 @@ test('resume prompt allows evidence-grounded strengthening without fabrication',
   const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
   assert.match(source, /RESUME_AGENT_CONTRACT/)
   assert.match(RESUME_AGENT_CONTRACT, /有限、可解释的职业化强化/)
-  assert.match(RESUME_AGENT_CONTRACT, /一页是校招常见偏好/)
+  assert.match(RESUME_AGENT_CONTRACT, /一页 A4 的交付目标/)
   assert.match(RESUME_AGENT_CONTRACT, /证据台账/)
   assert.match(RESUME_AGENT_CONTRACT, /字号、大小、offsetY、CSS 属于排版设置/)
-  assert.match(RESUME_AGENT_CONTRACT, /先微调当前模板/)
-  assert.match(RESUME_AGENT_CONTRACT, /实在无法承载|才压缩文本/)
+  assert.match(RESUME_AGENT_CONTRACT, /当前模板微调/)
+  assert.match(RESUME_AGENT_CONTRACT, /仍无法.*一页|才.*压缩|compress or omit/i)
 })
 
 test('resume prompt discovers exact brand icons and omits unregistered substitutes', async () => {
@@ -805,19 +834,52 @@ test('resume prompt discovers exact brand icons and omits unregistered substitut
   assert.match(guide.getResumeGuide('icons').sections.icons.join('\n'), /no exact registered token exists/i)
 })
 
-test('resume prompt preserves campus section order and explicitly requested projects', async () => {
+test('resume prompt preserves campus section order and selects a bounded set of projects', async () => {
   const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
   const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
   assert.match(RESUME_AGENT_CONTRACT, /教育经历 → 实习\/工作经历 → 项目经历 → 专业技能 → 荣誉奖项/)
   assert.match(clientSource, /教育经历.*实习\/工作经历.*项目经历.*专业技能.*荣誉奖项/)
   for (const text of [clientSource, RESUME_AGENT_CONTRACT]) {
-    assert.match(text, /用户.*明确.*保留.*项目.*逐个保留|用户.*要求.*三个.*项目|three projects/i)
-    assert.match(text, /不得.*静默.*合并.*改名.*删除|do not silently merge, rename, or drop projects/i)
+    assert.match(text, /项目.*候选池|项目.*按岗位相关性.*筛选|bounded selection|default two/i)
+    assert.match(text, /(?:教育.*实习|实习.*教育).*保留|all internships and education/i)
   }
   const guide = await import('../lib/resume-guide.js')
   const payload = guide.getResumeGuide('structure')
   assert.deepEqual(payload.sections.structure.defaultCampusOrder, ['profile', 'education', 'experience', 'projects', 'skills', 'awards'])
-  assert.match(payload.sections.structure.projectRetention, /不得静默删除/)
+  assert.match(payload.sections.structure.projectRetention, /默认 2 个，最多 3 个/)
+  assert.match(RESUME_AGENT_CONTRACT, /用户明确选择或指定模板时.*改造基线/)
+  assert.match(RESUME_AGENT_CONTRACT, /重构模块承载、信息密度、组件变体、版面流向和 CSS/)
+  assert.match(RESUME_AGENT_CONTRACT, /不得默认用 template_save 覆盖原自定义模板/)
+})
+
+test('template saves protect existing custom templates and scoped presentation isolates resumes', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-template-safety-'))
+  try {
+    await initJobhunt(root)
+    const template = { ...TEMPLATE_DEFAULTS, id: 'safe-copy', renderer: 'composition', composition: { page: 'stack', header: 'standard', section: 'line', entry: 'stack', meta: 'inline', skills: 'chips' } }
+    const first = await saveTemplate(root, template)
+    assert.equal(first.template.metadata.immutable, false)
+    assert.equal(first.template.metadata.revision, 1)
+    await assert.rejects(saveTemplate(root, { ...template, name: '不应覆盖' }), (error) => error?.code === 'TEMPLATE_CONFLICT')
+    const copied = await copyTemplate(root, 'safe-copy', 'safe-copy-v2')
+    assert.equal(copied.createdAsCopy, true)
+    assert.equal(copied.template.metadata.sourceTemplateId, 'safe-copy')
+    const updated = await saveTemplate(root, { ...template, name: '当前修订' }, { replaceExisting: true })
+    assert.equal(updated.template.metadata.revision, 2)
+    const history = await listTemplateVersions(root, 'safe-copy')
+    assert.equal(history.length, 1)
+    const restored = await restoreTemplateVersion(root, 'safe-copy', history[0].id)
+    assert.equal(restored.template.metadata.revision, 3)
+    await savePresentationOverride(root, { templateId: 'campus-standard', resumePath: 'companies/a/resume.md', layout: { fontSize: 12 } })
+    await savePresentationOverride(root, { templateId: 'campus-standard', resumePath: 'companies/b/resume.md', layout: { fontSize: 16 } })
+    const presentation = await loadPresentation(root)
+    assert.equal(presentation.resumeOverrides['companies/a/resume.md']['campus-standard'].layout.fontSize, 12)
+    assert.equal(presentation.resumeOverrides['companies/b/resume.md']['campus-standard'].layout.fontSize, 16)
+    assert.equal(applyPresentationOverride(getTemplatePreset('campus-standard'), presentation, 'campus-standard', 'companies/a/resume.md').typography.fontSize, 12)
+    assert.equal(applyPresentationOverride(getTemplatePreset('campus-standard'), presentation, 'campus-standard', 'companies/b/resume.md').typography.fontSize, 16)
+  } finally {
+    await fs.rm(root, { recursive: true, force: true })
+  }
 })
 
 test('resume prompt is role-agnostic and uses the target role as a lens', () => {

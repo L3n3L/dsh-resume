@@ -72,6 +72,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
     'mcp_health',
     'workspace_info',
     'resume_guide',
+    'resume_prepare',
     'resume_init',
     'resume_read',
     'resume_write',
@@ -103,7 +104,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   assert.equal(guide.result.isError, undefined)
   const guidePayload = JSON.parse(guide.result.content[0].text)
   assert.equal(guidePayload.guide, 'dsh-resume-workflow')
-  assert.equal(guidePayload.version, '1.6.0')
+  assert.equal(guidePayload.version, '1.7.1')
   assert.match(guidePayload.contract, /简历业务主契约/)
   assert.ok(guidePayload.sections.workflow.some((step) => step.tools.includes('resume_check')))
 
@@ -116,7 +117,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   const budget = await server.request('tools/call', { name: 'resume_guide', arguments: { topic: 'contentBudget' } })
   assert.equal(budget.result.isError, undefined)
   const budgetPayload = JSON.parse(budget.result.content[0].text)
-  assert.match(budgetPayload.sections.contentBudget.experience, /3–5/)
+  assert.match(budgetPayload.sections.contentBudget.experience, /默认 3 条/)
 
   const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-'))
   t.after(() => fs.rm(fixtureRoot, { recursive: true, force: true }))
@@ -132,9 +133,22 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
 
   const templates = await call('template_list', { rootDir: fixtureRoot })
   assert.ok(templates.templates.some((template) => template.id === 'campus-standard'))
+
+  const blockedCopy = await call('template_copy', { rootDir: fixtureRoot, sourceId: 'campus-standard', newId: 'blocked-template' })
+  assert.equal(blockedCopy.saved, false)
+  assert.equal(blockedCopy.workflowRequired, true)
+  assert.equal(blockedCopy.nextTool, 'resume_prepare')
+
+  const prepared = await call('resume_prepare', { rootDir: fixtureRoot, resumePath: 'resume.md', templateId: 'campus-standard' })
+  assert.equal(prepared.prepared, true)
+    assert.equal(prepared.guide.version, '1.7.1')
+  assert.equal(prepared.preflight.passed, true)
+
   const copied = await call('template_copy', { rootDir: fixtureRoot, sourceId: 'campus-standard', newId: 'mcp-test-template', name: 'MCP 测试模板' })
   assert.equal(copied.saved, true)
   assert.equal(copied.template.id, 'mcp-test-template')
+  await call('resume_check', { rootDir: fixtureRoot })
+  await call('resume_render', { rootDir: fixtureRoot, templateId: 'campus-standard' })
   const copiedTemplate = await call('resume_read', { rootDir: fixtureRoot, path: 'templates/mcp-test-template.json' })
   const validated = await call('template_validate', { rootDir: fixtureRoot, templateJson: copiedTemplate.content })
   assert.equal(validated.valid, true)
@@ -147,6 +161,8 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
   assert.equal(savedPresentation.saved, true)
 
   const resumeContent = '# 测试候选人\n\n## 项目经历\n\n- 完成简历制作闭环测试\n'
+  await call('resume_check', { rootDir: fixtureRoot })
+  await call('resume_render', { rootDir: fixtureRoot, templateId: 'mcp-test-template' })
   const saved = await call('resume_write', { rootDir: fixtureRoot, path: 'resume.md', content: resumeContent })
   assert.equal(saved.saved, true)
 
@@ -168,13 +184,15 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
 test('MCP render can register preview state and return shared browser metrics when hosted by DSH', async () => {
   const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-runtime-'))
   try {
+    let reportedMetrics = { available: true, status: 'measured', previewPath: 'preview.html', metrics: { pageCount: 1, fit: true } }
     const server = createResumeMcpServer({
       resolveRoot: () => fixtureRoot,
       onRendered: (rendered) => ({ registered: true, renderId: rendered.renderId }),
-      resolveMetrics: ({ previewPath }) => ({ available: true, status: 'measured', previewPath, metrics: { pageCount: 1, fit: true } }),
+      resolveMetrics: ({ previewPath }) => ({ ...reportedMetrics, previewPath }),
     })
     const tool = (name) => server._registeredTools[name].handler
     await tool('resume_init')({})
+    await tool('resume_prepare')({ resumePath: 'resume.md' })
     await tool('resume_write')({ path: 'resume.md', content: '# 测试候选人\n\n## 项目经历\n\n- 完成简历制作闭环测试\n' })
 
     const rendered = await tool('resume_render')({ resumePath: 'resume.md' })
@@ -187,6 +205,42 @@ test('MCP render can register preview state and return shared browser metrics wh
     assert.equal(measuredPayload.available, true)
     assert.equal(measuredPayload.metrics.pageCount, 1)
     assert.equal(measuredPayload.metrics.fit, true)
+    assert.equal(measuredPayload.decision.state, 'accepted')
+    reportedMetrics = { available: true, status: 'measured', metrics: { pageCount: 3, overflow: true } }
+    const severe = JSON.parse((await tool('resume_metrics')({ previewPath: 'preview.html' })).content[0].text)
+    assert.equal(severe.decision.state, 'severely-overfull')
+    assert.equal(severe.decision.hardTarget, 'one-page-a4')
+  } finally {
+    await fs.rm(fixtureRoot, { recursive: true, force: true })
+  }
+})
+
+test('MCP workflow gate guides verification without blocking iterations and blocks stale external overwrites', async () => {
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-gate-'))
+  try {
+    const server = createResumeMcpServer({ resolveRoot: () => fixtureRoot })
+    const tool = (name) => server._registeredTools[name].handler
+    const payload = (result) => JSON.parse(result.content[0].text)
+
+    await tool('resume_init')({})
+    const blockedRender = payload(await tool('resume_render')({}))
+    assert.equal(blockedRender.workflowRequired, true)
+    assert.equal(blockedRender.nextTool, 'resume_prepare')
+
+    const prepared = payload(await tool('resume_prepare')({ resumePath: 'resume.md' }))
+    const original = (await tool('resume_read')({ path: 'resume.md' }))
+    const content = payload(original).content + '\n\n- MCP workflow gate regression test\n'
+    const saved = payload(await tool('resume_write')({ path: 'resume.md', content }))
+    assert.equal(saved.saved, true)
+
+    const immediatePresentation = payload(await tool('presentation_save')({ templateId: 'campus-standard' }))
+    assert.equal(immediatePresentation.saved, true)
+    assert.equal(immediatePresentation.verificationRecommended, true)
+
+    await fs.writeFile(path.join(fixtureRoot, 'resume.md'), `${content}\n\n- 外部编辑内容\n`, 'utf8')
+    const stalePresentation = payload(await tool('presentation_save')({ templateId: 'campus-standard' }))
+    assert.equal(stalePresentation.workflowRequired, true)
+    assert.equal(stalePresentation.nextTool, 'resume_prepare')
   } finally {
     await fs.rm(fixtureRoot, { recursive: true, force: true })
   }

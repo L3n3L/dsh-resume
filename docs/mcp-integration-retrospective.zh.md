@@ -1,8 +1,8 @@
 # dsh-resume MCP 对接复盘与实施方案
 
-> 状态：工作区绑定方案已实现，进入运行态验收
-> 日期：2026-08-28
-> 基线：`353f576 fix: persist resume presentation overrides`
+> 状态：MCP 服务端工作流门槛已实现，进入回归验收
+> 日期：2026-09-01
+> 基线：`1cfe634 feat: expose template controls through resume mcp`
 > 仓库：`E:\vsws\deepseek-harness-plugins\1-插件源码\dsh-campus-job`
 
 ## 1. 本次复盘结论
@@ -56,6 +56,31 @@ OpenAI 的插件能力模型支持由插件组合 Skill、MCP Server 和可选 U
 - 工作区身份写入 `.dsh-workspace/workspace.json`，全局当前工作区和最近列表写入 DSH_HOME 下的 `dsh-resume/workspace-bindings.json`，换会话和重启后恢复。
 - `mcp-server` 进入发布包，既可作为独立 stdio 入口，也被 HTTP 控制层复用；DSH 不启用 MCP 时不会创建 MCP Server 实例。
 
+### 本轮新增的关键修正
+
+此前的设计把“先读指南、再检查、最后写入”写在 `initialize.instructions`、工具描述和 `resume_guide` 中，但这些都属于 Agent 可见提示，不能当作业务约束。一个没有读取初始化说明、上下文被截断、或选择错误工具的 Agent，仍然可以直接调用 `resume_write`，这正是“指南写了但简历仍被压缩/乱序/覆盖”的根因。
+
+现在把关键规则下沉到 MCP Server 的会话状态，而不是继续堆提示词：
+
+```text
+未准备
+  └─ resume_prepare
+       ↓ 绑定 root + resumePath，记录 contentHash，返回 guide contract 和 preflight
+已准备
+  ├─ resume_write / template_*_save / layout_save / presentation_save
+  │    └─ 通过后返回 verificationRecommended
+  └─ resume_render（允许预览当前候选）
+       ↓
+返回 verificationRecommended
+  └─ resume_read → resume_check → resume_render → resume_metrics（推荐）
+       ↓
+可继续下一轮变更；验证结果用于下一步决策，不作为内容迭代硬门槛
+```
+
+服务端还会在变更前重新读取简历并比对基线哈希：如果 DSH、手动编辑或其他 Agent 在 MCP 会话外改过文件，写入会被拒绝，要求重新 `resume_prepare`。但简历内容本身不能被服务端锁死：Agent 必须能够按用户意图重写、压缩、改名、重组和删除条目。服务端只把已有三级标题语义发生变化作为 `contentWarnings` 审计信号返回，由 Agent 和用户结合岗位相关性、证据密度与检查结果判断，不作为写入权限条件。
+
+检查、渲染和指标是推荐工序，不是下一次改写的硬门槛。HTTP MCP 渲染后登记 `renderId/contentHash`，插件页通过轻量状态轮询发现外部 MCP 更新并刷新预览 iframe，iframe 再把 DOM 测量回传给 `/api/metrics`；直接打开 `file://` 文件不会进入这条回传链路。这个门槛只包住 MCP 工具处理器，不修改 DSH 的 `apply(ctx)`、现有 `jobhunt_*` 工具、预览刷新、手动微调或文件监听。因此 DSH 仍可在 MCP 未启动时独立工作；MCP 只是对外部 Agent 的更安全入口。
+
 ## 4. 左侧栏设计
 
 左侧栏新增“工作区”和“MCP 服务”入口。工作区入口负责目录选择与绑定，MCP 入口只做服务状态和生命周期控制，不把所有 MCP 工具堆成按钮。
@@ -73,9 +98,9 @@ OpenAI 的插件能力模型支持由插件组合 Skill、MCP Server 和可选 U
 
 工作区选择的保护规则：空文件夹会自动准备基础文件；已有 `resume.md` 的目录直接绑定；已有其他文件但没有 `resume.md` 的目录不会被静默初始化，先让用户确认，确认后只登记工作区身份，不覆盖或补写原文件；DSH 文件夹选择器取消时保持原工作区不变。正在编辑且有未保存 Markdown 草稿时，切换前会再次确认，避免草稿被误丢弃。插件服务端不再自行启动 PowerShell 或其他 OS 选择器，只接受 DSH 已选中的绝对路径。
 
-版本管理与工作区绑定：`resume.md` 是主简历内容源，投递版本保存在 `companies/<岗位>/resume.md`；每次「保存版本」同时记录内容路径、模板 ID、字体/字号/行距/页边距、视觉 Token 和图标微调。旧工作区只有预览文件时会显示为“尚未保存版本记录”，首次保存才写入版本登记；改名不改路径，归档不删除原文件。
+版本管理与工作区绑定：`resume.md` 是主简历内容源，投递版本保存在 `companies/<岗位>/resume.md`；每次「保存版本」同时记录内容路径、模板 ID/修订号、字体/字号/行距/页边距、视觉 Token 和图标微调。旧工作区只有预览文件时会显示为“尚未保存版本记录”，首次保存才写入版本登记；改名不改路径，归档不删除原文件。模板库另外维护模板来源、谱系和历史修订，简历版本只引用已接受的模板修订，不因模板后续更新而漂移。
 
-排版草稿与共享模板解耦：手动调整、AI 试调和模板 CSS 编辑默认只更新当前页面的临时草稿。普通排版参数在版本保存时写入简历版本；模板结构/CSS 只有在用户确认保存时才复制成新模板。打印可直接按已保存模板输出，也可先提交草稿为新模板，不能静默改变其他简历的模板。
+排版草稿与共享模板解耦：手动调整、AI 试调和模板 CSS 编辑默认只更新当前页面的临时草稿。普通排版参数在版本保存时写入当前简历作用域；模板结构/CSS 改造必须以用户选中的模板为基线，只有在用户确认保存时才复制成新模板。打印可直接按已保存模板输出，也可先提交草稿为新模板，不能静默改变其他简历的模板。
 
 ### 状态展示
 
@@ -108,7 +133,8 @@ OpenAI 的插件能力模型支持由插件组合 Skill、MCP Server 和可选 U
 | `resume_init` | 创建缺失文件 | 初始化工作区骨架，不覆盖已有文件 |
 | `resume_guide` | 只读 | 返回简历制作工作流、权限、内容质量、图标和排版规则 |
 | `resume_read` | 只读 | 读取工作区内允许的文本文件 |
-| `resume_write` | 明确写入 | 写入 md/css/txt/json，并校验简历图标 token |
+| `resume_prepare` | 会话准备 | 绑定当前工作区和目标简历，返回指南契约、内容基线和预检结果；所有 MCP 变更和渲染前置 |
+| `resume_write` | 明确写入 | 写入 md/css/txt/json，校验简历图标 token；核心条目变化作为审计警告返回，不阻止内容重写 |
 | `resume_check` | 只读 | 检查简历结构、联系方式、过长要点和证据缺口 |
 | `resume_render` | 生成预览 | 使用指定模板渲染 A4 预览，不代表导出 PDF |
 | `resume_metrics` | 只读 | 读取页数、溢出、留白、模块和视觉审计结果 |
@@ -118,7 +144,23 @@ OpenAI 的插件能力模型支持由插件组合 Skill、MCP Server 和可选 U
 | `icon_list` | 只读 | 查询可用图标 slug，避免模型编造图标名 |
 | `workspace_info` | 只读 | 返回当前 HTTP MCP 绑定的工作区身份和路径 |
 
-写入能力后置。进入第二阶段后，写入工具必须要求明确目标路径和操作意图，并继续复用现有工作区锁；不提供泛化的 `write_file` 工具。
+写入能力仍然要求明确目标路径和完整内容，并继续复用现有工作区锁；不提供泛化的 `write_file` 工具。`resume_prepare` 不是权限升级，也不允许 MCP 越过 DSH 的工作区绑定；它只是把当前会话的工作区、简历路径和内容基线固定下来。
+
+### 服务端门槛矩阵
+
+| 操作 | 未 `resume_prepare` | 已准备且无待验证变更 | 上一次变更未检查/未渲染 | 外部内容已变化 |
+| --- | --- | --- | --- | --- |
+| `resume_read` / `resume_check` / `template_list` / `icon_list` | 允许 | 允许 | 允许 | 允许 |
+| `resume_render` | 拒绝，返回 `nextTool=resume_prepare` | 允许 | 允许，用于验证 | 拒绝，要求重新准备 |
+| `resume_write` | 拒绝 | 允许 | 允许并返回 `verificationRecommended` | 拒绝，要求重新准备 |
+| `template_copy` / `template_save` / `template_restore` | 拒绝 | 允许 | 允许并返回 `verificationRecommended` | 拒绝 |
+| `layout_save` / `presentation_save` / `template_autotune(persist=true)` | 拒绝 | 允许 | 允许并返回 `verificationRecommended` | 拒绝 |
+
+返回值使用普通 MCP tool result 携带 `workflowRequired: true`、`nextTool` 和原因，而不是抛出不可解释的异常。这样支持基础 `tools/list` / `tools/call` 的 Agent 即使不展示 `initialize.instructions`，也能沿着机器可读的下一步恢复。
+
+### 模板改造决策
+
+用户选中的模板是默认改造基线，不是一次性候选。Agent 可以保留其视觉语言，同时重构模块承载、信息密度、组件变体、页面流向和 CSS；这类结构改造先通过 `template_copy` 创建副本，再由 `template_save` 写入副本。`template_save` 默认拒绝覆盖已有自定义 ID，只有带有明确影响确认的调用才允许修改模板本体。参数级调整使用带 `resumePath` 的 `presentation_save`，写入当前简历作用域。模板库展示来源、当前修订和历史版本，恢复历史始终形成新的修订。
 
 ## 6. 生命周期与并发原则
 
@@ -181,10 +223,14 @@ MCP 本身不会自动省 token。节省来自：
 - [x] 增加工作区清单、全局绑定、原生文件夹选择入口和 HTTP MCP rootDir 边界；
 - 不修改现有 DSH 工具语义。
 
-### 阶段 2：Codex Skill 编排
+### 阶段 2：MCP 服务端护栏与 Agent 编排
 
-- 增加 MCP 调用顺序和错误处理规则；
-- 让 Codex 先检查、再渲染、再读取指标；
+- [x] 增加 `resume_prepare` 和会话级工作区/内容基线；
+- [x] 对 MCP 写入、模板变更、排版保存和渲染增加服务端前置检查；
+- [x] 变更后要求 `resume_check + resume_render`，返回机器可读 `nextTool`；
+- [x] 阻止外部内容变化导致的陈旧覆盖；
+- [x] 对核心经历/项目条目变化提供审计警告，但不阻断用户要求的内容重写；
+- [x] 同步更新 MCP 指南、README 和回归测试；
 - 保持“建议/预览/应用”三种操作模式；
 - 所有写入继续要求明确意图。
 
@@ -212,6 +258,10 @@ MCP 本身不会自动省 token。节省来自：
 - 重启后不会产生重复实例；
 - 能对当前工作区执行检查、渲染和指标读取；
 - 首次使用时能通过 `resume_guide` 获得完整制作攻略；
+- 即使 Agent 没有读取 `initialize.instructions`，跳过 `resume_prepare` 也不能写入或渲染；
+- MCP 返回 `workflowRequired` 时，Agent 能依据 `nextTool` 恢复，而不是重复重试原操作；
+- DSH 或其他 Agent 外部改动简历后，旧 MCP 会话不能覆盖新内容；
+- 核心实习/项目条目变化会返回审计警告，但不会拦截用户要求的内容重写；
 - MCP 故障不会卡住预览页面；
 - 返回结果不包含不必要的整份文件和会话上下文。
 
@@ -241,10 +291,10 @@ npm run mcp
 
 左侧栏控制的是 DSH 本地 Web Server 上的 Streamable HTTP 端点 `/dsh-resume/mcp`。端点默认返回 503，直到用户点击“启动 MCP”；停止后不会自动重启。连接后，支持该字段的宿主会收到短版 `initialize` 规则；所有兼容基础 tools 的宿主都可以通过 `tools/list` 发现并调用 `resume_guide`，因此不依赖客户端是否展示 `initialize.instructions`。`npm run mcp` 使用 stdio 承载同一套工具，适合明确配置为 stdio 的宿主，标准输出只保留 JSON-RPC 消息，日志写入标准错误。浏览器代码不直接执行 Node 进程。
 
-当前 smoke test 已覆盖 `initialize`、`notifications/initialized`、`tools/list`、`mcp_health`，以及初始化工作区、写入/读取简历、检查和渲染的最小闭环。浏览器 A4 指标仍由 DSH 预览运行时产生，独立 MCP 进程目前只返回明确的 pending 状态，不伪造页数或溢出结论。
+当前 smoke test 已覆盖 `initialize`、`notifications/initialized`、`tools/list`、`mcp_health`，未准备直接变更被拒绝、`resume_prepare` 返回指南与基线、模板变更后的检查/渲染门槛，以及初始化工作区、写入/读取简历、检查和渲染的最小闭环。浏览器 A4 指标仍由 DSH 预览运行时产生；HTTP MCP 会等待插件页回传，独立 stdio MCP 明确返回 pending，不伪造页数或溢出结论。
 
 ## 12. 下一步
 
-下一步是完成当前宿主的真实连接验证，并补充连接配置的用户指引。若当前 Codex Desktop 无法直接读取本地 HTTP 端点，则保留同一套共享核心和工具契约，改用用户明确启动的 stdio 服务管理器连接；不会回退或破坏现有 DSH 工作台。
+下一步是完成当前宿主的真实连接验证，并补充连接配置的用户指引。若当前 Codex Desktop 无法直接读取本地 HTTP 端点，则保留同一套共享核心和工具契约，改用用户明确启动的 stdio 服务管理器连接；不会回退或破坏现有 DSH 工作台。服务端门槛解决“跳过指南仍能直接写”的问题，但不能替 Agent 做岗位判断、事实取舍或审美判断；这些仍由指南、素材读取、检查结果和用户确认共同完成。
 
 第一版的兼容目标是“任何支持基础 MCP tools 的宿主都能连接这个简历专用 Server”，而不是让所有 Agent 在未安装或未启用插件时自动获得能力。

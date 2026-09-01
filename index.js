@@ -19,6 +19,7 @@ import {
   listTemplateVersions,
   loadTemplate,
   restoreLatestTemplate,
+  restoreTemplateVersion,
   saveTemplate,
   validateTemplate,
 } from './lib/template-presets.js'
@@ -30,7 +31,7 @@ import { registerBundledSkills } from './lib/skill.js'
 import { RESUME_AGENT_CONTRACT } from './lib/resume-guide.js'
 import { withWorkspaceLock } from './lib/workspace-lock.js'
 import { inspectIconTokens, listIconTokens } from './lib/icons/registry.js'
-import { applyPresentationOverride, loadPresentation, savePresentationOverride } from './lib/presentation.js'
+import { applyPresentationOverride, getPresentationOverride, loadPresentation, savePresentationOverride } from './lib/presentation.js'
 import { registerMcpRoutes } from './lib/mcp-http.js'
 
 export const name = 'dsh-resume'
@@ -47,8 +48,8 @@ Workspace and permission boundary:
 Tool mapping:
 - Read/check: jobhunt_read, jobhunt_check, jobhunt_layout_validate, jobhunt_template_list, jobhunt_template_family_list, jobhunt_template_validate, jobhunt_template_versions, jobhunt_icon_list.
 - Change/render: jobhunt_write, jobhunt_render, jobhunt_layout_metrics, jobhunt_presentation_save, jobhunt_layout_save.
-- Template structure: use jobhunt_template_copy for a revision, jobhunt_template_generate for a new candidate, jobhunt_template_save only after validation, and jobhunt_template_restore for rollback. Built-in templates are immutable.
-- Use the available jobhunt tool names and verify the result after every write or render.
+- Template structure: the user-selected template is the visual baseline. Preserve its family, visual language, and structural intent; reconstruction may change module packing, density, variants, flow, and scoped CSS, not only numeric parameters. Use jobhunt_template_copy before structural/CSS revision, then validate and save the copy. jobhunt_template_save is create-only by default; replacing an existing custom template requires replaceExisting=true and confirmImpact=true. Built-in templates are immutable. Use jobhunt_template_restore as an explicit new revision, not a silent template switch.
+- Use the available jobhunt tool names and verify the result after every write or render; if an external MCP session is responsible for the change, wait for the preview status/metrics refresh rather than assuming the file write is the visual result.
 
 ${RESUME_AGENT_CONTRACT}
 
@@ -267,9 +268,11 @@ export async function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_save',
-    description: 'Save a validated composition template as jobhunt/templates/<id>.json plus an optional independent jobhunt/templates/<id>.css so it appears in the template library. New single-column templates should carry composition.pageSpec; unsupported renderer templates are rejected.',
+    description: 'Save a validated composition template as a new jobhunt template. Existing custom IDs are protected by default; use jobhunt_template_copy for an isolated revision. Explicit replacement requires replaceExisting=true and confirmImpact=true. Built-in templates are immutable.',
     parameters: {
       templateJson: { type: 'string', required: true, description: 'Validated composition TemplateSpec JSON. It must use renderer: composition, an explicit composition object, and a lower-kebab-case id not used by a built-in. Optional templateCss is written to templates/<id>.css.' },
+      replaceExisting: { type: 'boolean', description: 'Optional high-impact override for an existing custom template. Defaults to false.' },
+      confirmImpact: { type: 'boolean', description: 'Required together with replaceExisting=true to confirm that other resumes using this template may be affected.' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
     output: textResult(),
@@ -282,9 +285,10 @@ export async function apply(ctx) {
       }
       const validation = validateTemplate(parsed)
       if (!validation.valid) return { saved: false, valid: false, errors: validation.errors, template: validation.value }
+      if (args.replaceExisting === true && args.confirmImpact !== true) return { saved: false, valid: true, conflict: true, errors: ['replaceExisting requires confirmImpact=true; use jobhunt_template_copy for an isolated revision'] }
       try {
         const root = resolveAndRememberRoot(args, exec)
-        const saved = await withWorkspaceLock(root, () => saveTemplate(root, parsed))
+        const saved = await withWorkspaceLock(root, () => saveTemplate(root, parsed, { replaceExisting: args.replaceExisting === true }))
         return { saved: true, valid: true, qualityAudit: auditTemplateCss(saved.template?.templateCss, parsed.id), ...saved }
       } catch (err) {
         return { saved: false, valid: true, errors: [String(err?.message || err)], template: validation.value }
@@ -294,7 +298,7 @@ export async function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_copy',
-    description: 'Copy a built-in or custom template into a new editable custom template.',
+    description: 'Copy a built-in or custom template into a new editable custom template. This is the default operation for structural or CSS revisions of a selected template; the source remains unchanged.',
     parameters: {
       sourceId: { type: 'string', required: true, description: 'Existing template id.' },
       newId: { type: 'string', required: true, description: 'New lower-kebab-case template id.' },
@@ -324,15 +328,16 @@ export async function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_restore',
-    description: 'Restore the latest saved version of a custom template.',
+    description: 'Restore a saved custom-template version as a new current revision. If versionId is omitted, restore the latest saved version.',
     parameters: {
       id: { type: 'string', required: true, description: 'Custom template id.' },
+      versionId: { type: 'string', description: 'Optional saved version id. Omit to restore the latest saved version.' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
     output: textResult(),
     async execute(args, exec) {
       const root = resolveAndRememberRoot(args, exec)
-      return { restored: true, ...(await withWorkspaceLock(root, () => restoreLatestTemplate(root, args.id))) }
+      return { restored: true, ...(await withWorkspaceLock(root, () => args.versionId ? restoreTemplateVersion(root, args.id, args.versionId) : restoreLatestTemplate(root, args.id))) }
     },
   }))
 
@@ -397,13 +402,14 @@ export async function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_presentation_save',
-    description: 'Persist accepted per-workspace resume presentation overrides for one template. Saves layout, visual tokens, icon tuning, and active template selection without modifying the built-in template.',
+    description: 'Persist accepted presentation overrides for the current resume version. Provide resumePath for isolated layout, visual-token, and icon settings; omitting it keeps legacy workspace/template scope. This never modifies the built-in template.',
     parameters: {
       templateId: { type: 'string', required: true, description: 'Template id whose workspace override should be saved.' },
       layoutJson: { type: 'string', description: 'Optional JSON: fontFamily, fontSize, lineHeight, sectionGap, pageMargin.' },
       visualJson: { type: 'string', description: 'Optional JSON: accentColor, textColor, mutedColor, backgroundColor, cornerRadius, divider.' },
       iconTuningJson: { type: 'string', description: 'Optional JSON keyed by icon slug or *, with scale and offsetY.' },
       activePreviewPath: { type: 'string', description: 'Optional preview path to reopen for this workspace, e.g. companies/frontend/preview.html.' },
+      resumePath: { type: 'string', description: 'Optional resume.md path. New saves should provide this to avoid affecting other resumes.' },
       reset: { type: 'boolean', description: 'Remove this template override and restore its built-in defaults.' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
@@ -420,6 +426,7 @@ export async function apply(ctx) {
         visual: parseOptional(args.visualJson),
         iconTuning: parseOptional(args.iconTuningJson),
         activePreviewPath: args.activePreviewPath,
+        resumePath: args.resumePath,
         reset: Boolean(args.reset),
         activeTemplateId: args.templateId,
       }))
@@ -519,10 +526,11 @@ export async function apply(ctx) {
       let initialIconTuning = {}
       const presentation = await loadPresentation(root)
       const effectiveTemplateId = args.templateId || presentation.activeTemplateId
+      const effectiveResumePath = args.resumePath || 'resume.md'
       if (effectiveTemplateId) {
         try {
-          templateSpec = applyPresentationOverride(await loadTemplate(root, effectiveTemplateId), presentation, effectiveTemplateId)
-          initialIconTuning = presentation.overrides?.[effectiveTemplateId]?.iconTuning || {}
+          templateSpec = applyPresentationOverride(await loadTemplate(root, effectiveTemplateId), presentation, effectiveTemplateId, effectiveResumePath)
+          initialIconTuning = getPresentationOverride(presentation, effectiveTemplateId, effectiveResumePath).iconTuning || {}
         } catch (err) {
           if (!args.templateId) {
             templateSpec = undefined
