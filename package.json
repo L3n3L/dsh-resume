@@ -71,6 +71,7 @@
   "dependencies": {
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
     "@modelcontextprotocol/server": "^2.0.0",
+    "html2canvas": "^1.4.1",
     "markdown-it": "^14.1.0",
     "zod": "^4.4.3"
   },
