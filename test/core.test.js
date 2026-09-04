@@ -48,7 +48,7 @@ test('preview state is isolated by root and preview path', () => {
   previewState.clear()
 })
 
-test('metrics rejects stale render identities and status does not select an old file', async () => {
+test('metrics keep same-path renders isolated and status does not select an old file', async () => {
   previewState.clear()
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-metrics-test-'))
   try {
@@ -78,6 +78,16 @@ test('metrics rejects stale render identities and status does not select an old 
     await metricsRoute.handler(request({ previewRoot: root, previewPath: 'preview.html', renderId: 'render-current', contentHash: 'hash-current', metrics: { pageCount: 1 } }), current)
     assert.equal(current.status, 200)
     assert.equal(getLatestMetrics(root, 'preview.html').metrics.pageCount, 1)
+    rememberPreview(root, 'preview.html', { renderId: 'render-new', contentHash: 'hash-new' })
+    const delayed = response()
+    await metricsRoute.handler(request({ previewRoot: root, previewPath: 'preview.html', renderId: 'render-current', contentHash: 'hash-current', metrics: { pageCount: 1, fit: true } }), delayed)
+    assert.equal(delayed.status, 200)
+    assert.equal(getLatestMetrics(root, 'preview.html').status, 'pending')
+    assert.equal(getLatestMetrics(root, 'preview.html', { renderId: 'render-current', contentHash: 'hash-current' }).metrics.pageCount, 1)
+    const newer = response()
+    await metricsRoute.handler(request({ previewRoot: root, previewPath: 'preview.html', renderId: 'render-new', contentHash: 'hash-new', metrics: { pageCount: 2, fit: false } }), newer)
+    assert.equal(newer.status, 200)
+    assert.equal(getLatestMetrics(root, 'preview.html', { renderId: 'render-new', contentHash: 'hash-new' }).metrics.pageCount, 2)
     const status = response()
     await statusRoute.handler({ method: 'GET', url: `/dsh-resume/api/status?root=${encodeURIComponent(root)}&preview=missing/preview.html` }, status)
     assert.equal(status.result.previewRel, null)

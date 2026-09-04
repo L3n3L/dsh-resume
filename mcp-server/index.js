@@ -520,7 +520,12 @@ export function createResumeMcpServer(options = {}) {
       const root = resolveToolRoot(rootDir)
       const requestedPreviewPath = previewPath || workflow.previewPath || 'preview.html'
       if (resolveMetrics) {
-        const measured = await resolveMetrics({ root, previewPath: requestedPreviewPath })
+        const measured = await resolveMetrics({
+          root,
+          previewPath: requestedPreviewPath,
+          renderId: workflow.renderId,
+          contentHash: workflow.renderContentHash,
+        })
         const decision = layoutDecision(measured)
         const identity = metricIdentity(measured)
         const identityMatches = Boolean(

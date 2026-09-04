@@ -1607,6 +1607,7 @@ window.__ModuleLoader__.load({
       const editorDiskContentRef = useRef('')
       const editorPreviewRef = useRef(null)
       const versionHydratedRef = useRef('')
+      const explicitVersionSelectionRef = useRef('')
       const versionForPath = (resumePath, previewPath) => resumeVersions.find((version) => (resumePath && version.resumePath === resumePath) || (previewPath && version.previewPath === previewPath)) || null
       const currentVersion = versionForPath(editorSource?.resumePath, selected)
       const hasTemplateDraftChanges = templateCssDraft !== templateCssSaved || Boolean(templateDraftSaved && templateDraft.trim() !== templateDraftSaved.trim())
@@ -1641,6 +1642,24 @@ window.__ModuleLoader__.load({
         return () => window.clearInterval(timer)
       }, [reload, status?.root, view])
 
+      const applyPersistedPresentation = useCallback((nextPresentation, previewPath) => {
+        if (presentationDraftDirty || !nextPresentation) return
+        const savedId = nextPresentation.activeTemplateId
+        const canResolveSaved = !savedId || templateOptions.some((template) => template.id === savedId)
+        if (!canResolveSaved) return
+        const id = savedId || templateId
+        const nextTemplate = templateOptions.find((template) => template.id === id) || selectedTemplate
+        if (!nextTemplate) return
+        const resumePath = editorSource?.resumePath || resumePathForPreview(previewPath)
+        const scoped = nextPresentation.resumeOverrides?.[resumePath]?.[id]
+        const override = scoped || nextPresentation.overrides?.[id] || {}
+        setTemplateId(id)
+        setLayoutSettings(layoutSettingsFromTemplate(nextTemplate, override.layout))
+        setVisualTokens(visualTokensFromTemplate(nextTemplate, override.visual))
+        setIconTuning(normalizeIconTuningMap(override.iconTuning))
+        setLayout(null)
+      }, [editorSource?.resumePath, presentationDraftDirty, templateId, templateOptions])
+
       useEffect(() => {
         if (!status?.root || !status.previewRel) return
         const signature = [status.root, status.previewRel, status.renderId || '', status.contentHash || '', status.updatedAt || ''].join('|')
@@ -1656,8 +1675,46 @@ window.__ModuleLoader__.load({
         setView('preview')
         setLayout(null)
         setFitState({ text: '检测到 MCP 更新，正在刷新 A4 和排版指标…', state: 'pending' })
+        let active = true
+        fetch(`/dsh-resume/api/presentation?root=${encodeURIComponent(status.root)}`, { cache: 'no-store' })
+          .then((response) => response.ok ? response.json() : Promise.reject(new Error(`presentation ${response.status}`)))
+          .then((data) => {
+            if (!active) return
+            const nextPresentation = data.presentation || { schemaVersion: 1, activeTemplateId: null, activePreviewPath: null, overrides: {} }
+            setPresentation(nextPresentation)
+            applyPersistedPresentation(nextPresentation, status.previewRel)
+          })
+          .catch((error) => {
+            if (active) setVersionMessage(`检测到外部更新，但排版参数读取失败：${error?.message || error}`)
+          })
+        if (editorSource?.previewPath === status.previewRel) {
+          const hasLocalDraft = editorDraft !== editorDiskContentRef.current
+          if (hasLocalDraft) {
+            setEditorExternalPending(true)
+            setEditorMessage('检测到外部内容更新；当前未保存草稿未被覆盖，请保存或重新打开后读取最新文件。')
+          } else {
+            const query = new URLSearchParams({ preview: status.previewRel })
+            query.set('root', status.root)
+            if (mainConversation.sessionId) query.set('sessionId', mainConversation.sessionId)
+            fetch(`/dsh-resume/api/editor/source?${query}`, { cache: 'no-store' })
+              .then((response) => readJsonResponse(response, '刷新 Markdown'))
+              .then((source) => {
+                if (!active) return
+                editorDiskContentRef.current = source.content || ''
+                setEditorSource(source)
+                setEditorDraft(source.content || '')
+                setEditorPreviewUrl('')
+                setEditorExternalPending(false)
+                setEditorMessage('外部更新已读取，正在加载最新 Markdown 和预览。')
+              })
+              .catch((error) => {
+                if (active) setEditorMessage(`外部内容读取失败：${error?.message || error}`)
+              })
+          }
+        }
         setTick((value) => value + 1)
-      }, [status?.contentHash, status?.previewRel, status?.renderId, status?.root, status?.updatedAt])
+        return () => { active = false }
+      }, [applyPersistedPresentation, editorDraft, editorSource?.previewPath, mainConversation.sessionId, status?.contentHash, status?.previewRel, status?.renderId, status?.root, status?.updatedAt])
 
       const refreshMcpStatus = async () => {
         try {
@@ -1997,11 +2054,17 @@ window.__ModuleLoader__.load({
         const nextTemplate = templateOptions.find((template) => template.id === snapshot.templateId)
         if (!nextTemplate) return
         versionHydratedRef.current = hydrationKey
+        if (explicitVersionSelectionRef.current === currentVersion.id) {
+          explicitVersionSelectionRef.current = ''
+          return
+        }
+        const scopedOverride = presentation.resumeOverrides?.[currentVersion.resumePath]?.[snapshot.templateId]
+        if (scopedOverride) return
         setTemplateId(nextTemplate.id)
         setLayoutSettings(layoutSettingsFromTemplate(nextTemplate, snapshot.layout || {}))
         setVisualTokens(visualTokensFromTemplate(nextTemplate, snapshot.visual || {}))
         setIconTuning(normalizeIconTuningMap(snapshot.iconTuning))
-      }, [currentVersion?.id, currentVersion?.updatedAt, presentationDraftDirty, presentationRoot, status?.root, templateOptions.length])
+      }, [currentVersion?.id, currentVersion?.resumePath, currentVersion?.updatedAt, presentation, presentationDraftDirty, presentationRoot, status?.root, templateOptions.length])
 
       const mainContext = mainConversation.summary
 
@@ -2301,6 +2364,7 @@ window.__ModuleLoader__.load({
         if (!snapshot) return
         const nextTemplate = templateOptions.find((template) => template.id === snapshot.templateId)
         if (!nextTemplate) return
+        explicitVersionSelectionRef.current = version.id || ''
         const nextLayout = layoutSettingsFromTemplate(nextTemplate, snapshot.layout)
         const nextVisual = visualTokensFromTemplate(nextTemplate, snapshot.visual)
         setTemplateId(nextTemplate.id)
@@ -2309,7 +2373,11 @@ window.__ModuleLoader__.load({
         const nextIconTuning = normalizeIconTuningMap(snapshot.iconTuning)
         setIconTuning(nextIconTuning)
         setFitState({ text: `已加载版本「${version.name}」的排版参数`, state: 'pending' })
-        persistPresentation(nextTemplate.id, nextLayout, nextVisual, nextIconTuning, { activePreviewPath: version.previewPath, skipDirty: true })
+        // Opening a saved delivery version changes the active pointer only.
+        // Do not write its snapshot into the previously selected resume's
+        // resume-scoped presentation overrides; that would make versions
+        // appear to change templates or reset after a later reload.
+        persistPresentation(nextTemplate.id, nextLayout, nextVisual, nextIconTuning, { activeOnly: true, activePreviewPath: version.previewPath, skipDirty: true })
       }
 
       const openResumeVersion = (version) => {

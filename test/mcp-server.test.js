@@ -201,10 +201,14 @@ test('MCP render can register preview state and return shared browser metrics wh
   const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-runtime-'))
   try {
     let reportedMetrics = { available: true, status: 'measured', previewPath: 'preview.html', metrics: { pageCount: 1, fit: true } }
+    let metricsRequest = null
     const server = createResumeMcpServer({
       resolveRoot: () => fixtureRoot,
       onRendered: (rendered) => ({ registered: true, renderId: rendered.renderId }),
-      resolveMetrics: ({ previewPath }) => ({ ...reportedMetrics, previewPath }),
+      resolveMetrics: (request) => {
+        metricsRequest = request
+        return { ...reportedMetrics, previewPath: request.previewPath }
+      },
     })
     const tool = (name) => server._registeredTools[name].handler
     await tool('resume_init')({})
@@ -222,6 +226,8 @@ test('MCP render can register preview state and return shared browser metrics wh
     assert.equal(measuredPayload.metrics.pageCount, 1)
     assert.equal(measuredPayload.metrics.fit, true)
     assert.equal(measuredPayload.decision.state, 'accepted')
+    assert.equal(metricsRequest.renderId, renderedPayload.renderId)
+    assert.equal(metricsRequest.contentHash, renderedPayload.contentHash)
     reportedMetrics = { available: true, status: 'measured', metrics: { pageCount: 3, overflow: true } }
     const severe = JSON.parse((await tool('resume_metrics')({ previewPath: 'preview.html' })).content[0].text)
     assert.equal(severe.decision.state, 'severely-overfull')
