@@ -6,8 +6,6 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 
     const React = require('react')
-    let html2canvas = null
-    let html2canvasLoadPromise = null
     let dshPrimitives = {}
     try {
       dshPrimitives = require('@deepseek-ai/dsh-client-ui-primitives') || {}
@@ -925,11 +923,6 @@ window.__ModuleLoader__.load({
 .cj-inspectorDetails .cj-inspectorCard { margin-top: 8px; }
 .cj-inspectorCard[data-priority="primary"] { border-color: #cfdbf2; background: linear-gradient(155deg, #f7f9fe, #fff); }
 .cj-previewActions { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.cj-exportMenu { position: relative; display: inline-flex; flex: 0 0 auto; }
-.cj-exportMenuPanel { position: absolute; z-index: 80; top: calc(100% + 6px); right: 0; display: grid; min-width: 156px; gap: 4px; padding: 6px; border: 1px solid #dbe0e9; border-radius: 10px; background: rgba(255,255,255,.98); box-shadow: 0 12px 30px rgba(24,43,78,.16); }
-.cj-exportOption { all: unset; box-sizing: border-box; cursor: pointer; display: block; padding: 8px 9px; border-radius: 7px; color: #26334d; font-size: 11px; line-height: 16px; }
-.cj-exportOption:hover, .cj-exportOption:focus-visible { background: #eef3fb; color: #1d4ed8; outline: none; }
-.cj-exportOption small { display: block; margin-top: 2px; color: #8b95a7; font-size: 9px; line-height: 13px; }
 .cj-previewShell { position: relative; min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 10px; }
 .cj-previewShell > .cj-mainBar { flex: 0 0 auto; padding-right: 0; }
 .cj-toolButton { all: unset; box-sizing: border-box; cursor: pointer; max-width: 180px; height: 30px; overflow: hidden; padding: 0 10px; border: 1px solid #dbe0e9; border-radius: 8px; background: #fff; color: #536078; font-size: 11px; line-height: 30px; text-overflow: ellipsis; white-space: nowrap; }
@@ -1633,7 +1626,6 @@ window.__ModuleLoader__.load({
       const [chatHistoryRevision, setChatHistoryRevision] = useState(0)
       const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
       const [tuningOpen, setTuningOpen] = useState(false)
-      const [exportMenuAnchor, setExportMenuAnchor] = useState('')
       const chatRequestRef = useRef(null)
       const chatStreamRef = useRef(null)
       const chatInitialScrollRef = useRef(false)
@@ -3256,224 +3248,36 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const getExportPreviewUrl = async (prepared) => {
+      const onPrint = async () => {
+        if (!previewSrc) return
+        const prepared = await prepareTemplateForCommit('打印', { allowSavedFallback: true })
+        if (!prepared) return
         let printUrl = prepared.templateId === templateId ? (editorPreviewUrl || previewSrc) : ''
         if (!printUrl && editorSource?.root && editorDraft.trim()) {
-          const res = await fetch('/dsh-resume/api/editor/preview', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              root: editorSource.root,
-              resume: editorSource.resumePath,
-              preview: editorSource.previewPath,
-              sessionId: mainConversation.sessionId,
-              templateId: prepared.templateId,
-              layout: layoutSettings,
-              visual: visualTokens,
-              iconTuning,
-              content: editorDraft,
-            }),
-          })
-          const draft = await readJsonResponse(res, '打印预览')
-          printUrl = draft.previewUrl
-        }
-        return printUrl || previewSrc
-      }
-
-      const loadHtml2Canvas = () => {
-        if (typeof html2canvas === 'function') return Promise.resolve(html2canvas)
-        if (html2canvasLoadPromise) return html2canvasLoadPromise
-        const sources = [
-          '/dsh-resume/api/export/html2canvas.js',
-          'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
-        ]
-        const load = (index) => new Promise((resolve, reject) => {
-          const script = document.createElement('script')
-          script.src = sources[index]
-          script.async = true
-          script.onload = () => {
-            html2canvas = window.html2canvas
-            if (typeof html2canvas === 'function') resolve(html2canvas)
-            else if (index + 1 < sources.length) {
-              script.remove()
-              load(index + 1).then(resolve, reject)
-            } else reject(new Error('图片 PDF 栅格化组件不可用'))
-          }
-          script.onerror = () => {
-            script.remove()
-            if (index + 1 < sources.length) load(index + 1).then(resolve, reject)
-            else reject(new Error('图片 PDF 栅格化组件加载失败'))
-          }
-          document.head.appendChild(script)
-        })
-        html2canvasLoadPromise = load(0).catch((error) => {
-          html2canvasLoadPromise = null
-          throw error
-        })
-        return html2canvasLoadPromise
-      }
-
-      const captureResumePage = async (frame, pageIndex, scale = 2) => {
-        const rasterize = await loadHtml2Canvas()
-        const sourceDocument = frame?.contentDocument
-        const sourceRoot = sourceDocument?.querySelector('.resume-document')
-        if (!sourceRoot) throw new Error('没有找到可导出的 A4 页面')
-        const sourcePages = [...sourceRoot.querySelectorAll('.dsh-resume-page')]
-        if (!sourcePages.length) throw new Error('预览中没有 A4 页面')
-        const root = sourceRoot.cloneNode(true)
-        const pages = [...root.querySelectorAll('.dsh-resume-page')]
-        pages.forEach((page, index) => {
-          if (index !== pageIndex) page.remove()
-        })
-        const computedRoot = sourceDocument.defaultView?.getComputedStyle(sourceRoot)
-        const computedBody = sourceDocument.defaultView?.getComputedStyle(sourceDocument.body)
-        const fontFamily = computedRoot?.fontFamily || computedBody?.fontFamily || 'Arial, sans-serif'
-        const lineHeight = computedRoot?.lineHeight || computedBody?.lineHeight || 'normal'
-        const textColor = computedRoot?.color || computedBody?.color || '#1f2937'
-        const exportCss = [
-          '* { animation: none !important; transition: none !important; }',
-          'html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }',
-          '.resume-document { width: 794px !important; height: 1123px !important; min-height: 1123px !important; overflow: hidden !important; }',
-          '.dsh-resume-pages { width: 794px !important; height: 1123px !important; overflow: hidden !important; }',
-          '.dsh-resume-page { width: 794px !important; height: 1123px !important; min-height: 1123px !important; margin: 0 !important; overflow: hidden !important; box-shadow: none !important; }',
-          `.resume-document { font-family: ${fontFamily} !important; line-height: ${lineHeight} !important; color: ${textColor} !important; }`,
-        ].join('')
-        const styles = [...sourceDocument.querySelectorAll('style')]
-          .map((style) => String(style.textContent || ''))
-          .join('\n')
-        const mount = document.createElement('div')
-        mount.style.cssText = 'position:fixed;left:-100000px;top:0;width:794px;height:1123px;overflow:hidden;pointer-events:none;opacity:1;z-index:-1;background:#fff;'
-        const style = document.createElement('style')
-        style.textContent = `${styles}\n${exportCss}`
-        mount.append(style, root)
-        document.body.appendChild(mount)
-        try {
-          if (document.fonts?.ready) await document.fonts.ready
-          const canvas = await rasterize(root, {
-            backgroundColor: '#fff',
-            allowTaint: false,
-            height: 1123,
-            logging: false,
-            scale,
-            useCORS: true,
-            width: 794,
-            windowHeight: 1123,
-            windowWidth: 794,
-          })
-          return canvas.toDataURL('image/jpeg', .94)
-        } finally {
-          mount.remove()
-        }
-      }
-
-      const base64Bytes = (dataUrl) => {
-        const base64 = String(dataUrl).split(',')[1] || ''
-        const binary = atob(base64)
-        const bytes = new Uint8Array(binary.length)
-        for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
-        return bytes
-      }
-
-      const makeImagePdf = (pages) => {
-        const encoder = new TextEncoder()
-        const chunks = []
-        const offsets = [0]
-        let byteOffset = 0
-        const append = (value) => {
-          const chunk = value instanceof Uint8Array ? value : encoder.encode(String(value))
-          chunks.push(chunk)
-          byteOffset += chunk.length
-        }
-        append('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n')
-        const pageObjectIds = pages.map((_, index) => 3 + index * 3)
-        const pageTree = `2 0 obj\n<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>\nendobj\n`
-        offsets[1] = byteOffset
-        append('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n')
-        offsets[2] = byteOffset
-        append(pageTree)
-        pages.forEach((dataUrl, index) => {
-          const pageId = 3 + index * 3
-          const contentId = pageId + 1
-          const imageId = pageId + 2
-          const jpeg = base64Bytes(dataUrl)
-          const pageContent = `q\n595.28 0 0 841.89 0 0 cm\n/Im0 Do\nQ\n`
-          offsets[pageId] = byteOffset
-          append(`${pageId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>\nendobj\n`)
-          offsets[contentId] = byteOffset
-          append(`${contentId} 0 obj\n<< /Length ${encoder.encode(pageContent).length} >>\nstream\n${pageContent}endstream\nendobj\n`)
-          offsets[imageId] = byteOffset
-          append(`${imageId} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${794 * 2} /Height ${1123 * 2} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`)
-          append(jpeg)
-          append('\nendstream\nendobj\n')
-        })
-        const objectCount = 3 + pages.length * 3
-        const xrefOffset = byteOffset
-        append(`xref\n0 ${objectCount}\n0000000000 65535 f \n`)
-        for (let id = 1; id < objectCount; id += 1) append(`${String(offsets[id] || 0).padStart(10, '0')} 00000 n \n`)
-        append(`trailer\n<< /Size ${objectCount} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`)
-        const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.length, 0))
-        let cursor = 0
-        chunks.forEach((chunk) => { output.set(chunk, cursor); cursor += chunk.length })
-        return new Blob([output], { type: 'application/pdf' })
-      }
-
-      const getExportFrame = async (sourceUrl) => {
-        const current = editorPreviewRef.current
-        const currentUrl = current?.src || ''
-        const absoluteUrl = new URL(sourceUrl, window.location.href).href
-        if (current?.contentDocument?.querySelector('.dsh-resume-page') && currentUrl === absoluteUrl) return { frame: current, cleanup: () => {} }
-        const frame = document.createElement('iframe')
-        frame.setAttribute('aria-hidden', 'true')
-        frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;visibility:hidden;pointer-events:none;'
-        document.body.append(frame)
-        await new Promise((resolve, reject) => {
-          const timeout = window.setTimeout(() => reject(new Error('导出预览加载超时')), 10000)
-          frame.addEventListener('load', () => { window.clearTimeout(timeout); resolve() }, { once: true })
-          frame.addEventListener('error', () => { window.clearTimeout(timeout); reject(new Error('导出预览加载失败')) }, { once: true })
-          frame.src = absoluteUrl
-        })
-        await frame.contentDocument?.fonts?.ready
-        return { frame, cleanup: () => frame.remove() }
-      }
-
-      const downloadPdfBlob = (blob, name) => {
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = name
-        link.click()
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-      }
-
-      const onPrint = async (mode = 'text') => {
-        if (!previewSrc) return
-        const prepared = await prepareTemplateForCommit(mode === 'image' ? '图片 PDF 导出' : '打印', { allowSavedFallback: true })
-        if (!prepared) return
-        let printUrl
-        try {
-          printUrl = await getExportPreviewUrl(prepared)
-        } catch (err) {
-          setEditorMessage(`${mode === 'image' ? '图片 PDF' : '打印'}预览准备失败：${err?.message || err}`)
-          return
-        }
-        if (mode === 'image') {
-          let exportFrame
           try {
-            setEditorMessage('正在生成图片 PDF，请稍候…')
-            exportFrame = await getExportFrame(printUrl)
-            const pageCount = exportFrame.frame.contentDocument.querySelectorAll('.dsh-resume-page').length
-            const pages = []
-            for (let index = 0; index < pageCount; index += 1) pages.push(await captureResumePage(exportFrame.frame, index))
-            const baseName = (selected || 'resume').replace(/[\\/]/g, '_').replace(/\.html$/i, '') || 'resume'
-            downloadPdfBlob(makeImagePdf(pages), `${baseName}-image.pdf`)
-            setEditorMessage(`图片 PDF 已下载（${pageCount} 页）。`)
+            const res = await fetch('/dsh-resume/api/editor/preview', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                root: editorSource.root,
+                resume: editorSource.resumePath,
+                preview: editorSource.previewPath,
+                sessionId: mainConversation.sessionId,
+                templateId: prepared.templateId,
+                layout: layoutSettings,
+                visual: visualTokens,
+                iconTuning,
+                content: editorDraft,
+              }),
+            })
+            const draft = await readJsonResponse(res, '打印预览')
+            printUrl = draft.previewUrl
           } catch (err) {
-            setEditorMessage(`图片 PDF 导出失败：${err?.message || err}`)
-          } finally {
-            exportFrame?.cleanup()
+            setEditorMessage(`打印预览准备失败：${err?.message || err}`)
+            return
           }
-          return
         }
+        if (!printUrl) printUrl = previewSrc
         const w = window.open(printUrl, '_blank')
         if (!w) {
           setEditorMessage('PDF 导出窗口被浏览器拦截，请允许弹窗后重试。')
@@ -4000,24 +3804,6 @@ window.__ModuleLoader__.load({
         ),
         editorChatOpen ? editorChatView : null,
       )
-      const exportMenuButton = (label, className, anchor) => React.createElement(
-        'div',
-        { className: 'cj-exportMenu' },
-        React.createElement('button', {
-          type: 'button',
-          className,
-          onClick: () => setExportMenuAnchor((value) => value === anchor ? '' : anchor),
-          disabled: !previewSrc,
-          'aria-haspopup': 'menu',
-          'aria-expanded': exportMenuAnchor === anchor,
-        }, label),
-        exportMenuAnchor === anchor ? React.createElement(
-          'div',
-          { className: 'cj-exportMenuPanel', role: 'menu', 'aria-label': '选择 PDF 导出方式' },
-          React.createElement('button', { type: 'button', className: 'cj-exportOption', role: 'menuitem', onClick: () => { setExportMenuAnchor(''); void onPrint('text') } }, '文本 PDF', React.createElement('small', null, '可搜索、可复制，推荐')),
-          React.createElement('button', { type: 'button', className: 'cj-exportOption', role: 'menuitem', onClick: () => { setExportMenuAnchor(''); void onPrint('image') } }, '图片 PDF', React.createElement('small', null, '固化颜色，兼容平台预览')),
-        ) : null,
-      )
       const previewView = React.createElement(
         'div',
         { className: 'cj-previewShell' },
@@ -4043,7 +3829,7 @@ window.__ModuleLoader__.load({
             React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: () => { setEditorChatOpen((value) => !value); setTuningOpen(false); setTemplatePickerOpen(false) }, disabled: !editorSource }, editorChatOpen ? '收起 AI' : 'AI 助手'),
             React.createElement('button', { type: 'button', className: 'cj-iconAction', onClick: onRefresh, title: '重新读取磁盘上的最新预览', 'aria-label': '刷新预览' }, '↻'),
             React.createElement('button', { type: 'button', className: 'cj-ghostAction cj-compactExport', onClick: onDownload, disabled: !previewSrc }, '下载 HTML'),
-            exportMenuButton('导出 PDF', 'cj-solidAction cj-compactExport', 'toolbar'),
+            React.createElement('button', { type: 'button', className: 'cj-solidAction cj-compactExport', onClick: onPrint, disabled: !previewSrc }, '导出 PDF'),
             React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: saveEditor, disabled: editorBusy || !editorDraft.trim(), title: '保存当前版本，并绑定当前模板与排版参数' }, editorBusy ? '处理中…' : '保存版本'),
             React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: openSaveAsVersion, disabled: editorBusy || !editorSource || !editorDraft.trim(), title: '复制当前内容，并另存为一个新的投递版本' }, '另存为'),
             React.createElement('span', { className: `cj-inlineStatus cj-inlineStatus-${fitState.state}` }, `${statusButtonLabel} · ${statusButtonMeta}`),
@@ -4060,7 +3846,7 @@ window.__ModuleLoader__.load({
       return React.createElement(
         'div',
         { className: 'cj-workbench', style: { position: 'relative' } },
-        !compact && React.createElement('div', { className: 'cj-workbenchTop' }, React.createElement('div', { className: 'cj-brand' }, React.createElement('div', { className: 'cj-brandIcon' }, '简'), React.createElement('div', null, React.createElement('div', { className: 'cj-brandTitle' }, '投递版简历工作台'), React.createElement('div', { className: 'cj-brandDesc' }, '真实经历 · JD 匹配 · 可读排版'))), React.createElement('div', { className: 'cj-topActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onRefresh }, '重新检查'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onDownload, disabled: !previewSrc }, '下载 HTML'), exportMenuButton('确认并导出', 'cj-solidAction', 'top'))),
+        !compact && React.createElement('div', { className: 'cj-workbenchTop' }, React.createElement('div', { className: 'cj-brand' }, React.createElement('div', { className: 'cj-brandIcon' }, '简'), React.createElement('div', null, React.createElement('div', { className: 'cj-brandTitle' }, '投递版简历工作台'), React.createElement('div', { className: 'cj-brandDesc' }, '真实经历 · JD 匹配 · 可读排版'))), React.createElement('div', { className: 'cj-topActions' }, React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onRefresh }, '重新检查'), React.createElement('button', { type: 'button', className: 'cj-ghostAction', onClick: onDownload, disabled: !previewSrc }, '下载 HTML'), React.createElement('button', { type: 'button', className: 'cj-solidAction', onClick: onPrint, disabled: !previewSrc }, '确认并导出'))),
         React.createElement(
           'div',
           { className: 'cj-workbenchBody', 'data-view': view },
