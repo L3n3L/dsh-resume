@@ -1036,6 +1036,15 @@ test('entry markup exposes stable title, metadata, and bullet semantics', () => 
   assert.match(html, /<ul class="dsh-entry-bullets">[\s\S]*首屏加载/)
 })
 
+test('entry bullet paragraphs keep one body style despite metadata-like words', () => {
+  const source = '# 林知远\n\n## 实习经历\n\n### 智联招聘 · AI 产品实习生\n\n2026.07 - 至今\n\n- **产出一：评测工作台**：2000 case 在 0.46s 内完成建库。\n  **结果：** 通过率 87% → 93%。\n\n- **产出二：消息架构升级**：将产品字段改为结构化写入。\n  **结果：** 提示词由 520 行缩减至 300 行。\n\n- **产出三：长期记忆方案**：为后续 Agent 提供召回能力。'
+  const template = getTemplatePreset('campus-standard')
+  const html = assembleResumeSections(markdownToHtml(source), null, template.layout, template)
+  const bulletList = /<ul class="dsh-entry-bullets">([\s\S]*?)<\/ul>/.exec(html)?.[1] || ''
+  assert.ok(bulletList)
+  assert.doesNotMatch(bulletList, /dsh-entry-(?:meta|role|tech)/)
+})
+
 test('HeroHeader and EntryMeta expose reusable semantic hooks', () => {
   const source = '![头像](assets/avatar.png)\n\n# 林知远\n\n前端开发工程师\n\n## 项目经历\n\n### 校园服务平台\n\n公司 · 前端开发工程师\n\n2025.09 - 2026.01 | **技术栈**：`React` `TypeScript`\n\n- 结果指标'
   const layout = validateLayoutSpec({
