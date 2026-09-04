@@ -551,14 +551,19 @@ test('resume version save binds content and presentation, supports copy rename a
     })
     const content = '# 林知远\n\n## 项目经历\n\n- 版本保存测试\n'
     const saved = response()
-    await versionsRoute.handler(request({ action: 'save', mode: 'current', root, resume: 'resume.md', preview: 'preview.html', sessionId: 'version-save-test', name: '主简历 · 前端', templateId: 'campus-standard', layout: { fontSize: 13, lineHeight: 1.4 }, iconTuning: { github: { scale: 1.2, offsetY: 0.04 } }, persistPresentation: false, content }), saved)
+    await versionsRoute.handler(request({ action: 'save', mode: 'current', root, resume: 'resume.md', preview: 'preview.html', sessionId: 'version-save-test', name: '主简历 · 前端', templateId: 'campus-standard', layout: { fontSize: 13, lineHeight: 1.4 }, iconTuning: { github: { scale: 1.2, offsetY: 0.04 } }, content }), saved)
     assert.equal(saved.status, 200)
     assert.equal(saved.result.version.name, '主简历 · 前端')
     assert.equal(saved.result.version.presentation.templateId, 'campus-standard')
     assert.equal(saved.result.version.presentation.layout.fontSize, 13)
     assert.equal((await loadResumeVersionRegistry(root)).versions.length, 1)
     assert.equal((await readJobhuntFile(root, 'resume.md')).content, content)
-    assert.equal((await loadPresentation(root)).overrides['campus-standard'], undefined)
+    const presentation = await loadPresentation(root)
+    const override = presentation.resumeOverrides['resume.md']['campus-standard']
+    assert.equal(override.layout.fontSize, 13)
+    assert.equal(override.iconTuning.github.scale, 1.2)
+    assert.equal(override.iconTuning.github.offsetY, 0.04)
+    assert.match(await fs.readFile(path.join(root, 'preview.html'), 'utf8'), /applyIconTuning\(\{"github":\{"scale":1\.2,"offsetY":0\.04\}\}\)/)
 
     const copied = response()
     await versionsRoute.handler(request({ action: 'save', mode: 'copy', root, resume: 'resume.md', preview: 'preview.html', sessionId: 'version-save-test', name: '字节 AI 产品经理', templateId: 'campus-standard', layout: { fontSize: 15 }, content }), copied)
@@ -801,6 +806,15 @@ test('opening a resume version pins and persists its preview path', async () => 
   assert.match(clientSource, /if \(nextPreviewPath && explicitPreviewRef\.current && explicitPreviewRef\.current !== nextPreviewPath\) return/)
   assert.match(clientSource, /\[status\?\.root, status\?\.workspaceState, mainConversation\.sessionId\]/)
   assert.match(apiSource, /const currentPreview = persistedPreview \|\| \(/)
+})
+
+test('saved icon tuning remains a per-icon map when a version is restored', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /function normalizeIconTuningMap\(value = \{\}\)/)
+  assert.match(clientSource, /setIconTuning\(normalizeIconTuningMap\(snapshot\.iconTuning\)\)/)
+  assert.match(clientSource, /const nextIconTuning = normalizeIconTuningMap\(snapshot\.iconTuning\)/)
+  assert.doesNotMatch(clientSource, /setIconInventory\(\[\]\)\s*setIconTuning\(\{\}\)\s*setIconHistory/s)
+  assert.doesNotMatch(clientSource, /iconTuning,\s*persistPresentation: false/)
 })
 
 test('resume writing guidance protects evidence and treats one page as a hard delivery target', async () => {

@@ -1496,6 +1496,13 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function normalizeIconTuningMap(value = {}) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+      return Object.fromEntries(Object.entries(value)
+        .filter(([name, tuning]) => /^(?:\*|[a-z0-9_-]+)$/i.test(name) && tuning && typeof tuning === 'object' && !Array.isArray(tuning))
+        .map(([name, tuning]) => [name.toLowerCase(), normalizeIconTuning(tuning)]))
+    }
+
     const BUILTIN_TEMPLATE_IDS = new Set(['campus-standard', 'portrait-profile', 'magazine-feature', 'geek-lab', 'case-study', 'business-ledger-plus'])
 
     function PreviewWorkbench({ compact, onClose }) {
@@ -1968,7 +1975,7 @@ window.__ModuleLoader__.load({
         setTemplateId(id)
         setLayoutSettings(layoutForTemplate(nextTemplate))
         setVisualTokens(visualForTemplate(nextTemplate))
-        setIconTuning(presentationOverrideFor(id).iconTuning || {})
+        setIconTuning(normalizeIconTuningMap(presentationOverrideFor(id).iconTuning))
       }, [presentationRoot, presentation.activeTemplateId, templateOptions.length])
 
       useEffect(() => {
@@ -1993,7 +2000,7 @@ window.__ModuleLoader__.load({
         setTemplateId(nextTemplate.id)
         setLayoutSettings(layoutSettingsFromTemplate(nextTemplate, snapshot.layout || {}))
         setVisualTokens(visualTokensFromTemplate(nextTemplate, snapshot.visual || {}))
-        setIconTuning(normalizeIconTuning(snapshot.iconTuning || {}))
+        setIconTuning(normalizeIconTuningMap(snapshot.iconTuning))
       }, [currentVersion?.id, currentVersion?.updatedAt, presentationDraftDirty, presentationRoot, status?.root, templateOptions.length])
 
       const mainContext = mainConversation.summary
@@ -2162,7 +2169,6 @@ window.__ModuleLoader__.load({
               layout: layoutSettings,
               visual: visualTokens,
               iconTuning,
-              persistPresentation: false,
               content: editorDraft,
             }),
           })
@@ -2222,7 +2228,6 @@ window.__ModuleLoader__.load({
               layout: layoutSettings,
               visual: visualTokens,
               iconTuning,
-              persistPresentation: false,
               content: editorDraft,
             }),
           })
@@ -2301,9 +2306,10 @@ window.__ModuleLoader__.load({
         setTemplateId(nextTemplate.id)
         setLayoutSettings(nextLayout)
         setVisualTokens(nextVisual)
-        setIconTuning(normalizeIconTuning(snapshot.iconTuning || {}))
+        const nextIconTuning = normalizeIconTuningMap(snapshot.iconTuning)
+        setIconTuning(nextIconTuning)
         setFitState({ text: `已加载版本「${version.name}」的排版参数`, state: 'pending' })
-        persistPresentation(nextTemplate.id, nextLayout, nextVisual, snapshot.iconTuning || {}, { activePreviewPath: version.previewPath, skipDirty: true })
+        persistPresentation(nextTemplate.id, nextLayout, nextVisual, nextIconTuning, { activePreviewPath: version.previewPath, skipDirty: true })
       }
 
       const openResumeVersion = (version) => {
@@ -2438,7 +2444,7 @@ window.__ModuleLoader__.load({
             setTemplateId(preferred.id)
             setLayoutSettings(layoutForTemplate(preferred))
             setVisualTokens(visualForTemplate(preferred))
-            setIconTuning(presentationOverrideFor(preferred.id).iconTuning || {})
+            setIconTuning(normalizeIconTuningMap(presentationOverrideFor(preferred.id).iconTuning))
             setVisualHistory([])
             setLayoutHistory([])
             setFitState({ text: `已同步新模板：${preferred.name}`, state: 'pending' })
@@ -2631,7 +2637,6 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         setIconInventory([])
-        setIconTuning({})
         setIconHistory([])
       }, [selected, templateId, editorSource?.previewPath])
 
@@ -2717,7 +2722,7 @@ window.__ModuleLoader__.load({
         setTemplateId(value)
         setLayoutSettings(nextLayout)
         setVisualTokens(nextVisual)
-        setIconTuning(nextOverride.iconTuning || {})
+        setIconTuning(normalizeIconTuningMap(nextOverride.iconTuning))
         setVisualHistory([])
         setLayoutHistory([])
         setTemplatePickerOpen(false)
@@ -2725,7 +2730,7 @@ window.__ModuleLoader__.load({
         setFitState({ text: '正在应用模板', state: 'pending' })
         setLayout(null)
         setTemplateMessage('')
-        persistPresentation(value, nextLayout, nextVisual, nextOverride.iconTuning || {}, { activeOnly: true })
+        persistPresentation(value, nextLayout, nextVisual, normalizeIconTuningMap(nextOverride.iconTuning), { activeOnly: true })
       }
 
       const undoTemplateChoice = () => {
@@ -2737,12 +2742,12 @@ window.__ModuleLoader__.load({
         const previousOverride = presentationOverrideFor(previous)
         setLayoutSettings(layoutSettingsFromTemplate(previousTemplate, previousOverride.layout))
         setVisualTokens(visualTokensFromTemplate(previousTemplate, previousOverride.visual))
-        setIconTuning(previousOverride.iconTuning || {})
+        setIconTuning(normalizeIconTuningMap(previousOverride.iconTuning))
         setVisualHistory([])
         setLayoutHistory([])
         setTemplateMessage('已撤销模板切换')
         setLayout(null)
-        persistPresentation(previous, layoutSettingsFromTemplate(previousTemplate, previousOverride.layout), visualTokensFromTemplate(previousTemplate, previousOverride.visual), previousOverride.iconTuning || {}, { activeOnly: true })
+        persistPresentation(previous, layoutSettingsFromTemplate(previousTemplate, previousOverride.layout), visualTokensFromTemplate(previousTemplate, previousOverride.visual), normalizeIconTuningMap(previousOverride.iconTuning), { activeOnly: true })
       }
 
       const updateVisualToken = (key, value) => {
