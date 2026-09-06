@@ -793,6 +793,7 @@ test('template workshop exposes CSS detail, validation, and live preview hooks',
   assert.match(rendererSource, /data-dsh-workshop-css/)
   assert.match(clientSource, /className: 'cj-templateCss'/)
   assert.match(clientSource, /templateCss: templateCssDraft/)
+  assert.match(clientSource, /sourceTemplateId: selectedTemplate\.id/)
 })
 
 test('manual preview refresh re-reads disk without overwriting a local draft', async () => {
@@ -889,6 +890,20 @@ test('template saves protect existing custom templates and scoped presentation i
     const copied = await copyTemplate(root, 'safe-copy', 'safe-copy-v2')
     assert.equal(copied.createdAsCopy, true)
     assert.equal(copied.template.metadata.sourceTemplateId, 'safe-copy')
+
+    const scopedSource = { ...template, id: 'scoped-source', templateCss: '[data-template-id="scoped-source"] .header-block { color: #2563eb; } [data-template-id=\'scoped-source\'] .dsh-resume-section { color: #1d4ed8; } [data-template-id=scoped-source] .dsh-entry-title { color: #172554; }' }
+    await saveTemplate(root, scopedSource)
+    const scopedCopy = await copyTemplate(root, 'scoped-source', 'scoped-copy')
+    assert.match(scopedCopy.template.templateCss, /data-template-id="scoped-copy"/)
+    assert.match(scopedCopy.template.templateCss, /data-template-id='scoped-copy'/)
+    assert.match(scopedCopy.template.templateCss, /data-template-id=scoped-copy/)
+    assert.doesNotMatch(scopedCopy.template.templateCss, /data-template-id="scoped-source"/)
+    assert.equal(await fs.readFile(path.join(root, 'templates/scoped-copy.css'), 'utf8'), scopedCopy.template.templateCss)
+
+    const savedCopy = await saveTemplate(root, { ...scopedSource, id: 'saved-copy' }, { sourceTemplateId: 'scoped-source' })
+    assert.match(savedCopy.template.templateCss, /data-template-id="saved-copy"/)
+    assert.doesNotMatch(savedCopy.template.templateCss, /data-template-id="scoped-source"/)
+
     const updated = await saveTemplate(root, { ...template, name: '当前修订' }, { replaceExisting: true })
     assert.equal(updated.template.metadata.revision, 2)
     const history = await listTemplateVersions(root, 'safe-copy')

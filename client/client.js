@@ -2861,7 +2861,7 @@ window.__ModuleLoader__.load({
           const res = await fetch('/dsh-resume/api/templates/actions', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action: 'save', root: status?.root, templateJson }),
+            body: JSON.stringify({ action: 'save', root: status?.root, templateJson, sourceTemplateId: selectedTemplate.id }),
           })
           const result = await res.json()
           if (!res.ok || !result.saved) throw new Error(result.error || result.errors?.join('；') || '保存视觉变体失败')
@@ -2951,7 +2951,7 @@ window.__ModuleLoader__.load({
           const res = await fetch('/dsh-resume/api/templates/actions', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action: 'save', root: status?.root, templateJson: candidateJson }),
+            body: JSON.stringify({ action: 'save', root: status?.root, templateJson: candidateJson, sourceTemplateId: selectedTemplate.id }),
           })
           const result = await res.json()
           if (!res.ok || !result.saved) throw new Error(result.error || result.errors?.join('；') || '模板副本保存失败')

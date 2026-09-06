@@ -810,10 +810,10 @@ export function createResumeMcpServer(options = {}) {
   server.registerTool(
     'template_save',
     {
-      description: 'Save a validated composition template as a new workspace template JSON/CSS. Existing custom IDs are protected by default; use template_copy for an isolated revision. Explicit replacement requires replaceExisting=true and confirmImpact=true. Built-in templates are immutable.',
-      inputSchema: z.object({ templateJson: z.string().describe('Complete validated composition TemplateSpec JSON.'), replaceExisting: z.boolean().optional(), confirmImpact: z.boolean().optional(), ...rootInput }),
+      description: 'Save a validated composition template as a new workspace template JSON/CSS. When saving a renamed copy with sourceTemplateId, matching data-template-id CSS scopes are rewritten to the new id. Existing custom IDs are protected by default; use template_copy for an isolated revision. Explicit replacement requires replaceExisting=true and confirmImpact=true. Built-in templates are immutable.',
+      inputSchema: z.object({ templateJson: z.string().describe('Complete validated composition TemplateSpec JSON.'), replaceExisting: z.boolean().optional(), confirmImpact: z.boolean().optional(), sourceTemplateId: z.string().optional().describe('Source template id when saving a renamed copy.'), ...rootInput }),
     },
-    async ({ templateJson, replaceExisting, confirmImpact, rootDir }) => {
+    async ({ templateJson, replaceExisting, confirmImpact, sourceTemplateId, rootDir }) => {
       const parsed = parseJson(templateJson, 'templateJson')
       const validation = validateTemplate(parsed)
       if (!validation.valid) return jsonResult({ saved: false, valid: false, errors: validation.errors, template: validation.value })
@@ -823,7 +823,7 @@ export function createResumeMcpServer(options = {}) {
         const result = await withWorkspaceLock(root, async () => {
           const gate = await requirePrepared(root, undefined, 'template_save')
           if (!gate.ok) return gate.result
-          const saved = await saveTemplate(root, parsed, { replaceExisting: replaceExisting === true })
+          const saved = await saveTemplate(root, parsed, { replaceExisting: replaceExisting === true, sourceTemplateId })
           markMutation('template_save', `templates/${parsed.id}.json`)
           return { saved: true, valid: true, qualityAudit: auditTemplateCss(saved.template?.templateCss, parsed.id), ...saved, verificationRecommended: true, nextTools: ['resume_check', 'resume_render', 'resume_metrics'] }
         })

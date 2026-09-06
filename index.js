@@ -268,11 +268,12 @@ export async function apply(ctx) {
 
   ctx.tools.register(defineTool({
     name: 'jobhunt_template_save',
-    description: 'Save a validated composition template as a new jobhunt template. Existing custom IDs are protected by default; use jobhunt_template_copy for an isolated revision. Explicit replacement requires replaceExisting=true and confirmImpact=true. Built-in templates are immutable.',
+    description: 'Save a validated composition template as a new jobhunt template. When saving a renamed copy with sourceTemplateId, matching CSS scopes are rewritten to the new id. Existing custom IDs are protected by default; use jobhunt_template_copy for an isolated revision. Explicit replacement requires replaceExisting=true and confirmImpact=true. Built-in templates are immutable.',
     parameters: {
       templateJson: { type: 'string', required: true, description: 'Validated composition TemplateSpec JSON. It must use renderer: composition, an explicit composition object, and a lower-kebab-case id not used by a built-in. Optional templateCss is written to templates/<id>.css.' },
       replaceExisting: { type: 'boolean', description: 'Optional high-impact override for an existing custom template. Defaults to false.' },
       confirmImpact: { type: 'boolean', description: 'Required together with replaceExisting=true to confirm that other resumes using this template may be affected.' },
+      sourceTemplateId: { type: 'string', description: 'Optional source template id when saving a renamed copy; matching data-template-id CSS scopes are rewritten to the new id.' },
       rootDir: { type: 'string', description: 'Optional jobhunt root override.' },
     },
     output: textResult(),
@@ -288,7 +289,7 @@ export async function apply(ctx) {
       if (args.replaceExisting === true && args.confirmImpact !== true) return { saved: false, valid: true, conflict: true, errors: ['replaceExisting requires confirmImpact=true; use jobhunt_template_copy for an isolated revision'] }
       try {
         const root = resolveAndRememberRoot(args, exec)
-        const saved = await withWorkspaceLock(root, () => saveTemplate(root, parsed, { replaceExisting: args.replaceExisting === true }))
+        const saved = await withWorkspaceLock(root, () => saveTemplate(root, parsed, { replaceExisting: args.replaceExisting === true, sourceTemplateId: args.sourceTemplateId }))
         return { saved: true, valid: true, qualityAudit: auditTemplateCss(saved.template?.templateCss, parsed.id), ...saved }
       } catch (err) {
         return { saved: false, valid: true, errors: [String(err?.message || err)], template: validation.value }
