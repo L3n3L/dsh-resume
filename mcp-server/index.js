@@ -82,8 +82,10 @@ function pageDensityAudit(metrics = {}, targetPages = 1) {
       : []
   if (!occupancy.length) return { available: false, passed: false, occupancy: [], missing: 'per-page-occupancy' }
   const requestedPages = Math.max(1, Math.min(3, Number(targetPages) || 1))
-  const minOccupancy = requestedPages > 1 ? 0.65 : 0.72
-  const maxSpread = requestedPages > 1 ? 0.25 : 1
+  // Multi-page resumes should use the page area intentionally. A matching
+  // page count with a half-empty page is not a successful delivery.
+  const minOccupancy = requestedPages > 1 ? 0.72 : 0.72
+  const maxSpread = requestedPages > 1 ? 0.18 : 1
   const complete = occupancy.length === requestedPages
   const underfilledPages = occupancy
     .map((ratio, index) => ({ page: index + 1, occupancy: ratio }))
@@ -388,7 +390,7 @@ export function createResumeMcpServer(options = {}) {
           projectSelection: { defaultCount: 2, maximumCount: 3, rule: 'Select by target-role relevance, evidence strength, personal ownership, and distinctiveness; do not include every available project.' },
           compressionOrder: ['skills', 'honors-detail', 'repetition', 'low-relevance-wording'],
           protectedEvidence: ['education', 'all-internships', 'selected-projects', 'ownership', 'actions', 'methods', 'results-or-artifacts'],
-          acceptance: [`pageCount=${workflow.targetPages}`, 'overflow=false', 'readable-density=true', 'core-evidence-preserved=true'],
+          acceptance: [`pageCount=${workflow.targetPages}`, 'overflow=false', 'readable-density=true (each page occupancy >= 0.72; multi-page spread <= 0.18)', 'core-evidence-preserved=true'],
         },
         mutationPolicy: {
           requiredBeforeMutation: 'resume_prepare',

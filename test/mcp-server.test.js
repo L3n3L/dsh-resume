@@ -304,6 +304,15 @@ test('MCP treats missing or imbalanced per-page density as a hard failure for on
 
     currentMetrics = {
       ...currentMetrics,
+      metrics: { pageCount: 2, overflow: false, sparse: false, visualAudit: { occupancy: [0.72, 0.9] } },
+    }
+    const unbalanced = payload(await tool('resume_metrics')({ previewPath: rendered.previewPath }))
+    assert.equal(unbalanced.decision.state, 'sparse')
+    assert.equal(unbalanced.decision.density.minOccupancy, 0.72)
+    assert.equal(unbalanced.decision.density.maxSpread, 0.18)
+
+    currentMetrics = {
+      ...currentMetrics,
       metrics: { pageCount: 2, overflow: false, sparse: false, visualAudit: { occupancy: [0.72, 0.72] } },
     }
     const balanced = payload(await tool('resume_metrics')({ previewPath: rendered.previewPath }))
