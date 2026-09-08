@@ -73,25 +73,76 @@ function workflowErrorPayload(nextTool, message, extra = {}) {
   }
 }
 
-function layoutDecision(metrics = {}) {
+function pageDensityAudit(metrics = {}, targetPages = 1) {
+  const measured = metrics.metrics || metrics
+  const occupancy = Array.isArray(measured.visualAudit?.occupancy)
+    ? measured.visualAudit.occupancy.map(Number).filter(Number.isFinite)
+    : Array.isArray(measured.pages)
+      ? measured.pages.map((page) => Number(page?.occupancyRatio)).filter(Number.isFinite)
+      : []
+  if (!occupancy.length) return { available: false, passed: false, occupancy: [], missing: 'per-page-occupancy' }
+  const requestedPages = Math.max(1, Math.min(3, Number(targetPages) || 1))
+  const minOccupancy = requestedPages > 1 ? 0.65 : 0.72
+  const maxSpread = requestedPages > 1 ? 0.25 : 1
+  const complete = occupancy.length === requestedPages
+  const underfilledPages = occupancy
+    .map((ratio, index) => ({ page: index + 1, occupancy: ratio }))
+    .filter((item) => item.occupancy < minOccupancy)
+  const spread = occupancy.length > 1 ? Math.max(...occupancy) - Math.min(...occupancy) : 0
+  return {
+    available: true,
+    passed: complete && underfilledPages.length === 0 && spread <= maxSpread,
+    complete,
+    occupancy,
+    minOccupancy,
+    spread: Number(spread.toFixed(3)),
+    maxSpread,
+    underfilledPages,
+  }
+}
+
+function layoutDecision(metrics = {}, targetPages = 1) {
   const measured = metrics.metrics || metrics
   if (metrics.status === 'pending' || metrics.available === false || !Number.isFinite(Number(measured.pageCount))) {
     return { state: 'pending', next: '等待 DSH 浏览器回传真实 A4 指标后再判断页数；不要凭感觉压缩或声称已通过。' }
   }
+  const requestedPages = Math.max(1, Math.min(3, Number(targetPages) || 1))
   const pageCount = Number(measured.pageCount)
   const overflow = Boolean(measured.overflow)
   const sparse = Boolean(measured.sparse)
-  if (pageCount === 1 && !overflow && !sparse) {
-    return { state: 'accepted', next: '一页且指标正常；转入内容证据和 HR 扫描复核，不再为了填满页面添加无依据内容。' }
+  const density = pageDensityAudit(metrics, requestedPages)
+  if (pageCount === requestedPages && !overflow && !sparse) {
+    if (!density.available) {
+      return {
+        state: 'pending',
+        targetPages: requestedPages,
+        density,
+        next: '页数指标已返回，但逐页密度指标缺失；必须等待浏览器回传每一页占用率，不能把没有密度数据当作通过。',
+      }
+    }
+    if (!density.passed) {
+      return {
+        state: 'sparse',
+        targetPages: requestedPages,
+        density,
+        next: '页数和溢出指标正常，但页面密度不合格；必须继续调整模板的模块承载、分页流向、间距和字号，必要时重构当前模板，再重新渲染和验收；禁止结束任务或用装饰性空内容填充。',
+      }
+    }
+    return { state: 'accepted', targetPages: requestedPages, density, next: `${requestedPages} 页且逐页密度指标正常；转入内容证据和 HR 扫描复核，不再为了填满页面添加无依据内容。` }
   }
-  if (pageCount > 1 || overflow) {
+  if (pageCount !== requestedPages || overflow) {
+    const overfull = pageCount > requestedPages || overflow
     return {
-      state: pageCount > 2 ? 'severely-overfull' : 'overfull',
-      next: '先微调并验收当前模板，再做容器/模块承载/信息密度/流向/CSS 结构改造；仍超页时才压缩或舍弃技能、荣誉细节、重复和低相关表达，保留全部实习与教育以及入选项目。',
-      hardTarget: 'one-page-a4',
+      state: overfull ? (pageCount > requestedPages + 1 ? 'severely-overfull' : 'overfull') : 'underfull',
+      next: overfull
+        ? '先微调并验收当前模板，再做容器/模块承载/信息密度/流向/CSS 结构改造；仍超目标页数时才压缩或舍弃技能、荣誉细节、重复和低相关表达，保留全部实习与教育以及入选项目。'
+        : '当前页数少于用户要求的目标页数；先用真实证据和模块承载补足内容，不添加装饰性空内容。',
+      hardTarget: requestedPages === 1 ? 'one-page-a4' : `${requestedPages}-page-a4`,
+      targetPages: requestedPages,
+      density,
     }
   }
-  return { state: 'sparse', next: '一页但信息密度偏低；先用当前模板的模块承载和版面流向补足真实信息，不添加装饰性空内容。' }
+  return { state: 'sparse', targetPages: requestedPages, density, next: `${requestedPages} 页但信息密度偏低；先用当前模板的模块承载和版面流向补足真实信息，不添加装饰性空内容。` }
 }
 
 function metricIdentity(metrics = {}) {
@@ -147,6 +198,7 @@ export function createWorkflowState() {
     lastMetrics: null,
     lastDecision: null,
     completionAllowed: false,
+    targetPages: 1,
     lastMutation: null,
   }
 }
@@ -172,7 +224,7 @@ export function createResumeMcpServer(options = {}) {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
-    instructions: `${RESUME_MCP_INSTRUCTIONS}\nFinal delivery rule: after any mutation, the Agent must call resume_check → resume_render → resume_metrics → resume_finalize. Only resume_finalize returning accepted=true and completionAllowed=true permits claiming the resume is complete; otherwise continue or report the exact blocker. Version rule: MCP writes remain drafts by default. Only when the user explicitly asks to save/duplicate a delivery version may the Agent call resume_save_version; it binds content, template, template lineage, and presentation parameters, then the returned version path must be verified again.`,
+    instructions: `${RESUME_MCP_INSTRUCTIONS}\nFinal delivery rule: after any mutation, the Agent must call resume_check → resume_render → resume_metrics → resume_finalize. Only resume_finalize returning accepted=true and completionAllowed=true permits claiming the resume is complete; otherwise the Agent must continue the revision loop or report the exact blocker. Matching page count is insufficient: missing per-page density, a materially empty page, or a large page imbalance is a hard failure. Version rule: MCP writes remain drafts by default; a delivery copy may be created only after the current version passes resume_finalize, and the returned version path must be verified again.`,
   })
 
   async function requirePrepared(root, resumePath, action) {
@@ -286,15 +338,17 @@ export function createResumeMcpServer(options = {}) {
       inputSchema: z.object({
         resumePath: z.string().optional().describe('Resume Markdown path relative to the jobhunt root. Defaults to resume.md.'),
         templateId: z.string().optional().describe('Optional template to use for this production session.'),
+        targetPages: z.number().int().min(1).max(3).optional().describe('Requested A4 page count. Defaults to 1; pass the explicit user requirement when it differs.'),
         ...rootInput,
       }),
     },
-    async ({ resumePath, templateId, rootDir }) => {
+    async ({ resumePath, templateId, targetPages, rootDir }) => {
       const root = resolveToolRoot(rootDir)
       const resume = await readResume(root, resumePath)
       const selectedTemplateId = templateId || (await loadPresentation(root)).activeTemplateId || null
       const template = selectedTemplateId ? await loadTemplate(root, selectedTemplateId) : null
-      const preflight = resumeQualityCheck(resume.content)
+      workflow.targetPages = Math.max(1, Math.min(3, Number(targetPages) || 1))
+      const preflight = resumeQualityCheck(resume.content, { targetPages: workflow.targetPages })
       workflow.prepared = true
       workflow.root = root
       workflow.resumePath = resume.path
@@ -319,6 +373,7 @@ export function createResumeMcpServer(options = {}) {
         resumePath: resume.path,
         contentHash: workflow.resumeHash,
         templateId: selectedTemplateId,
+        targetPages: workflow.targetPages,
         template: template ? templateSummary(template) : null,
         preflight,
         guide: {
@@ -328,12 +383,12 @@ export function createResumeMcpServer(options = {}) {
           workflow: guide.sections.workflow,
         },
         deliveryPolicy: {
-          target: 'one-page-a4',
+          target: workflow.targetPages === 1 ? 'one-page-a4' : `${workflow.targetPages}-page-a4`,
           requiredModules: ['education', 'internship', 'selected-projects'],
           projectSelection: { defaultCount: 2, maximumCount: 3, rule: 'Select by target-role relevance, evidence strength, personal ownership, and distinctiveness; do not include every available project.' },
           compressionOrder: ['skills', 'honors-detail', 'repetition', 'low-relevance-wording'],
           protectedEvidence: ['education', 'all-internships', 'selected-projects', 'ownership', 'actions', 'methods', 'results-or-artifacts'],
-          acceptance: ['pageCount=1', 'overflow=false', 'readable-density=true', 'core-evidence-preserved=true'],
+          acceptance: [`pageCount=${workflow.targetPages}`, 'overflow=false', 'readable-density=true', 'core-evidence-preserved=true'],
         },
         mutationPolicy: {
           requiredBeforeMutation: 'resume_prepare',
@@ -510,7 +565,7 @@ export function createResumeMcpServer(options = {}) {
   server.registerTool(
     'resume_metrics',
     {
-      description: 'Return the latest browser-measured A4 metrics for the current render. Pending, stale, sparse, or overfull metrics never count as final delivery; call resume_finalize after an accepted measurement.',
+      description: 'Return the latest browser-measured A4 metrics for the current render. Pending, stale, missing-density, sparse, unbalanced, or overfull metrics never count as final delivery; after a failure continue the revision loop and re-render.',
       inputSchema: z.object({
         previewPath: z.string().optional().describe('Preview HTML path relative to the jobhunt root. Defaults to preview.html.'),
         ...rootInput,
@@ -526,7 +581,7 @@ export function createResumeMcpServer(options = {}) {
           renderId: workflow.renderId,
           contentHash: workflow.renderContentHash,
         })
-        const decision = layoutDecision(measured)
+        const decision = layoutDecision(measured, workflow.targetPages)
         const identity = metricIdentity(measured)
         const identityMatches = Boolean(
           workflow.rendered
@@ -540,6 +595,14 @@ export function createResumeMcpServer(options = {}) {
         workflow.lastDecision = decision
         workflow.completionAllowed = false
         workflow.status = decision.state === 'accepted' && identityMatches ? 'ready' : decision.state === 'pending' ? 'verification_pending' : decision.state === 'accepted' ? 'verification_stale' : 'needs_revision'
+        const measurementAccepted = decision.state === 'accepted' && identityMatches
+        const nextTools = measurementAccepted
+          ? ['resume_finalize']
+          : decision.state === 'pending'
+            ? ['resume_metrics']
+            : decision.state === 'accepted'
+              ? ['resume_render', 'resume_metrics', 'resume_finalize']
+              : ['presentation_save', 'template_copy', 'resume_render', 'resume_metrics', 'resume_finalize']
         return jsonResult({
           root,
           previewPath: requestedPreviewPath,
@@ -547,7 +610,8 @@ export function createResumeMcpServer(options = {}) {
           decision,
           identityMatched: identityMatches,
           completionAllowed: false,
-          nextTool: decision.state === 'accepted' && identityMatches ? 'resume_finalize' : 'resume_metrics',
+          nextTool: measurementAccepted ? 'resume_finalize' : nextTools[0],
+          nextTools,
         })
       }
       const pending = {
@@ -558,7 +622,7 @@ export function createResumeMcpServer(options = {}) {
           message: 'Browser-measured A4 metrics are owned by the DSH preview runtime. Open the HTTP previewUrl returned by resume_render; standalone stdio MCP cannot invent page count.',
       }
       workflow.lastMetrics = { ...pending, identityMatched: false }
-      workflow.lastDecision = layoutDecision(pending)
+      workflow.lastDecision = layoutDecision(pending, workflow.targetPages)
       workflow.status = 'verification_pending'
       workflow.completionAllowed = false
       return jsonResult({ ...pending, decision: workflow.lastDecision, completionAllowed: false, nextTool: 'resume_metrics' })
@@ -568,7 +632,7 @@ export function createResumeMcpServer(options = {}) {
   server.registerTool(
     'resume_finalize',
     {
-      description: 'Perform the final resume delivery gate. This is read-only and never changes files. It returns accepted only after current content has been checked, current preview has been rendered, and matching browser A4 metrics prove one readable page without overflow or sparse layout.',
+      description: 'Perform the final resume delivery gate. This is read-only and never changes files. It returns accepted only after current content has been checked, current preview has been rendered, and matching browser A4 metrics prove the requested readable A4 page count, balanced per-page density, and no overflow.',
       inputSchema: z.object({
         resumePath: z.string().optional().describe('Resume Markdown path relative to the jobhunt root. Defaults to the prepared resume.'),
         previewPath: z.string().optional().describe('Preview path relative to the jobhunt root. Defaults to the latest prepared render.'),
@@ -579,7 +643,7 @@ export function createResumeMcpServer(options = {}) {
       const root = resolveToolRoot(rootDir)
       const gate = await requirePrepared(root, resumePath, 'resume_finalize')
       if (!gate.ok) return jsonResult(gate.result)
-      const quality = resumeQualityCheck(gate.resume.content)
+      const quality = resumeQualityCheck(gate.resume.content, { targetPages: workflow.targetPages })
       const currentPreview = String(previewPath || workflow.previewPath || '').replace(/\\/g, '/')
       const blockers = []
       if (!workflow.checked || workflow.resumeHash !== contentHash(gate.resume.content)) blockers.push({ code: 'resume_check_required', message: '当前简历内容尚未完成匹配版本的 resume_check。' })
@@ -587,7 +651,7 @@ export function createResumeMcpServer(options = {}) {
         blockers.push({ code: 'resume_render_required', message: '当前简历内容或预览版本已变化，必须重新 resume_render。' })
       }
       if (!workflow.lastMetrics || workflow.lastMetrics.identityMatched !== true) blockers.push({ code: 'matching_metrics_required', message: '尚未收到与当前 renderId/contentHash 匹配的真实浏览器指标；请打开 HTTP previewUrl 后重试 resume_metrics。' })
-      const decision = workflow.lastDecision || layoutDecision(workflow.lastMetrics || {})
+      const decision = workflow.lastDecision || layoutDecision(workflow.lastMetrics || {}, workflow.targetPages)
       if (decision.state !== 'accepted') blockers.push({ code: `layout_${decision.state}`, message: decision.next })
       if (!quality.passed) blockers.push({ code: 'content_preflight_failed', message: '简历内容检查未通过，请先处理 resume_check 返回的问题。' })
       if (blockers.length) {
@@ -602,7 +666,9 @@ export function createResumeMcpServer(options = {}) {
           resumePath: gate.path,
           previewPath: currentPreview || workflow.previewPath,
           blockers,
-          nextTools: ['resume_check', 'resume_render', 'resume_metrics', 'resume_finalize'],
+          nextTools: decision.state === 'pending'
+            ? ['resume_metrics']
+            : ['presentation_save', 'template_copy', 'resume_render', 'resume_metrics', 'resume_finalize'],
         })
       }
       workflow.status = 'accepted'
@@ -642,6 +708,15 @@ export function createResumeMcpServer(options = {}) {
       const gate = await requirePrepared(root, resumePath, 'resume_save_version')
       if (!gate.ok) return jsonResult(gate.result)
       const saveMode = mode === 'copy' ? 'copy' : 'current'
+      if (saveMode === 'copy' && workflow.completionAllowed !== true) {
+        return jsonResult({
+          saved: false,
+          blocked: true,
+          code: 'delivery_gate_required',
+          message: '投递副本只能从已通过 resume_finalize 的当前版本创建；当前仍是草稿或验收未通过。',
+          nextTools: ['resume_check', 'resume_render', 'resume_metrics', 'resume_finalize'],
+        })
+      }
       const requestedName = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 80)
       const presentation = await loadPresentation(root)
       const effectiveTemplateId = String(templateId || presentation.activeTemplateId || '').trim() || null

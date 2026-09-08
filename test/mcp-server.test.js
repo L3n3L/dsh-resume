@@ -186,12 +186,9 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
     name: 'MCP 测试投递版',
     templateId: 'mcp-test-template',
   })
-  assert.equal(delivery.saved, true)
-  assert.equal(delivery.version.kind, 'delivery')
-  assert.equal(delivery.version.presentation.templateId, 'mcp-test-template')
-  assert.match(delivery.version.resumePath, /^companies\/mcp-测试投递版\/resume\.md$/)
-  const copiedResume = await call('resume_read', { rootDir: fixtureRoot, path: delivery.version.resumePath })
-  assert.equal(copiedResume.content, resumeContent)
+  assert.equal(delivery.saved, false)
+  assert.equal(delivery.blocked, true)
+  assert.equal(delivery.code, 'delivery_gate_required')
 
   server.child.stdin.end()
   await once(server.child, 'close')
@@ -200,7 +197,7 @@ test('MCP stdio server negotiates and exposes the basic dsh-resume tools', async
 test('MCP render can register preview state and return shared browser metrics when hosted by DSH', async () => {
   const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-runtime-'))
   try {
-    let reportedMetrics = { available: true, status: 'measured', previewPath: 'preview.html', metrics: { pageCount: 1, fit: true } }
+    let reportedMetrics = { available: true, status: 'measured', previewPath: 'preview.html', metrics: { pageCount: 1, fit: true, visualAudit: { occupancy: [0.92] } } }
     let metricsRequest = null
     const server = createResumeMcpServer({
       resolveRoot: () => fixtureRoot,
@@ -268,6 +265,60 @@ test('MCP workflow gate guides verification without blocking iterations and bloc
   }
 })
 
+test('MCP treats missing or imbalanced per-page density as a hard failure for one and two page targets', async () => {
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-density-contract-'))
+  let currentMetrics = null
+  try {
+    const server = createResumeMcpServer({
+      resolveRoot: () => fixtureRoot,
+      resolveMetrics: () => currentMetrics,
+    })
+    const tool = (name) => server._registeredTools[name].handler
+    const payload = (result) => JSON.parse(result.content[0].text)
+
+    await tool('resume_init')({})
+    await tool('resume_prepare')({ resumePath: 'resume.md', targetPages: 2 })
+    const rendered = payload(await tool('resume_render')({ resumePath: 'resume.md' }))
+    currentMetrics = {
+      available: true,
+      status: 'measured',
+      renderId: rendered.renderId,
+      contentHash: rendered.contentHash,
+      previewPath: rendered.previewPath,
+      metrics: { pageCount: 2, overflow: false, sparse: false, visualAudit: { occupancy: [0.78, 0.49] } },
+    }
+    const sparse = payload(await tool('resume_metrics')({ previewPath: rendered.previewPath }))
+    assert.equal(sparse.decision.state, 'sparse')
+    assert.equal(sparse.completionAllowed, false)
+    const blocked = payload(await tool('resume_finalize')({ resumePath: 'resume.md', previewPath: rendered.previewPath }))
+    assert.equal(blocked.accepted, false)
+    assert.ok(blocked.blockers.some((blocker) => blocker.code === 'layout_sparse'))
+
+    currentMetrics = {
+      ...currentMetrics,
+      metrics: { pageCount: 2, overflow: false, sparse: false },
+    }
+    const missingDensity = payload(await tool('resume_metrics')({ previewPath: rendered.previewPath }))
+    assert.equal(missingDensity.decision.state, 'pending')
+    assert.equal(missingDensity.decision.density.available, false)
+
+    currentMetrics = {
+      ...currentMetrics,
+      metrics: { pageCount: 2, overflow: false, sparse: false, visualAudit: { occupancy: [0.72, 0.72] } },
+    }
+    const balanced = payload(await tool('resume_metrics')({ previewPath: rendered.previewPath }))
+    assert.equal(balanced.decision.state, 'accepted')
+    const accepted = payload(await tool('resume_finalize')({ resumePath: 'resume.md', previewPath: rendered.previewPath }))
+    assert.equal(accepted.accepted, true)
+    assert.equal(accepted.completionAllowed, true)
+    const delivery = payload(await tool('resume_save_version')({ resumePath: 'resume.md', mode: 'copy', name: '通过验收的两页版' }))
+    assert.equal(delivery.saved, true)
+    assert.equal(delivery.version.kind, 'delivery')
+  } finally {
+    await fs.rm(fixtureRoot, { recursive: true, force: true })
+  }
+})
+
 test('MCP finalization blocks early completion, accepts matching metrics, and invalidates after another write', async () => {
   const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-mcp-finalize-'))
   let currentMetrics = { available: false, status: 'pending' }
@@ -297,7 +348,7 @@ test('MCP finalization blocks early completion, accepts matching metrics, and in
       renderId: rendered.renderId,
       contentHash: rendered.contentHash,
       previewPath: rendered.previewPath,
-      metrics: { pageCount: 1, overflow: false, sparse: false, fit: true },
+      metrics: { pageCount: 1, overflow: false, sparse: false, fit: true, visualAudit: { occupancy: [0.92] } },
     }
     const measured = payload(await tool('resume_metrics')({ previewPath: rendered.previewPath }))
     assert.equal(measured.identityMatched, true)
