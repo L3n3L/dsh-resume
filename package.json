@@ -47,7 +47,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --import ./scripts/test-setup.js --test",
     "mcp": "node mcp-server/index.js"
   },
   "dsh": {
