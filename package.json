@@ -44,13 +44,19 @@
   "homepage": "https://github.com/L3n3L/dsh-resume#readme",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "dsh": ">=0.1.0-rc.6 <0.2.0-0"
   },
   "scripts": {
     "test": "node --import ./scripts/test-setup.js --test",
     "mcp": "node mcp-server/index.js"
   },
   "dsh": {
+    "pluginType": "feature",
+    "compatibility": {
+      "dsh": ">=0.1.0-rc.6 <0.2.0-0",
+      "profiles": ["web"]
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
@@ -66,10 +72,10 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.6 <0.2.0-0"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
     "@modelcontextprotocol/server": "^2.0.0",
     "markdown-it": "^14.1.0",
     "zod": "^4.4.3"

@@ -45,8 +45,10 @@ dsh web
 环境要求：
 
 - DeepSeek Harness Web profile
-- `dsh >= 0.1.0-rc.6`
+- `dsh >= 0.1.0-rc.6 < 0.2.0-0`
 - Node.js 22+
+
+兼容声明和实际安装边界也写在 `package.json` 的 `engines` 与 `dsh.compatibility` 中。这里的范围表示插件使用的公开 DSH 工具注册接口处于 0.1.x 预发布窗口内，不代表每个 DSH 版本都已经完成运行验收；具体验收记录见 [`docs/dsh-store-acceptance.md`](./docs/dsh-store-acceptance.md)。
 
 ### 2. 打开「求职简历」
 
@@ -302,6 +304,19 @@ jobhunt/
 - Agent 生成的内容仍然需要你确认真实性
 
 建议始终告诉 Agent：**不要编造；缺少证据就标出来，写进 `notes.md`。**
+
+## 上架与权限说明
+
+这是一个本地工作台，不是只读主题插件。为了让 DSH STORE 和用户知道安装后会发生什么，权限和依赖边界单独列出：
+
+- **文件**：读取和写入用户明确选择的简历工作区；保存模板、版本、预览和排版状态。路径校验限制在工作区内，不读取任意目录，也不写入真实 `~/.dsh` 配置。
+- **网络**：DSH Web 端的本地 HTTP 路由，以及用户主动启动的本地 Streamable HTTP MCP 端点；运行时不向第三方域名上传简历内容。模型请求仍由 DSH 宿主按用户配置处理。
+- **命令**：运行时不启动 Shell、子进程或系统命令。测试会使用 Node 的测试进程，但不属于安装生命周期。
+- **凭据**：不保存、读取或转发 API Key、OAuth、Cookie 等凭据；仅读取 `DSH_HOME`、`LOCALAPPDATA`、`APPDATA`、`HOME` 等路径环境变量，用于定位插件自己的状态目录。
+- **外部依赖**：`@modelcontextprotocol/server` 用于可选 stdio MCP，`markdown-it` 用于 Markdown 渲染，`zod` 用于 MCP 参数校验；`@deepseek-ai/cordis` 与 `@deepseek-ai/dsh-tools` 由 DSH 宿主作为 peer dependency 提供。依赖不会通过 `preinstall`、`install`、`postinstall` 或 `prepare` 脚本执行。
+- **失败边界**：工作区文件写入采用临时文件、原子替换和工作区锁；路径越界、未知图标、外部内容过期、渲染失败或 MCP 未启动时，操作返回失败，不自动切换到别的工作区，也不自动投递或导出。
+
+由于插件本身确实有文件写入和本地网络能力，商城自动扫描不应把它标成低风险 `source-verified`。正确的上架预期是完成固定 Commit 的依赖与权限复核后进入 `user-reviewed`；静态上架检查本身不等于运行验收。
 
 ## 常见问题
 
