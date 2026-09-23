@@ -48,6 +48,15 @@ test('preview state is isolated by root and preview path', () => {
   previewState.clear()
 })
 
+test('same effective preview content reuses its render identity', () => {
+  previewState.clear()
+  const first = rememberPreview('E:/resume-stable', 'preview.html', { renderId: 'render-first', contentHash: 'same-content' })
+  const second = rememberPreview('E:/resume-stable', 'preview.html', { renderId: 'render-second', contentHash: 'same-content' })
+  assert.equal(second.renderId, 'render-first')
+  assert.equal(previewState.get('E:\\resume-stable::preview.html')?.renderId, 'render-first')
+  previewState.clear()
+})
+
 test('metrics keep same-path renders isolated and status does not select an old file', async () => {
   previewState.clear()
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dsh-resume-metrics-test-'))
@@ -804,6 +813,55 @@ test('manual preview refresh re-reads disk without overwriting a local draft', a
   assert.match(clientSource, /reloadEditorFromDisk\(\{ force: true \}\)/)
 })
 
+test('transient restarts preserve status, quality, presentation, and editor preview state', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /lastStatusRef\.current/)
+  assert.match(clientSource, /statusSignatureRef/)
+  assert.match(clientSource, /if \(statusSignatureRef\.current !== nextSignature\)/)
+  assert.match(clientSource, /!lastQualityRef\.current\) setQuality\(null\)/)
+  assert.match(clientSource, /presentationRetry/)
+  assert.match(clientSource, /Keep the last known presentation/)
+  assert.match(clientSource, /setEditorDraft\(source\.content \|\| ''\)\s+setEditorExternalPending\(false\)/)
+})
+
+test('background template and version polling do not replace unchanged arrays', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /templateSignatureRef/)
+  assert.match(clientSource, /resumeVersionsSignatureRef/)
+  assert.match(clientSource, /const templateOptions = useMemo\(/)
+})
+
+test('layout metrics ignore stale frames and duplicate payloads', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /activeFrames = \[editorPreviewRef\.current\?\.contentWindow, workshopPreviewRef\.current\?\.contentWindow\]/)
+  assert.match(clientSource, /activeFrames\.includes\(event\.source\)/)
+  assert.match(clientSource, /layoutSignatureRef\.current === metricSignature/)
+})
+
+test('preview workbench stays above the host sidebar and always has a measurable frame', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /z-index: 10000/)
+  assert.match(clientSource, /const \[previewReloadKey, setPreviewReloadKey\] = useState\(0\)/)
+  assert.match(clientSource, /new URLSearchParams\(\{ path: selected, t: String\(previewReloadKey\), template: lockedTemplateId \}\)/)
+  assert.doesNotMatch(clientSource, /new URLSearchParams\(\{ path: selected, t: String\(tick\), template: (?:templateId|lockedTemplateId) \}\)/)
+  assert.doesNotMatch(clientSource, /updatedAt: nextStatus\?\.updatedAt \|\| ''/)
+  assert.match(clientSource, /if \(presentationRoot && presentation\.activeTemplateId\)/)
+  assert.match(clientSource, /if \(presentation\.activeTemplateId && templateId !== presentation\.activeTemplateId\) return/)
+  assert.match(clientSource, /const editorPreviewReadySignatureRef = useRef\(''\)/)
+  assert.match(clientSource, /editorPreviewReadySignatureRef\.current === currentEditorPreviewSignature/)
+  assert.match(clientSource, /editorPreviewRequestRef\.current === currentEditorPreviewSignature/)
+  assert.match(clientSource, /editorPreviewRequestRef\.current = ''/)
+  assert.match(clientSource, /title: editorPreviewUrl \? 'Markdown 草稿预览' : '当前简历预览'/)
+})
+
+test('template detail and history requests are scoped and abortable', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /if \(!\['templates', 'workshop'\]\.includes\(view\) && !templateCssOpen\) return undefined/)
+  assert.match(clientSource, /new AbortController\(\)/)
+  assert.match(clientSource, /signal: controller\.signal/)
+  assert.match(clientSource, /controller\.abort\(\)/)
+})
+
 test('opening a resume version pins and persists its preview path', async () => {
   const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
   const apiSource = await fs.readFile(path.join(repoRoot, 'lib/preview-api.js'), 'utf8')
@@ -817,6 +875,16 @@ test('opening a resume version pins and persists its preview path', async () => 
   assert.match(clientSource, /if \(nextPreviewPath && explicitPreviewRef\.current && explicitPreviewRef\.current !== nextPreviewPath\) return/)
   assert.match(clientSource, /\[status\?\.root, status\?\.workspaceState, mainConversation\.sessionId\]/)
   assert.match(apiSource, /const currentPreview = persistedPreview \|\| \(/)
+})
+
+test('preview hydration cannot overwrite MCP-bound template state with the default template', async () => {
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  assert.match(clientSource, /if \(!presentationRoot \|\| !presentationHydratedRef\.current \|\| !selected \|\| !status\?\.root\) return/)
+  assert.match(clientSource, /re-apply the persisted active template once that template is resolvable/)
+  assert.match(clientSource, /if \(presentationRoot && presentation\.activeTemplateId\)/)
+  assert.match(clientSource, /const lockedTemplateId = !presentationDraftDirty/)
+  assert.match(clientSource, /presentation\.activePreviewPath === selected/)
+  assert.match(clientSource, /presentation\.resumeOverrides\?\.\[resumePath\]\?\.\[savedId\]/)
 })
 
 test('saved icon tuning remains a per-icon map when a version is restored', async () => {

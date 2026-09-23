@@ -435,7 +435,9 @@ window.__ModuleLoader__.load({
 .cj-panel {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  /* DSH's sidebar can have its own stacking context. Keep the resume
+     workbench above it so the host layout cannot cover part of the panel. */
+  z-index: 10000;
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -577,9 +579,12 @@ window.__ModuleLoader__.load({
 }
 .cj-workbench {
   min-height: 0;
+  min-width: 0;
+  width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: #f7f8fb;
 }
 .cj-workbenchTop {
@@ -626,7 +631,7 @@ window.__ModuleLoader__.load({
 .cj-ghostAction:hover { background: #edf0f5; color: #14213d; }
 .cj-solidAction { background: #14213d; color: #fff; }
 .cj-solidAction:hover { background: #23375f; }
-.cj-workbenchBody { min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 218px; overflow: hidden; }
+.cj-workbenchBody { min-width: 0; min-height: 0; flex: 1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 218px; overflow: hidden; }
 .cj-workbenchBody[data-view="preview"] { grid-template-columns: 120px minmax(0, 1fr); }
 .cj-workbenchBody[data-view="start"], .cj-workbenchBody[data-view="workspace"], .cj-workbenchBody[data-view="templates"], .cj-workbenchBody[data-view="workshop"], .cj-workbenchBody[data-view="files"], .cj-workbenchBody[data-view="guide"], .cj-workbenchBody[data-view="mcp"] { grid-template-columns: 120px minmax(0, 1fr); }
 .cj-nav {
@@ -662,7 +667,8 @@ window.__ModuleLoader__.load({
 .cj-closeAction:focus-visible { outline: 2px solid rgba(20,33,61,.28); outline-offset: 2px; }
 .cj-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; padding: 16px; gap: 11px; }
 .cj-main-preview { overflow: hidden; }
-.cj-mainBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
+.cj-mainBar { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
+.cj-mainBar > div:first-child { min-width: 0; flex: 1 1 auto; }
 .cj-mainHeading { font-size: 13px; font-weight: 700; color: #26334d; }
 .cj-mainHint { margin-top: 2px; color: #8b95a7; font-size: 11px; }
 .cj-mcpPanel { max-width: 720px; padding: 20px; border: 1px solid #e1e6ee; border-radius: 14px; background: #fff; box-shadow: 0 4px 14px rgba(15,23,42,.04); }
@@ -967,7 +973,7 @@ window.__ModuleLoader__.load({
 .cj-iconTuningFoot { margin-top: 8px; }
 .cj-iconTuningFoot .cj-inlineReset { margin-left: 0; }
 .cj-iconTuningFoot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cj-previewWorkspace { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(300px, .82fr) minmax(420px, 1.18fr); gap: 10px; }
+.cj-previewWorkspace { min-width: 0; min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: 10px; }
 .cj-previewWorkspace[data-chat="open"] { grid-template-columns: minmax(240px, .62fr) minmax(560px, 1.1fr) minmax(300px, .72fr); }
 .cj-previewEditorPane, .cj-previewA4Pane { min-height: 0; }
 .cj-editorLoading { min-height: 0; flex: 1; display: grid; place-items: center; color: #8b95a7; font-size: 12px; }
@@ -1155,6 +1161,9 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [loading, setLoading] = useState(true)
       const requestRef = useRef(0)
+      const lastStatusRef = useRef(null)
+      const statusSignatureRef = useRef('')
+      const scopeRef = useRef(`${sessionId || 'default'}|${rootHint || ''}`)
 
       const reload = useCallback(async ({ silent = false } = {}) => {
         const requestId = ++requestRef.current
@@ -1168,18 +1177,55 @@ window.__ModuleLoader__.load({
           if (!res.ok) throw new Error(`status ${res.status}`)
           const nextStatus = await res.json()
           if (requestId !== requestRef.current) return
-          setStatus(nextStatus)
+          lastStatusRef.current = nextStatus
+          // The preview page polls status so MCP writes can be observed without
+          // a manual refresh. Do not re-render the whole workbench when the
+          // status payload is unchanged; that made the DSH panel visibly pulse
+          // every 1.2 seconds while the user was reading or editing.
+          const nextSignature = JSON.stringify({
+            sessionId: nextStatus?.sessionId || '',
+            root: nextStatus?.root || '',
+            exists: Boolean(nextStatus?.exists),
+            directory: Boolean(nextStatus?.directory),
+            initialized: Boolean(nextStatus?.initialized),
+            registered: Boolean(nextStatus?.registered),
+            workspaceId: nextStatus?.workspaceId || '',
+            workspaceName: nextStatus?.workspaceName || '',
+            manifestPath: nextStatus?.manifestPath || '',
+            previewRel: nextStatus?.previewRel || '',
+            renderId: nextStatus?.renderId || '',
+            contentHash: nextStatus?.contentHash || '',
+            workspaceState: nextStatus?.workspaceState || '',
+            workspaceExists: Boolean(nextStatus?.workspaceExists),
+            defaultWorkspace: nextStatus?.defaultWorkspace || null,
+            previews: nextStatus?.previews || [],
+            recentWorkspaces: nextStatus?.recentWorkspaces || [],
+          })
+          if (statusSignatureRef.current !== nextSignature) {
+            statusSignatureRef.current = nextSignature
+            setStatus(nextStatus)
+          }
         } catch (err) {
           if (requestId !== requestRef.current) return
           setError(String(err?.message || err))
-          setStatus(null)
+          // A transient DSH/MCP restart must not erase the last known workspace
+          // and preview. Clearing it makes the selector fall back to
+          // “暂无 preview.html” and leaves the user looking at a stale/blank
+          // preview while the server is already recovering.
+          if (!lastStatusRef.current) setStatus(null)
         } finally {
           if (requestId === requestRef.current && !silent) setLoading(false)
         }
       }, [sessionId, rootHint])
 
       useEffect(() => {
-        setStatus(null)
+        const scope = `${sessionId || 'default'}|${rootHint || ''}`
+        if (scopeRef.current !== scope) {
+          scopeRef.current = scope
+          lastStatusRef.current = null
+          statusSignatureRef.current = ''
+          setStatus(null)
+        }
         void reload()
       }, [reload, refreshKey, sessionId, rootHint])
 
@@ -1190,9 +1236,12 @@ window.__ModuleLoader__.load({
       const [quality, setQuality] = useState(null)
       const [qualityLoading, setQualityLoading] = useState(false)
       const requestRef = useRef(0)
+      const lastQualityRef = useRef(null)
+      const scopeRef = useRef(`${root || ''}|${sessionId || 'default'}|${previewPath || ''}`)
       const reload = useCallback(async () => {
         const requestId = ++requestRef.current
         if (!previewPath) {
+          lastQualityRef.current = null
           setQuality(null)
           setQualityLoading(false)
           return
@@ -1205,15 +1254,26 @@ window.__ModuleLoader__.load({
           const res = await fetch(`/dsh-resume/api/check?${query}`, { cache: 'no-store' })
           if (!res.ok) throw new Error(`check ${res.status}`)
           const nextQuality = await res.json()
-          if (requestId === requestRef.current) setQuality(nextQuality)
+          if (requestId === requestRef.current) {
+            lastQualityRef.current = nextQuality
+            setQuality(nextQuality)
+          }
         } catch {
-          if (requestId === requestRef.current) setQuality(null)
+          // A restarting preview server must not turn a previously available
+          // quality result into an empty panel. The next poll will replace it.
+          if (requestId === requestRef.current && !lastQualityRef.current) setQuality(null)
         } finally {
           if (requestId === requestRef.current) setQualityLoading(false)
         }
       }, [previewPath, refreshKey, root, sessionId])
 
       useEffect(() => {
+        const scope = `${root || ''}|${sessionId || 'default'}|${previewPath || ''}`
+        if (scopeRef.current !== scope) {
+          scopeRef.current = scope
+          lastQualityRef.current = null
+          setQuality(null)
+        }
         void reload()
       }, [reload])
 
@@ -1507,7 +1567,11 @@ window.__ModuleLoader__.load({
 
     function PreviewWorkbench({ compact, onClose }) {
       ensureCss()
-      const [tick, setTick] = useState(0)
+       const [tick, setTick] = useState(0)
+       // `tick` drives lightweight status/quality checks. It must not also be
+       // used as the iframe cache-buster: status polling is intentionally
+       // frequent, while a navigation is an expensive browser operation.
+       const [previewReloadKey, setPreviewReloadKey] = useState(0)
       const mainConversation = useMainConversation()
       const workspaceHint = typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('root') || ''
@@ -1515,6 +1579,7 @@ window.__ModuleLoader__.load({
       const { status, error, loading, reload } = useStatus(tick, mainConversation.sessionId, workspaceHint)
       const lastWorkspaceBindingRef = useRef({ sessionId: '', root: '' })
       const previewRevisionRef = useRef('')
+      const layoutSignatureRef = useRef('')
       const [selected, setSelected] = useState('')
       const [fitState, setFitState] = useState({ text: '等待排版信息', state: 'pending' })
       const [view, setView] = useState('start')
@@ -1540,13 +1605,17 @@ window.__ModuleLoader__.load({
       const [templates, setTemplates] = useState([])
       const [thumbnailEpoch, setThumbnailEpoch] = useState(0)
       const thumbnailSignatureRef = useRef('')
+      const templateSignatureRef = useRef('')
       const [templateId, setTemplateId] = useState('campus-standard')
       const [templateCategory, setTemplateCategory] = useState('全部')
       const [templateHistory, setTemplateHistory] = useState([])
       const [presentation, setPresentation] = useState({ schemaVersion: 1, activeTemplateId: null, activePreviewPath: null, overrides: {} })
       const [presentationDraftDirty, setPresentationDraftDirty] = useState(false)
       const [presentationRoot, setPresentationRoot] = useState('')
+      const [presentationRetry, setPresentationRetry] = useState(0)
+      const presentationHydratedRef = useRef(false)
       const [resumeVersions, setResumeVersions] = useState([])
+      const resumeVersionsSignatureRef = useRef('')
       const [versionMessage, setVersionMessage] = useState('')
       const [versionSaveOpen, setVersionSaveOpen] = useState(false)
       const [versionNameDraft, setVersionNameDraft] = useState('')
@@ -1554,7 +1623,6 @@ window.__ModuleLoader__.load({
       const [versionRenameDraft, setVersionRenameDraft] = useState('')
       const presentationRef = useRef(presentation)
       presentationRef.current = presentation
-      const presentationHydratedRef = useRef(false)
       const explicitPreviewRef = useRef('')
       const activePreviewPersistRef = useRef({ sequence: 0, queue: Promise.resolve() })
       const [templateDraft, setTemplateDraft] = useState('')
@@ -1567,8 +1635,22 @@ window.__ModuleLoader__.load({
       const [templateCssValidation, setTemplateCssValidation] = useState({ state: 'idle', message: '编辑后可实时预览，保存前会再次校验。' })
       const [templateCssLoading, setTemplateCssLoading] = useState(false)
       const [templateCssOpen, setTemplateCssOpen] = useState(false)
-      const templateOptions = templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }]
-      const selectedTemplate = templateOptions.find((template) => template.id === templateId) || templateOptions[0]
+      const templateOptions = useMemo(
+        () => templates.length ? templates : [{ id: 'campus-standard', name: '校招标准', description: '清晰稳重的单栏校园求职模板' }],
+        [templates],
+      )
+      // Once the persisted presentation for the selected preview is hydrated,
+      // it wins over a legacy version snapshot or a late background response.
+      // The old state could alternate between campus-standard and a saved
+      // copy even though the workspace presentation was unchanged.
+      const lockedTemplateId = !presentationDraftDirty
+        && presentationHydratedRef.current
+        && presentation.activePreviewPath
+        && presentation.activePreviewPath === selected
+        && presentation.activeTemplateId
+        ? presentation.activeTemplateId
+        : templateId
+      const selectedTemplate = templateOptions.find((template) => template.id === lockedTemplateId) || templateOptions[0]
       const resumePathForPreview = (previewPath) => {
         const normalized = String(previewPath || '').replace(/\\/g, '/')
         return normalized.endsWith('preview.html') ? `${normalized.slice(0, -'preview.html'.length)}resume.md` : 'resume.md'
@@ -1631,6 +1713,8 @@ window.__ModuleLoader__.load({
       const chatInitialScrollRef = useRef(false)
       const chatPreserveScrollRef = useRef(null)
       const workshopPreviewRef = useRef(null)
+      const editorPreviewRequestRef = useRef('')
+      const editorPreviewReadySignatureRef = useRef('')
 
       // MCP runs outside the main DSH conversation, so it cannot produce a
       // previewActivity node for the event-driven refresh path below. Poll the
@@ -1662,7 +1746,11 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         if (!status?.root || !status.previewRel) return
-        const signature = [status.root, status.previewRel, status.renderId || '', status.contentHash || '', status.updatedAt || ''].join('|')
+         // Render identity, rather than updatedAt, decides whether the
+         // preview document changed. updatedAt can move when metrics or an
+         // external observer touches the state and is not a reason to reload
+         // an iframe.
+         const signature = [status.root, status.previewRel, status.renderId || '', status.contentHash || ''].join('|')
         if (!previewRevisionRef.current) {
           previewRevisionRef.current = signature
           return
@@ -1670,9 +1758,10 @@ window.__ModuleLoader__.load({
         if (previewRevisionRef.current === signature) return
         previewRevisionRef.current = signature
         if (explicitPreviewRef.current && explicitPreviewRef.current !== status.previewRel) return
-        explicitPreviewRef.current = status.previewRel
-        setSelected(status.previewRel)
-        setView('preview')
+         explicitPreviewRef.current = status.previewRel
+         setSelected(status.previewRel)
+         setView('preview')
+         setPreviewReloadKey((value) => value + 1)
         setLayout(null)
         setFitState({ text: '检测到 MCP 更新，正在刷新 A4 和排版指标…', state: 'pending' })
         let active = true
@@ -1703,7 +1792,6 @@ window.__ModuleLoader__.load({
                 editorDiskContentRef.current = source.content || ''
                 setEditorSource(source)
                 setEditorDraft(source.content || '')
-                setEditorPreviewUrl('')
                 setEditorExternalPending(false)
                 setEditorMessage('外部更新已读取，正在加载最新 Markdown 和预览。')
               })
@@ -1982,7 +2070,12 @@ window.__ModuleLoader__.load({
           const res = await fetch(`/dsh-resume/api/versions?${query}`, { cache: 'no-store' })
           if (!res.ok) throw new Error(`versions ${res.status}`)
           const data = await res.json()
-          setResumeVersions(Array.isArray(data.versions) ? data.versions : [])
+          const nextVersions = Array.isArray(data.versions) ? data.versions : []
+          const nextSignature = `${status.root}|${JSON.stringify(nextVersions)}`
+          if (resumeVersionsSignatureRef.current !== nextSignature) {
+            resumeVersionsSignatureRef.current = nextSignature
+            setResumeVersions(nextVersions)
+          }
         } catch {
           // Keep the last known version list when the preview server is restarting.
         }
@@ -2001,6 +2094,7 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         if (!status?.root || status.root === presentationRoot) return
         let active = true
+        let retryTimer = null
         setPresentationRoot('')
         presentationHydratedRef.current = false
         fetch(`/dsh-resume/api/presentation?root=${encodeURIComponent(status.root)}`, { cache: 'no-store' })
@@ -2009,16 +2103,25 @@ window.__ModuleLoader__.load({
             if (!active) return
             setPresentation(data.presentation || { schemaVersion: 1, activeTemplateId: null, activePreviewPath: null, overrides: {} })
             setPresentationDraftDirty(false)
+            setPresentationRetry(0)
             setPresentationRoot(status.root)
           })
-          .catch(() => {
+          .catch((error) => {
             if (!active) return
-            setPresentation({ schemaVersion: 1, activeTemplateId: null, activePreviewPath: null, overrides: {} })
-            setPresentationDraftDirty(false)
-            setPresentationRoot(status.root)
+            // Keep the last known presentation. Marking a failed read as
+            // loaded would let the initial campus template overwrite saved
+            // MCP/template settings and would prevent a later retry.
+            setVersionMessage(`排版参数暂时读取失败，正在重试：${error?.message || error}`)
+            const delay = Math.min(5000, 500 * (presentationRetry + 1))
+            retryTimer = window.setTimeout(() => {
+              if (active) setPresentationRetry((value) => value + 1)
+            }, delay)
           })
-        return () => { active = false }
-      }, [status?.root, presentationRoot])
+        return () => {
+          active = false
+          if (retryTimer) window.clearTimeout(retryTimer)
+        }
+      }, [presentationRetry, status?.root, presentationRoot])
 
       useEffect(() => {
         if (!presentationRoot || presentationHydratedRef.current) return
@@ -2033,7 +2136,29 @@ window.__ModuleLoader__.load({
         setLayoutSettings(layoutForTemplate(nextTemplate))
         setVisualTokens(visualForTemplate(nextTemplate))
         setIconTuning(normalizeIconTuningMap(presentationOverrideFor(id).iconTuning))
-      }, [presentationRoot, presentation.activeTemplateId, templateOptions.length])
+      }, [presentationRoot, presentation.activeTemplateId, templateId, templateOptions.length])
+
+      // The template list is loaded asynchronously.  A resume rendered by MCP
+      // can already have a resume-scoped template before the gallery arrives;
+      // re-apply the persisted active template once that template is resolvable.
+      // Without this second pass the workbench can keep its initial
+      // `campus-standard` state while the direct preview uses the saved copy.
+      useEffect(() => {
+        if (!presentationRoot || presentationDraftDirty || !selected || !presentation?.activePreviewPath) return
+        if (presentation.activePreviewPath !== selected) return
+        const savedId = presentation.activeTemplateId
+        const nextTemplate = templateOptions.find((template) => template.id === savedId)
+        if (!savedId || !nextTemplate) return
+        const resumePath = editorSource?.resumePath || resumePathForPreview(selected)
+        const override = presentation.resumeOverrides?.[resumePath]?.[savedId]
+          || presentation.overrides?.[savedId]
+          || {}
+        setTemplateId(savedId)
+        setLayoutSettings(layoutSettingsFromTemplate(nextTemplate, override.layout))
+        setVisualTokens(visualTokensFromTemplate(nextTemplate, override.visual))
+        setIconTuning(normalizeIconTuningMap(override.iconTuning))
+        setLayout(null)
+      }, [editorSource?.resumePath, presentation, presentationDraftDirty, presentationRoot, selected, templateOptions])
 
       useEffect(() => {
         if (!presentationRoot || !presentation.activePreviewPath || !status?.previews?.includes(presentation.activePreviewPath)) return
@@ -2042,9 +2167,16 @@ window.__ModuleLoader__.load({
       }, [presentationRoot, presentation.activePreviewPath, status?.previews])
 
       useEffect(() => {
-        if (!presentationRoot || !selected || !status?.root) return
+        // Do not let the initial `campus-standard` state overwrite a persisted
+        // MCP/template selection while presentation data is still hydrating.
+        if (!presentationRoot || !presentationHydratedRef.current || !selected || !status?.root) return
+        // Hydration updates templateId asynchronously. On the first render after
+        // setting the hydration flag it is still the initial campus template;
+        // writing it here used to overwrite the persisted template and made the
+        // header, iframe and server state alternate between two sources.
+        if (presentation.activeTemplateId && templateId !== presentation.activeTemplateId) return
         persistPresentation(templateId, layoutSettings, visualTokens, iconTuning, { activeOnly: true, activePreviewPath: selected, skipDirty: true })
-      }, [selected, presentationRoot, status?.root, templateId])
+      }, [selected, presentationRoot, status?.root, templateId, presentation.activeTemplateId])
 
       useEffect(() => {
         if (!presentationRoot || !status?.root || !currentVersion || currentVersion.persisted === false || presentationDraftDirty) return
@@ -2053,6 +2185,16 @@ window.__ModuleLoader__.load({
         const snapshot = currentVersion.presentation || {}
         const nextTemplate = templateOptions.find((template) => template.id === snapshot.templateId)
         if (!nextTemplate) return
+        // Once the workspace presentation has loaded, it is the source of
+        // truth for the active preview. A delivery-version snapshot is only
+        // a historical record; allowing it to hydrate later can take over
+        // the current template and make the iframe alternate between the
+        // saved copy and the legacy campus template. Explicit version opens
+        // already apply their snapshot synchronously in applyVersionPresentation.
+        if (presentationRoot && presentation.activeTemplateId) {
+          if (explicitVersionSelectionRef.current === currentVersion.id) explicitVersionSelectionRef.current = ''
+          return
+        }
         versionHydratedRef.current = hydrationKey
         if (explicitVersionSelectionRef.current === currentVersion.id) {
           explicitVersionSelectionRef.current = ''
@@ -2064,7 +2206,7 @@ window.__ModuleLoader__.load({
         setLayoutSettings(layoutSettingsFromTemplate(nextTemplate, snapshot.layout || {}))
         setVisualTokens(visualTokensFromTemplate(nextTemplate, snapshot.visual || {}))
         setIconTuning(normalizeIconTuningMap(snapshot.iconTuning))
-      }, [currentVersion?.id, currentVersion?.resumePath, currentVersion?.updatedAt, presentation, presentationDraftDirty, presentationRoot, status?.root, templateOptions.length])
+      }, [currentVersion?.id, currentVersion?.resumePath, currentVersion?.updatedAt, presentation, presentationDraftDirty, presentationRoot, selected, status?.root, templateOptions.length])
 
       const mainContext = mainConversation.summary
 
@@ -2074,8 +2216,8 @@ window.__ModuleLoader__.load({
 
       const failChatRequest = (requestId, message) => {
         if (chatRequestRef.current?.requestId !== requestId) return
-        chatRequestRef.current = null
-        setChatRequest(null)
+           chatRequestRef.current = null
+           setChatRequest(null)
         setChatBridgeState('fallback')
         setChatBridgeError(message)
         setChatMessages((messages) => [...messages, { role: 'assistant', text: `${message} 可以复制任务到主对话。` }])
@@ -2156,8 +2298,10 @@ window.__ModuleLoader__.load({
           setChatRequest(null)
           setChatTask(null)
           setChatBridgeError('')
-          setEditorCandidate(null)
-          setEditorMessage('修改左侧 Markdown，右侧会实时更新预览。')
+           setEditorCandidate(null)
+           editorPreviewRequestRef.current = ''
+           editorPreviewReadySignatureRef.current = ''
+           setEditorMessage('修改左侧 Markdown，右侧会实时更新预览。')
         } catch (err) {
           setEditorMessage(`打开失败：${err?.message || err}`)
         } finally {
@@ -2170,10 +2314,32 @@ window.__ModuleLoader__.load({
         void openEditor()
       }, [view, selected, editorSource?.previewPath, editorBusy])
 
+      const currentEditorPreviewSignature = useMemo(() => {
+         if (!editorOpen || !editorSource || !editorDraft.trim()) return ''
+         return JSON.stringify({
+             root: editorSource.root || '',
+             resume: editorSource.resumePath || '',
+             preview: editorSource.previewPath || '',
+             sessionId: mainConversation.sessionId || '',
+              templateId: lockedTemplateId,
+            layout: layoutSettings,
+            visual: visualTokens,
+            iconTuning,
+            content: editorDraft,
+         })
+        }, [editorOpen, editorSource, editorDraft, mainConversation.sessionId, lockedTemplateId, layoutSettings, visualTokens, iconTuning])
+
       useEffect(() => {
-        if (!editorOpen || !editorSource || !editorDraft.trim()) return undefined
-        let active = true
-        const timer = setTimeout(async () => {
+         if (!currentEditorPreviewSignature) return undefined
+         if (editorPreviewRequestRef.current === currentEditorPreviewSignature) return undefined
+         const requestSignature = currentEditorPreviewSignature
+         editorPreviewRequestRef.current = requestSignature
+         // The previous draft render belongs to a different source/template
+         // combination. Keep the real preview visible until the new draft
+         // render is ready, instead of showing a stale template for a while.
+         editorPreviewReadySignatureRef.current = ''
+          let active = true
+         const timer = setTimeout(async () => {
           setEditorBusy(true)
           try {
             const res = await fetch('/dsh-resume/api/editor/preview', {
@@ -2184,7 +2350,7 @@ window.__ModuleLoader__.load({
                 resume: editorSource.resumePath,
                 preview: editorSource.previewPath,
                 sessionId: mainConversation.sessionId,
-                templateId,
+                templateId: lockedTemplateId,
                 layout: layoutSettings,
                 visual: visualTokens,
                 iconTuning,
@@ -2194,11 +2360,15 @@ window.__ModuleLoader__.load({
             const result = await readJsonResponse(res, '实时预览')
             if (active) {
               const tuningQuery = new URLSearchParams(Object.entries({ ...layoutSettings, ...visualTokens }).map(([key, value]) => [key, String(value)]))
-              setEditorPreviewUrl(`${result.previewUrl}&${tuningQuery.toString()}&t=${Date.now()}`)
+                 editorPreviewReadySignatureRef.current = requestSignature
+                 setEditorPreviewUrl(`${result.previewUrl}&${tuningQuery.toString()}&t=${Date.now()}`)
               setEditorMessage('未保存草稿 · 右侧预览已更新')
-            }
-          } catch (err) {
-            if (active) setEditorMessage(`预览失败：${err?.message || err}`)
+           }
+         } catch (err) {
+             if (active) {
+               editorPreviewRequestRef.current = ''
+               setEditorMessage(`预览失败：${err?.message || err}`)
+             }
           } finally {
             if (active) setEditorBusy(false)
           }
@@ -2207,7 +2377,7 @@ window.__ModuleLoader__.load({
           active = false
           clearTimeout(timer)
         }
-      }, [editorOpen, editorSource, editorDraft, templateId, layoutSettings, visualTokens, iconTuning, mainConversation.sessionId])
+       }, [currentEditorPreviewSignature])
 
       const saveEditor = async () => {
         if (!editorSource || !editorDraft.trim()) return
@@ -2506,7 +2676,11 @@ window.__ModuleLoader__.load({
             thumbnailSignatureRef.current = thumbnailSignature
             setThumbnailEpoch((value) => value + 1)
           }
-          setTemplates(data.templates)
+          const templateSignature = JSON.stringify(data.templates)
+          if (templateSignatureRef.current !== templateSignature) {
+            templateSignatureRef.current = templateSignature
+            setTemplates(data.templates)
+          }
           const preferred = data.templates.find((template) => template.id === preferredId)
           if (preferred) {
             setTemplateId(preferred.id)
@@ -2587,7 +2761,6 @@ window.__ModuleLoader__.load({
                   editorDiskContentRef.current = source.content || ''
                   setEditorSource(source)
                   setEditorDraft(source.content || '')
-                  setEditorPreviewUrl('')
                   setEditorExternalPending(false)
                   setEditorMessage('主对话已落盘，正在加载最新 Markdown 和预览。')
                 })
@@ -2609,13 +2782,19 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         const onLayoutMessage = (event) => {
-          if (event.data?.source === 'dsh-resume-metrics-error') {
+          const messageSource = event.data?.source
+          if (!['dsh-resume-preview', 'dsh-resume-metrics-error'].includes(messageSource)) return
+          // A template/workshop iframe can finish after it has been replaced
+          // or hidden. Only the currently mounted preview frame may update the
+          // workbench; otherwise stale page counts can overwrite fresh ones.
+          const activeFrames = [editorPreviewRef.current?.contentWindow, workshopPreviewRef.current?.contentWindow].filter(Boolean)
+          if (event.source && activeFrames.length && !activeFrames.includes(event.source)) return
+          if (messageSource === 'dsh-resume-metrics-error') {
             const metricPreview = String(event.data.previewPath || selected || '').replace(/\\/g, '/')
             if (selected && metricPreview && metricPreview !== selected.replace(/\\/g, '/')) return
             setFitState({ text: `A4 指标回传失败：${event.data.error || '请重新打开预览后重试'}`, state: 'error' })
             return
           }
-          if (event.data?.source !== 'dsh-resume-preview') return
           const metrics = event.data.metrics || null
           if (metrics) {
             const metricPreview = String(event.data.previewPath || selected || '').replace(/\\/g, '/')
@@ -2623,6 +2802,15 @@ window.__ModuleLoader__.load({
             const metricRoot = String(event.data.previewRoot || status?.root || '').replace(/\\/g, '/')
             const currentRoot = String(status?.root || '').replace(/\\/g, '/')
             if (currentRoot && metricRoot && metricRoot !== currentRoot) return
+            const metricSignature = JSON.stringify({
+              previewPath: metricPreview,
+              previewRoot: metricRoot,
+              renderId: event.data.renderId || '',
+              contentHash: event.data.contentHash || '',
+              metrics,
+            })
+            if (layoutSignatureRef.current === metricSignature) return
+            layoutSignatureRef.current = metricSignature
             setLayout(metrics)
             const visualAudit = summarizeVisualAudit(metrics)
             setFitState({
@@ -2687,11 +2875,18 @@ window.__ModuleLoader__.load({
 
       const previewSrc = useMemo(() => {
         if (!selected) return null
-        const params = new URLSearchParams({ path: selected, t: String(tick), template: templateId })
+        const params = new URLSearchParams({ path: selected, t: String(previewReloadKey), template: lockedTemplateId })
         if (status?.root) params.set('root', status.root)
         for (const [key, value] of Object.entries({ ...layoutSettings, ...visualTokens })) params.set(key, String(value))
         return `/dsh-resume/preview?${params.toString()}`
-      }, [selected, status?.root, tick, layoutSettings, visualTokens, templateId])
+      }, [selected, status?.root, previewReloadKey, layoutSettings, visualTokens, lockedTemplateId])
+      // Keep the real preview visible and measurable while a draft render is
+      // being prepared. A blank editor iframe made the toolbar stay at
+      // “测量中” and allowed stale metrics from a previous render to look
+      // like the current document.
+      const activeEditorPreviewUrl = editorPreviewUrl && editorPreviewReadySignatureRef.current === currentEditorPreviewSignature
+        ? editorPreviewUrl
+        : previewSrc
 
       useEffect(() => {
         const frame = workshopPreviewRef.current
@@ -2711,6 +2906,7 @@ window.__ModuleLoader__.load({
       const onRefresh = () => {
         setFitState({ text: '正在重新检查', state: 'pending' })
         setLayout(null)
+        setPreviewReloadKey((value) => value + 1)
         setTick((n) => n + 1)
         if (editorSource?.previewPath) {
           void reloadEditorFromDisk().then((result) => {
@@ -2744,7 +2940,6 @@ window.__ModuleLoader__.load({
           editorDiskContentRef.current = nextContent
           setEditorSource(source)
           setEditorDraft(nextContent)
-          setEditorPreviewUrl('')
           setEditorExternalPending(false)
           setEditorMessage(force ? '已读取磁盘上的最新 Markdown，正在刷新预览。' : '已同步磁盘上的最新 Markdown，正在刷新预览。')
           return { reloaded: true, externalChanged: diskChanged }
@@ -3078,11 +3273,13 @@ window.__ModuleLoader__.load({
       }, [templateId, templates.length])
 
       useEffect(() => {
+        if (!['templates', 'workshop'].includes(view) && !templateCssOpen) return undefined
         let active = true
+        const controller = new AbortController()
         setTemplateCssLoading(true)
         const query = new URLSearchParams({ id: templateId })
         if (status?.root) query.set('root', status.root)
-        fetch(`/dsh-resume/api/templates/detail?${query}`, { cache: 'no-store' })
+        fetch(`/dsh-resume/api/templates/detail?${query}`, { cache: 'no-store', signal: controller.signal })
           .then((res) => res.ok ? res.json() : Promise.reject(new Error(`template detail ${res.status}`)))
           .then((data) => {
             if (!active) return
@@ -3092,10 +3289,13 @@ window.__ModuleLoader__.load({
             setTemplateCssUndo('')
             setTemplateCssValidation({ state: 'idle', message: `${css.length.toLocaleString()} 字符 · 已加载` })
           })
-          .catch((err) => { if (active) setTemplateCssValidation({ state: 'error', message: `读取 CSS 失败：${err?.message || err}` }) })
+          .catch((err) => { if (active && err?.name !== 'AbortError') setTemplateCssValidation({ state: 'error', message: `读取 CSS 失败：${err?.message || err}` }) })
           .finally(() => { if (active) setTemplateCssLoading(false) })
-        return () => { active = false }
-      }, [templateId, templates.length, status?.root])
+        return () => {
+          active = false
+          controller.abort()
+        }
+      }, [templateCssOpen, templateId, templates.length, status?.root, view])
 
       useEffect(() => {
         if (view !== 'workshop') return undefined
@@ -3105,15 +3305,20 @@ window.__ModuleLoader__.load({
       }, [view, visualTokens, templateCssDraft])
 
       useEffect(() => {
+        if (!['templates', 'workshop'].includes(view)) return undefined
         let active = true
+        const controller = new AbortController()
         const query = new URLSearchParams({ id: templateId })
         if (status?.root) query.set('root', status.root)
-        fetch(`/dsh-resume/api/templates/versions?${query}`, { cache: 'no-store' })
+        fetch(`/dsh-resume/api/templates/versions?${query}`, { cache: 'no-store', signal: controller.signal })
           .then((res) => res.ok ? res.json() : Promise.reject(new Error(`versions ${res.status}`)))
           .then((data) => { if (active) setTemplateVersions(Array.isArray(data.versions) ? data.versions : []) })
-          .catch(() => { if (active) setTemplateVersions([]) })
-        return () => { active = false }
-      }, [templateId, templates.length, status?.root])
+          .catch((error) => { if (active && error?.name !== 'AbortError') setTemplateVersions([]) })
+        return () => {
+          active = false
+          controller.abort()
+        }
+      }, [templateId, templates.length, status?.root, view])
 
       const updateLayoutSetting = (key, value) => {
         setFitState({ text: '正在重新计算', state: 'pending' })
@@ -3800,7 +4005,7 @@ window.__ModuleLoader__.load({
           'section',
           { className: 'cj-editorPane cj-previewA4Pane' },
           React.createElement('div', { className: 'cj-editorPaneHead' }, React.createElement('span', null, 'A4 预览'), React.createElement('small', null, editorPreviewUrl ? '草稿实时渲染' : '等待输入')),
-          React.createElement('div', { className: 'cj-editorPreviewFrame' }, editorPreviewUrl ? React.createElement('iframe', { ref: editorPreviewRef, title: 'Markdown 草稿预览', src: editorPreviewUrl, onLoad: (event) => { inspectPreviewIcons(event.currentTarget); postIconTuning(event.currentTarget) } }) : React.createElement('div', { className: 'cj-empty' }, '输入内容后生成预览')),
+           React.createElement('div', { className: 'cj-editorPreviewFrame' }, activeEditorPreviewUrl ? React.createElement('iframe', { ref: editorPreviewRef, title: editorPreviewUrl ? 'Markdown 草稿预览' : '当前简历预览', src: activeEditorPreviewUrl, onLoad: (event) => { onFrameLoad(event); inspectPreviewIcons(event.currentTarget); postIconTuning(event.currentTarget) } }) : React.createElement('div', { className: 'cj-empty' }, '输入内容后生成预览')),
         ),
         editorChatOpen ? editorChatView : null,
       )
