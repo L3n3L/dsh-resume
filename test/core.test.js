@@ -398,7 +398,7 @@ test('server rejects an unselected picker request without changing the global wo
 })
 
 test('workspace picker is delegated to DSH instead of a plugin-owned OS dialog', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /workspaces.*pickDirectory/s)
   assert.match(clientSource, /正在打开 DSH 文件夹选择器/)
   assert.match(clientSource, /workspacePickerState.*promise/s)
@@ -796,7 +796,7 @@ test('template listings expose CSS metadata so gallery thumbnails invalidate aft
 test('template workshop exposes CSS detail, validation, and live preview hooks', async () => {
   const apiSource = await fs.readFile(path.join(repoRoot, 'lib/preview-api.js'), 'utf8')
   const rendererSource = await fs.readFile(path.join(repoRoot, 'lib/renderer.js'), 'utf8')
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(apiSource, /\/dsh-resume\/api\/templates\/detail/)
   assert.match(apiSource, /body\.action === 'validate'/)
   assert.match(rendererSource, /data-dsh-workshop-css/)
@@ -806,7 +806,7 @@ test('template workshop exposes CSS detail, validation, and live preview hooks',
 })
 
 test('manual preview refresh re-reads disk without overwriting a local draft', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /void reloadEditorFromDisk\(\)\.then\(/)
   assert.match(clientSource, /const hasLocalDraft = editorDraft !== editorDiskContentRef\.current/)
   assert.match(clientSource, /if \(!force && hasLocalDraft && diskChanged\)/)
@@ -814,7 +814,7 @@ test('manual preview refresh re-reads disk without overwriting a local draft', a
 })
 
 test('transient restarts preserve status, quality, presentation, and editor preview state', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /lastStatusRef\.current/)
   assert.match(clientSource, /statusSignatureRef/)
   assert.match(clientSource, /if \(statusSignatureRef\.current !== nextSignature\)/)
@@ -825,21 +825,21 @@ test('transient restarts preserve status, quality, presentation, and editor prev
 })
 
 test('background template and version polling do not replace unchanged arrays', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /templateSignatureRef/)
   assert.match(clientSource, /resumeVersionsSignatureRef/)
   assert.match(clientSource, /const templateOptions = useMemo\(/)
 })
 
 test('layout metrics ignore stale frames and duplicate payloads', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /activeFrames = \[editorPreviewRef\.current\?\.contentWindow, workshopPreviewRef\.current\?\.contentWindow\]/)
   assert.match(clientSource, /activeFrames\.includes\(event\.source\)/)
   assert.match(clientSource, /layoutSignatureRef\.current === metricSignature/)
 })
 
 test('preview workbench stays above the host sidebar and always has a measurable frame', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /z-index: 10000/)
   assert.match(clientSource, /const \[previewReloadKey, setPreviewReloadKey\] = useState\(0\)/)
   assert.match(clientSource, /new URLSearchParams\(\{ path: selected, t: String\(previewReloadKey\), template: lockedTemplateId \}\)/)
@@ -855,7 +855,7 @@ test('preview workbench stays above the host sidebar and always has a measurable
 })
 
 test('template detail and history requests are scoped and abortable', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /if \(!\['templates', 'workshop'\]\.includes\(view\) && !templateCssOpen\) return undefined/)
   assert.match(clientSource, /new AbortController\(\)/)
   assert.match(clientSource, /signal: controller\.signal/)
@@ -863,7 +863,7 @@ test('template detail and history requests are scoped and abortable', async () =
 })
 
 test('opening a resume version pins and persists its preview path', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   const apiSource = await fs.readFile(path.join(repoRoot, 'lib/preview-api.js'), 'utf8')
   assert.match(clientSource, /const explicitPreviewRef = useRef\('\'\)/)
   assert.match(clientSource, /const persistActivePreview = \(version\)/)
@@ -878,7 +878,7 @@ test('opening a resume version pins and persists its preview path', async () => 
 })
 
 test('preview hydration cannot overwrite MCP-bound template state with the default template', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /if \(!presentationRoot \|\| !presentationHydratedRef\.current \|\| !selected \|\| !status\?\.root\) return/)
   assert.match(clientSource, /re-apply the persisted active template once that template is resolvable/)
   assert.match(clientSource, /if \(presentationRoot && presentation\.activeTemplateId\)/)
@@ -888,7 +888,7 @@ test('preview hydration cannot overwrite MCP-bound template state with the defau
 })
 
 test('saved icon tuning remains a per-icon map when a version is restored', async () => {
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(clientSource, /function normalizeIconTuningMap\(value = \{\}\)/)
   assert.match(clientSource, /setIconTuning\(normalizeIconTuningMap\(snapshot\.iconTuning\)\)/)
   assert.match(clientSource, /const nextIconTuning = normalizeIconTuningMap\(snapshot\.iconTuning\)/)
@@ -930,7 +930,7 @@ test('resume prompt discovers exact brand icons and omits unregistered substitut
 
 test('resume prompt preserves campus section order and selects a bounded set of projects', async () => {
   const source = await fs.readFile(path.join(repoRoot, 'index.js'), 'utf8')
-  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.js'), 'utf8')
+  const clientSource = await fs.readFile(path.join(repoRoot, 'client/client.source.js'), 'utf8')
   assert.match(RESUME_AGENT_CONTRACT, /教育经历 → 实习\/工作经历 → 项目经历 → 专业技能 → 荣誉奖项/)
   assert.match(clientSource, /教育经历.*实习\/工作经历.*项目经历.*专业技能.*荣誉奖项/)
   for (const text of [clientSource, RESUME_AGENT_CONTRACT]) {

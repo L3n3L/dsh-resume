@@ -365,12 +365,19 @@ dsh web
 
 主要目录：
 
-- `client/client.js`：工作台、编辑器、A4 预览和 AI 助手
+- `client/client.source.js`：可读的客户端开发源文件
+- `client/client.js`：由源文件生成的压缩发布 Bundle，包含工作台、编辑器、A4 预览和 AI 助手
 - `lib/renderer.js`：Markdown、模板和固定 A4 页面渲染
 - `lib/template-generation.js`：DesignBrief 到安全 TemplateSpec 候选生成
 - `lib/template-presets.js`：内置模板
 - `lib/autotune.js`：排版指标和有限调优逻辑
 - `index.js`：插件工具、工作区和 Harness 对接
+
+修改客户端后，用下面的命令重新生成发布 Bundle；`esbuild` 只作为开发/发布工具使用，不会成为插件运行时依赖：
+
+```sh
+npx --yes esbuild@0.25.0 client/client.source.js --minify --legal-comments=none --outfile=client/client.js
+```
 
 ## License
 

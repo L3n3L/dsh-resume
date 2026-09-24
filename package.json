@@ -12,7 +12,7 @@
   },
   "files": [
     "index.js",
-    "client",
+    "client/client.js",
     "lib",
     "mcp-server",
     "cordis.patch.yml",
