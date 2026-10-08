@@ -3432,24 +3432,149 @@ window.__ModuleLoader__.load({
         })
         .join('')
 
+      const exportPreviewUrlForTemplate = (baseUrl, effectiveTemplateId) => {
+        if (!baseUrl || !effectiveTemplateId) return baseUrl
+        const url = new URL(baseUrl, window.location.origin)
+        url.searchParams.set('template', effectiveTemplateId)
+        return `${url.pathname}?${url.searchParams.toString()}`
+      }
+
+      const renderEditorPreviewForExport = async (effectiveTemplateId) => {
+        if (!editorSource?.root || !editorDraft.trim()) return ''
+        const res = await fetch('/dsh-resume/api/editor/preview', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            root: editorSource.root,
+            resume: editorSource.resumePath,
+            preview: editorSource.previewPath,
+            sessionId: mainConversation.sessionId,
+            templateId: effectiveTemplateId,
+            layout: layoutSettings,
+            visual: visualTokens,
+            iconTuning,
+            content: editorDraft,
+          }),
+        })
+        const draft = await readJsonResponse(res, 'HTML 导出预览')
+        const tuningQuery = new URLSearchParams(Object.entries({ ...layoutSettings, ...visualTokens }).map(([key, value]) => [key, String(value)]))
+        return `${draft.previewUrl}&${tuningQuery.toString()}&t=${Date.now()}`
+      }
+
+      const exportPresentationStyle = () => {
+        const fontFamilies = {
+          'system-sans': '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+          'modern-sans': 'Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+          serif: 'Georgia, "Songti SC", "SimSun", serif',
+        }
+        const fontFamily = fontFamilies[layoutSettings.fontFamily] || fontFamilies['system-sans']
+        const safeHex = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : fallback
+        const safeNumber = (value, min, max, fallback) => {
+          const number = Number(value)
+          return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback
+        }
+        const accentColor = safeHex(visualTokens.accentColor, '#2563eb')
+        const textColor = safeHex(visualTokens.textColor, '#1f2937')
+        const mutedColor = safeHex(visualTokens.mutedColor, '#6b7280')
+        const backgroundColor = safeHex(visualTokens.backgroundColor, '#ffffff')
+        const cornerRadius = safeNumber(visualTokens.cornerRadius, 0, 16, 0)
+        const divider = ['none', 'solid', 'dashed'].includes(visualTokens.divider) ? visualTokens.divider : 'solid'
+        const fontSize = safeNumber(layoutSettings.fontSize, 11, 18, 14)
+        const lineHeight = safeNumber(layoutSettings.lineHeight, 1.2, 2, 1.55)
+        const sectionGap = safeNumber(layoutSettings.sectionGap, 6, 30, 20)
+        const pageMargin = safeNumber(layoutSettings.pageMargin, 24, 72, 48)
+        const exportSettings = JSON.stringify({
+          fontFamily: layoutSettings.fontFamily,
+          fontSize,
+          lineHeight,
+          sectionGap,
+          pageMargin,
+          accentColor,
+          textColor,
+          mutedColor,
+          backgroundColor,
+          cornerRadius,
+          divider,
+          iconTuning,
+        }).replace(/</g, '\\u003c')
+        return `<style data-dsh-resume-export data-dsh-resume-export-version="3">
+:root {
+  --resume-font-family: ${fontFamily};
+  --resume-font-size: ${fontSize}px;
+  --resume-line-height: ${lineHeight};
+  --resume-section-gap: ${sectionGap}px;
+  --resume-page-margin: ${pageMargin}px;
+  --resume-accent-color: ${accentColor};
+  --resume-text-color: ${textColor};
+  --resume-muted-color: ${mutedColor};
+  --resume-background-color: ${backgroundColor};
+  --resume-corner-radius: ${cornerRadius}px;
+  --resume-divider: ${divider};
+  --bg: ${backgroundColor};
+}
+/* The renderer reads this state and applies the same runtime tokens as the
+   online preview. Keep this snapshot declarative; structural CSS here would
+   change template cascade order and can change pagination. */
+</style><script type="application/json" data-dsh-resume-export-settings>${exportSettings}</script>`
+      }
+
       const onDownload = async () => {
         if (!previewSrc) return
+        const suggestedName = (() => {
+          const rawName = String(selected || 'resume-preview.html').split(/[\\/]/).pop() || 'resume-preview.html'
+          return rawName.toLowerCase().endsWith('.html') ? rawName : `${rawName}.html`
+        })()
+        let fileHandle = null
         try {
-          const res = await fetch(previewSrc, { cache: 'no-store' })
+          const prepared = await prepareTemplateForCommit('下载 HTML', { allowSavedFallback: true })
+          if (!prepared) return
+          let exportUrl = ''
+          if (prepared.templateId === lockedTemplateId && activeEditorPreviewUrl && editorPreviewReadySignatureRef.current === currentEditorPreviewSignature) {
+            exportUrl = activeEditorPreviewUrl
+          }
+          if (!exportUrl) exportUrl = await renderEditorPreviewForExport(prepared.templateId)
+          if (!exportUrl) exportUrl = exportPreviewUrlForTemplate(previewSrc, prepared.templateId)
+          if (!exportUrl) throw new Error('没有可导出的预览')
+          if (typeof window.showSaveFilePicker === 'function') {
+            fileHandle = await window.showSaveFilePicker({
+              suggestedName,
+              types: [{ description: 'HTML 文件', accept: { 'text/html': ['.html'] } }],
+              excludeAcceptAllOption: true,
+            })
+          }
+          const res = await fetch(exportUrl, { cache: 'no-store' })
           if (!res.ok) throw new Error(`预览读取失败（${res.status}）`)
           const html = await res.text()
-          const exportStyle = `<style data-dsh-resume-export>body{line-height:${layoutSettings.lineHeight} !important}.dsh-resume-page-content{padding:${layoutSettings.pageMargin}px !important}.dsh-resume-section{margin-bottom:${layoutSettings.sectionGap}px !important}p,li{font-size:${layoutSettings.fontSize}px !important}${iconTuningCss()}</style>`
+          const exportStyle = exportPresentationStyle()
           const exportedHtml = html.replace('</head>', `${exportStyle}</head>`)
+
+          if (fileHandle) {
+            const writable = await fileHandle.createWritable()
+            try {
+              await writable.write(exportedHtml)
+              await writable.close()
+            } catch (writeError) {
+              await writable.abort().catch(() => {})
+              throw writeError
+            }
+            setEditorMessage(`HTML 已保存${fileHandle.name ? `：${fileHandle.name}` : ''}。`)
+            return
+          }
+
           const blob = new Blob([exportedHtml], { type: 'text/html;charset=utf-8' })
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
-          a.download = (selected || 'resume-preview').replace(/[\\/]/g, '_')
+          a.download = suggestedName
           a.click()
           URL.revokeObjectURL(url)
-          setEditorMessage('HTML 已下载。')
+          setEditorMessage('当前浏览器不支持原生保存面板，HTML 已使用普通下载。')
         } catch (err) {
-          setEditorMessage(`HTML 下载失败：${err?.message || err}`)
+          if (err?.name === 'AbortError') {
+            setEditorMessage('已取消 HTML 保存。')
+            return
+          }
+          setEditorMessage(`HTML 保存失败：${err?.message || err}`)
         }
       }
 

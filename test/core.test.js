@@ -43,6 +43,23 @@ test('Markdown renderer auto-links bare project domains without changing source 
   assert.match(html, /<a href="http:\/\/guanfu\.chat"[^>]*>guanfu\.chat<\/a>/)
 })
 
+test('HTML export uses the native save picker and keeps a browser-download fallback', async () => {
+  const source = await fs.readFile(path.join(repoRoot, 'client', 'client.source.js'), 'utf8')
+  assert.match(source, /showSaveFilePicker/)
+  assert.match(source, /createWritable\(\)/)
+  assert.match(source, /suggestedName/)
+  assert.match(source, /AbortError/)
+  assert.match(source, /当前浏览器不支持原生保存面板/)
+  assert.match(source, /activeEditorPreviewUrl/)
+  assert.match(source, /renderEditorPreviewForExport/)
+  assert.match(source, /data-dsh-resume-export-version="3"/)
+  assert.match(source, /data-dsh-resume-export-settings/)
+  assert.match(source, /structural CSS here would\s+change template cascade order/)
+  assert.match(source, /--resume-font-family/)
+  assert.match(source, /--resume-accent-color/)
+  assert.match(source, /--resume-divider/)
+})
+
 test('preview state is isolated by root and preview path', () => {
   previewState.clear()
   const first = rememberPreview('E:/resume-a', 'companies/a/preview.html', { renderId: 'render-a', contentHash: 'hash-a' })
@@ -588,7 +605,7 @@ test('resume version save binds content and presentation, supports copy rename a
     assert.equal(override.layout.fontSize, 13)
     assert.equal(override.iconTuning.github.scale, 1.2)
     assert.equal(override.iconTuning.github.offsetY, 0.04)
-    assert.match(await fs.readFile(path.join(root, 'preview.html'), 'utf8'), /applyIconTuning\(\{"github":\{"scale":1\.2,"offsetY":0\.04\}\}\)/)
+    assert.match(await fs.readFile(path.join(root, 'preview.html'), 'utf8'), /applyIconTuning\(\{\s*\.\.\.\{"github":\{"scale":1\.2,"offsetY":0\.04\}\}/)
 
     const copied = response()
     await versionsRoute.handler(request({ action: 'save', mode: 'copy', root, resume: 'resume.md', preview: 'preview.html', sessionId: 'version-save-test', name: '字节 AI 产品经理', templateId: 'campus-standard', layout: { fontSize: 15 }, content }), copied)
@@ -655,7 +672,7 @@ test('preview document carries an explicit preview path for metrics association'
   assert.match(html, /fetch\('\/dsh-resume\/api\/metrics'/)
   assert.match(html, /dsh-resume-metrics-error/)
   assert.match(html, /safeColor = \(value, fallback\)/)
-  assert.match(html, /query\.get\('backgroundColor'\)/)
+  assert.match(html, /settingValue\('backgroundColor'\)/)
   assert.match(html, /dsh-resume-token-preview/)
   assert.match(html, /isThumbnail = query\.get\('thumbnail'\)/)
   assert.match(html, /--resume-corner-radius/)

@@ -367,6 +367,7 @@ dsh web
 
 - `client/client.source.js`：可读的客户端开发源文件
 - `client/client.js`：由源文件生成的压缩发布 Bundle，包含工作台、编辑器、A4 预览和 AI 助手
+- 工作台的「下载 HTML」优先调用 Windows/Chromium 原生保存面板，用户可自行选择目录和文件名；选中已有 `.html` 文件时直接写入覆盖。导出使用当前实时预览并内联完整排版快照，旧浏览器自动回退为普通下载。
 - `lib/renderer.js`：Markdown、模板和固定 A4 页面渲染
 - `lib/template-generation.js`：DesignBrief 到安全 TemplateSpec 候选生成
 - `lib/template-presets.js`：内置模板
