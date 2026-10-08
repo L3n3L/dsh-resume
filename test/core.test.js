@@ -37,6 +37,12 @@ test('Markdown renderer keeps block structure and escapes raw HTML', () => {
   assert.match(html, /&lt;script&gt;/)
 })
 
+test('Markdown renderer auto-links bare project domains without changing source text', () => {
+  const html = markdownToHtml('2026.08 · github.com/example/project\n\n2026.06 · guanfu.chat')
+  assert.match(html, /<a href="http:\/\/github\.com\/example\/project"[^>]*>github\.com\/example\/project<\/a>/)
+  assert.match(html, /<a href="http:\/\/guanfu\.chat"[^>]*>guanfu\.chat<\/a>/)
+})
+
 test('preview state is isolated by root and preview path', () => {
   previewState.clear()
   const first = rememberPreview('E:/resume-a', 'companies/a/preview.html', { renderId: 'render-a', contentHash: 'hash-a' })
